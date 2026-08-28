@@ -10,15 +10,18 @@ Luật migration: `docs/ui-governance/08-design-system-authority.md`
 Script này THAY THẾ dev/audit_ui.py (gác chuẩn Lumina đã bỏ 2026-08-28).
 
 ── Vì sao không fail toàn bộ file legacy ──────────────────────────────────
-Hiện 0/51 file đạt chuẩn T3. Một gate fail 51 file là gate không ai chạy.
+Phần lớn XAML chưa migrate. Một gate fail hàng chục file là gate không ai chạy.
 Nên script chia file làm hai loại:
 
   T3-DECLARED — file đã merge T3Lab.Styles.xaml hoặc đã dùng {StaticResource T3.*}.
                 Bị soi ĐẦY ĐỦ. Vi phạm ⇒ exit 1.
-  LEGACY      — file chưa migrate. Chỉ ĐẾM và liệt kê nợ, KHÔNG làm fail gate.
+  LEGACY      — file chưa migrate. Chỉ ĐẾM và liệt kê nợ.
 
-Nhờ vậy gate xanh hôm nay, và siết dần theo từng file được migrate: file nào
-khai T3 là file đó phải đúng T3.
+Nhờ vậy gate xanh, và siết dần theo từng file được migrate: file nào khai T3
+là file đó phải đúng T3.
+
+NGOẠI LỆ — luật copyright (luật 11) áp cho MỌI file, kể cả legacy: toàn bộ
+codebase vốn đã tuân thủ nên siết nó không tốn gì, mà giữ được vĩnh viễn.
 
 Usage:
     python3 dev/audit_t3.py                 # báo cáo đầy đủ
@@ -43,10 +46,30 @@ TOOLS = os.path.join(REPO, "T3Lab.extension", "lib", "GUI", "Tools")
 STYLESHEET = os.path.join(REPO, "pyRevit UI Design System", "T3Lab.Styles.xaml")
 
 # Thiết kế đã chốt riêng — ngoài phạm vi routine. Xem CLAUDE.md §UI-Frozen Files.
-UI_LOCKED = {"DWGManagement.xaml", "ExportManager.xaml", "T3LabAssistant.xaml"}
+UI_LOCKED = {"DWGManagement.xaml", "T3LabAssistant.xaml"}
+# ExportManager.xaml (BatchOut) đã được gỡ khoá 2026-08-28 để migrate sang T3.
+
+# Item-template XAML (root là <Border>/<DataTemplate> của một dòng list, không phải
+# cửa sổ) — copyright thuộc về cửa sổ chứa nó, không lặp trên từng dòng.
+COPYRIGHT_EXEMPT = {"CadtoFloorLayerItem.xaml"}
+COPYRIGHT_TEXT = "© Copyright by T3Lab"
+
+# ── Vi phạm ĐANG HOÃN vì Design System chưa có câu trả lời ───────────────
+# KHÔNG phải chỗ để nới luật. Mỗi mục phải gắn với một DESIGN SYSTEM GAP đang
+# chờ user duyệt trong docs/ui-governance/PRIORITY_QUEUE.md, và luôn được IN RA
+# mỗi lần chạy — hoãn thì được, giấu thì không.
+PENDING_GAP = {
+    "ExportManager.xaml": (
+        "GAP #4 — T3 chưa định nghĩa chrome wizard (sidebar rail, step circle, "
+        "tab pill, toggle, slider) và chrome cửa sổ (min/max/close)",
+        ("<Style> định nghĩa trong file tool", "CornerRadius"),
+    ),
+}
 
 # ── Chuẩn T3 (T3LAB_UI_STANDARD.md) ───────────────────────────────────────
-FONTS_OK = {"Segoe UI", "Consolas"}
+FONTS_OK = {"Segoe UI", "Consolas",
+            # font glyph cho chrome cửa sổ (min/max/close), không phải font chữ
+            "Segoe MDL2 Assets"}
 SIZES_OK = {"19", "15", "13", "11.5", "11", "12.5"}
 SPACING_OK = {0, 4, 8, 12, 16, 24, 32}
 RADIUS_OK = {0, 2, 4, 8}
@@ -71,6 +94,14 @@ HEX_RE = re.compile(r"^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$")
 NUM_RE = re.compile(r"-?\d+(?:\.\d+)?")
 
 LIST_TAGS = {"DataGrid", "ListBox", "ListView"}
+
+# Mọi chữ hiển thị cho người dùng phải là TIẾNG ANH (luật 12).
+# Dò bằng dấu tiếng Việt — rẻ và không nhầm với tiếng Anh.
+VN_CHARS = re.compile(
+    "[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợ"
+    "ùúủũụưừứửữựỳýỷỹỵđÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊ"
+    "ÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ]")
+UI_TEXT_ATTRS = ("Text", "Content", "Header", "ToolTip", "Watermark", "PlaceholderText")
 
 
 def local(tag):
@@ -100,13 +131,15 @@ def spacing_bad(value):
 
 
 def audit(src, base, keys):
-    """Trả về (issues, declared_t3, legacy_debt).
+    """Trả về (issues, declared_t3, legacy_debt, must).
 
-    issues       — [(severity, message)] vi phạm chuẩn T3
+    issues       — [(severity, message)] vi phạm chuẩn T3, chỉ tính cho file đã khai T3
     declared_t3  — file đã khai dùng T3 hay chưa
     legacy_debt  — [str] nợ migration (chỉ để đếm, không phải vi phạm)
+    must         — [(severity, message)] vi phạm luật áp cho MỌI file, kể cả legacy
     """
     issues = []
+    must = []
     debt = []
 
     used_keys = set(re.findall(r"\{StaticResource (T3\.[^}]+)\}", src))
@@ -129,6 +162,22 @@ def audit(src, base, keys):
     if not merges_sheet:
         debt.append("chưa merge T3Lab.Styles.xaml")
 
+    # ── Copyright: BẮT BUỘC ở MỌI file, kể cả file chưa migrate ─────────
+    # Luật 11 của T3LAB_UI_STANDARD.md. Đây là luật duy nhất áp cho cả legacy,
+    # vì toàn bộ codebase vốn đã tuân thủ — siết nó không tốn gì mà giữ được.
+    if base not in COPYRIGHT_EXEMPT:
+        # Style T3.Copyright tự cấp Text, nên file dùng style sẽ không
+        # chứa chuỗi literal — đếm cả hai dạng.
+        n_cr = src.count(COPYRIGHT_TEXT) + src.count("{StaticResource T3.Copyright}")
+        if "&#169;" in src:
+            must.append(("P2", "copyright dùng &#169; — phải là ký tự © thật"))
+        if n_cr == 0:
+            must.append(("P2", "THIẾU dòng copyright \"%s\" ở footer" % COPYRIGHT_TEXT))
+        elif n_cr > 1:
+            must.append(("P2", "copyright lặp x%d — chuẩn cho đúng một dòng" % n_cr))
+        elif declared and "{StaticResource T3.Copyright}" not in src:
+            must.append(("P2", "copyright phải dùng Style=\"{StaticResource T3.Copyright}\""))
+
     # ── Parse ────────────────────────────────────────────────────────────
     # Dot-notation bắt bằng regex TRƯỚC khi parse: ElementTree nuốt được nó,
     # nhưng WPF thì crash EMPTYPROPERTYELEMENT lúc mở tool.
@@ -139,7 +188,7 @@ def audit(src, base, keys):
         root = ET.fromstring(src)
     except ET.ParseError as exc:
         issues.append(("P0", "XAML không parse được: %s" % exc))
-        return issues, declared, debt
+        return issues, declared, debt, must
 
     parent = {c: p for p in root.iter() for c in p}
 
@@ -192,6 +241,12 @@ def audit(src, base, keys):
             if HEX_RE.match(val.strip()):
                 issues.append(("P2", "<%s %s=\"%s\"> — hex cứng, phải dùng {StaticResource T3.*}"
                                % (tag, name, val)))
+
+        for name in UI_TEXT_ATTRS:
+            val = attrs.get(name)
+            if val and VN_CHARS.search(val):
+                must.append(("P2", "<%s %s=\"%s\"> — chữ hiển thị phải là TIẾNG ANH"
+                             % (tag, name, val[:44] + ("…" if len(val) > 44 else ""))))
 
         if tag.endswith(".Effect"):
             issues.append(("P2", "<%s> — chuẩn T3 cấm mọi Effect" % tag))
@@ -260,7 +315,7 @@ def audit(src, base, keys):
         if not merges_sheet:
             issues.append(("P1", "không merge T3Lab.Styles.xaml"))
 
-    return issues, declared, debt
+    return issues, declared, debt, must
 
 
 def main():
@@ -283,6 +338,7 @@ def main():
     n_t3 = n_legacy = n_locked = 0
     failed = False
     legacy_rows = []
+    waived = []
     out = []
 
     for path in files:
@@ -292,16 +348,25 @@ def main():
             continue
         with open(path, encoding="utf-8", errors="replace") as fh:
             src = fh.read()
-        issues, declared, debt = audit(src, base, keys)
+        issues, declared, debt, must = audit(src, base, keys)
 
         if declared or forced:
             n_t3 += 1
-            if issues:
-                failed = True
-                out.append((base, issues))
+            all_issues = issues + must
         else:
             n_legacy += 1
             legacy_rows.append((base, debt))
+            # File legacy chỉ bị soi những luật áp cho MỌI file (hiện tại: copyright).
+            all_issues = must
+        if base in PENDING_GAP:
+            gap, pats = PENDING_GAP[base]
+            waived_here = [i for i in all_issues if any(p in i[1] for p in pats)]
+            all_issues = [i for i in all_issues if i not in waived_here]
+            if waived_here:
+                waived.append((base, gap, waived_here))
+        if all_issues:
+            failed = True
+            out.append((base, all_issues))
 
     if count_only:
         print(n_legacy)
@@ -318,11 +383,21 @@ def main():
         for base, debt in legacy_rows:
             print("%-38s %s" % (base, " · ".join(debt) if debt else "—"))
 
+    for base, gap, items in waived:
+        print()
+        print("%s — %d vi phạm ĐANG HOÃN" % (base, len(items)))
+        print("   %s" % gap)
+        for sev, msg in sorted(items, key=lambda i: i[0]):
+            print("   [%s] %s  (hoãn)" % (sev, msg))
+
     print()
     print("T3 AUDIT: %d file khai T3 (%d file có vi phạm) · %d file legacy · %d UI-locked"
           % (n_t3, len(out), n_legacy, n_locked))
     if n_legacy and not show_legacy:
         print("          chạy --legacy để xem nợ migration của %d file kia" % n_legacy)
+    if waived:
+        print("          %d vi phạm đang hoãn theo DESIGN SYSTEM GAP — chờ user duyệt"
+              % sum(len(i) for _, _, i in waived))
     print("          %s" % ("FAILED" if failed else "OK"))
     return 1 if failed else 0
 

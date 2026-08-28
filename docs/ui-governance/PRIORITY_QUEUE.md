@@ -51,23 +51,6 @@ Vì sao vẫn cần grep dù đã có `audit_t3.py`: script chỉ soi đầy đ�
 
 ## DESIGN SYSTEM GAPS — chờ user duyệt
 
-### GAP #1 · Vị trí deploy của `T3Lab.Styles.xaml` chưa chốt
-
-`T3Lab.Styles.xaml` đang nằm ở `pyRevit UI Design System/` — **ngoài** `T3Lab.extension/`,
-nên pyRevit không nạp được nó lúc runtime. Mọi tool migrate sang T3 đều cần
-`<ResourceDictionary Source="..."/>` trỏ tới một đường dẫn có thật trong extension.
-
-**Đề xuất:** deploy vào `T3Lab.extension/lib/GUI/Resources/T3Lab.Styles.xaml`, giữ bản
-ở `pyRevit UI Design System/` làm nguồn, và thêm một bước đồng bộ (`dev/sync_t3_styles.py`,
-chưa viết). Không migrate file nào trước khi gap này được chốt — nếu không, `Source` sẽ
-trỏ vào chỗ không tồn tại và tool chết lúc mở.
-
-Snippet trong `.claude/rules/new-tool-standard.md` và `.claude/skills/xaml-templates.md`
-đang dùng `Source="../Resources/T3Lab.Styles.xaml"` theo đúng đề xuất này — chốt xong
-thì hai file đó đã đúng sẵn.
-
-**Chặn:** Q3.
-
 ### GAP #2 · Standard định nghĩa size class S/M/L nhưng stylesheet không cung cấp cách áp
 
 `T3LAB_UI_STANDARD.md` quy định `S 420×260–320` · `M 560×420–560` · `L 1000×620`, nhưng
@@ -77,22 +60,48 @@ ra để chống.
 
 **Đề xuất:** thêm `T3.Window.S` / `T3.Window.M` / `T3.Window.L` vào `T3Lab.Styles.xaml`.
 
-### GAP #3 · Copyright `© Copyright by T3Lab` không có trong chuẩn T3
+### GAP #4 · T3 chưa có từ vựng cho chrome wizard và chrome cửa sổ
 
-Chuẩn cũ bắt buộc mỗi cửa sổ có dòng copyright amber `#F59E0B` ở footer trái, và cả 54
-file hiện đều có. `T3LAB_UI_STANDARD.md` **không nhắc tới copyright**, đồng thời cấm
-mọi màu ngoài token — `#F59E0B` không phải token T3.
+Lộ ra khi migrate BatchOut (`ExportManager.xaml`). Tool là wizard nhiều bước với
+sidebar rail — **không khớp pattern nào trong P1–P5**, và dùng các component T3 không
+định nghĩa: sidebar rail button, step circle, tab pill, toggle switch, slider, cùng 3
+nút chrome cửa sổ (min/max/close).
 
-**Câu hỏi cho user:** copyright giữ hay bỏ?
-- Giữ → cần thêm token + quy tắc vị trí vào `T3LAB_UI_STANDARD.md`.
-- Bỏ → 54 file sẽ mất dòng copyright khi migrate.
+Hệ quả cụ thể: 26 `<Style>` vẫn phải nằm trong file tool, và 11 `CornerRadius` là
+`12/13/18/20` (hình tròn và pill) — ép về `0/2/4/8` sẽ bẻ hình tròn thành hình vuông.
 
-Không tự quyết. Cho tới khi có trả lời: **giữ nguyên copyright như hiện trạng** khi
-migrate, và ghi là ngoại lệ đã biết.
+**Đang hoãn có kiểm soát:** `dev/audit_t3.py` có `PENDING_GAP` khai báo đúng 12 vi phạm
+này, **luôn in ra** mỗi lần chạy kèm lý do, không làm đỏ gate. Hoãn thì được, giấu thì
+không.
+
+**Cần user quyết — hai hướng:**
+1. **Thêm component vào Design System**: `T3.Rail.Button` · `T3.Step.Circle` ·
+   `T3.Step.Label` · `T3.Tab.Pill` · `T3.Toggle` · `T3.Slider` · `T3.WinCtrl` ·
+   `T3.WinClose`, và mở rộng luật bo góc thêm giá trị "tròn/pill". Rồi bỏ waiver.
+2. **Redesign BatchOut về P1–P5**: bỏ sidebar rail và wizard. Rủi ro cao — tool đang
+   chạy tốt, và một lần refactor trước đã crash Revit giữa chừng (xem note 2026-07-20).
+
+Khuyến nghị hướng 1: rẻ hơn, không đụng tool đang chạy, và mọi tool wizard sau này
+dùng lại được.
 
 ---
 
 ## Đã hoàn thành
+
+### ✅ GAP #1 · Vị trí deploy `T3Lab.Styles.xaml` — 2026-08-28
+
+Chốt: thư mục `pyRevit UI Design System/` là **file mẫu để refer**, không phải artifact
+runtime. Bản deploy nằm ở `T3Lab.extension/lib/GUI/Resources/T3Lab.Styles.xaml`, sinh
+bằng `python3 dev/sync_t3_styles.py` (`--check` để verify). Tool merge bản deploy bằng
+`Source="../Resources/T3Lab.Styles.xaml"`. Migration hết bị chặn.
+
+### ✅ GAP #3 · Copyright — 2026-08-28
+
+Chốt: **BẮT BUỘC** trong UI của mọi tool. Đã thêm token `T3.Copyright #F59E0B` + style
+`T3.Copyright` vào stylesheet, luật 11 vào `T3LAB_UI_STANDARD.md`, luật 13 vào
+`.claude/rules/new-tool-standard.md`, và `audit_t3.py` enforce trên **mọi** file kể cả
+legacy. Hiện 53/53 file có đúng một dòng (`CadtoFloorLayerItem.xaml` là item-template,
+miễn trừ theo chuẩn). Đã bổ sung cho `T3LabAssistant.xaml` — file duy nhất còn thiếu.
 
 ### ✅ Q1 · Thay `dev/audit_ui.py` bằng `dev/audit_t3.py` — 2026-08-28
 

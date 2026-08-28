@@ -6,59 +6,40 @@
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="True"
-        Background="#E4E4E7"
-        FontFamily="Hanken Grotesk"
+        Background="{DynamicResource T3.Canvas}"
+        FontFamily="Segoe UI" FontSize="13"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
         ContentRendered="window_content_rendered">
 
         <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"
                        ResizeBorderThickness="5"
                        GlassFrameThickness="0"
-                       CornerRadius="22"
+                       CornerRadius="8"
                        UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
-        <!-- Styles -->
-        <Style x:Key="SectionHeader" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Margin" Value="0,10,0,5"/>
-            <Setter Property="Foreground" Value="#0F172A"/>
-        </Style>
-        <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
-        <!-- Central Color Brushes (Lumina / T3Lab Standard System) -->
-        <SolidColorBrush x:Key="T3PrimaryInkBrush" Color="#18181B"/>
-        <SolidColorBrush x:Key="T3PrimaryTextBrush" Color="#27272A"/>
-        <SolidColorBrush x:Key="T3SecondaryTextBrush" Color="#3F3F46"/>
-        <SolidColorBrush x:Key="T3TertiaryTextBrush" Color="#71717A"/>
-        <SolidColorBrush x:Key="T3DisabledBorderBrush" Color="#9A9AA2"/>
-        <SolidColorBrush x:Key="T3MainAppBgBrush" Color="#E4E4E7"/>
-        <SolidColorBrush x:Key="T3ComponentBgBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="T3InputFieldBgBrush" Color="#F4F4F6"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Nguồn duy nhất của màu/type/style — xem pyRevit UI Design System/.
+                     Bản deploy được sinh bằng `python3 dev/sync_t3_styles.py`. -->
+                <ResourceDictionary Source="../Resources/T3Lab.Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Chrome cửa sổ + chrome wizard (sidebar rail, step, tab pill, toggle,
+                 slider): T3 chưa định nghĩa các component này — xem DESIGN SYSTEM
+                 GAP #4 trong docs/ui-governance/PRIORITY_QUEUE.md. Màu/type của
+                 chúng đã lấy từ token T3. -->
         
-        <!-- Semantic & Status Brushes -->
-        <SolidColorBrush x:Key="T3SuccessBgBrush" Color="#EAF8F0"/>
-        <SolidColorBrush x:Key="T3SuccessTextBrush" Color="#157038"/>
-        <SolidColorBrush x:Key="T3SuccessBorderBrush" Color="#09734B"/>
-        <SolidColorBrush x:Key="T3SuccessAccentBrush" Color="#0B8A5A"/>
-        
-        <SolidColorBrush x:Key="T3WarningBgBrush" Color="#FFF6E6"/>
-        <SolidColorBrush x:Key="T3WarningTextBrush" Color="#8A6308"/>
-        <SolidColorBrush x:Key="T3WarningAccentBrush" Color="#F5CE5A"/>
-        
-        <SolidColorBrush x:Key="T3DangerBgBrush" Color="#FDECEC"/>
-        <SolidColorBrush x:Key="T3DangerTextBrush" Color="#D23B3B"/>
-        <SolidColorBrush x:Key="T3DangerAccentBrush" Color="#F87171"/>
-        
-        <SolidColorBrush x:Key="T3ProgressActionBrush" Color="#C2410C"/>
 
         <!-- TERTIARY BUTTON - soft gray background, dark text -->
         <Style x:Key="TertiaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#ECECEF"/>
-            <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="12,5"/>
-            <Setter Property="FontSize"        Value="13.5"/>
+            <Setter Property="Background" Value="{StaticResource T3.Progress.Track}"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Height"          Value="28"/>
@@ -76,123 +57,27 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E2E2E6"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Border}"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#ECECEF"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Progress.Track}"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#F4F4F6"/>
-                    <Setter Property="Foreground" Value="#9A9AA2"/>
+                    <Setter Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
+                    <Setter Property="Foreground" Value="{StaticResource T3.TextDisabled}"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <!-- Sleek Modern ComboBox -->
-        <Style x:Key="T3ComboBox" TargetType="ComboBox">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="#18181B"/>
-            <Setter Property="BorderBrush" Value="#E6E6EA"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="12,0,12,0"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontFamily" Value="Hanken Grotesk"/>
-            <Setter Property="Height" Value="44"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBox">
-                        <Grid>
-                            <Border x:Name="border"
-                                    Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="13">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="34"/>
-                                    </Grid.ColumnDefinitions>
-                                    
-                                    <!-- Content -->
-                                    <ContentPresenter Grid.Column="0"
-                                                      Content="{TemplateBinding SelectionBoxItem}"
-                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                                      ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                                                      Margin="{TemplateBinding Padding}"
-                                                      VerticalAlignment="Center"
-                                                      HorizontalAlignment="Left"
-                                                      IsHitTestVisible="False"/>
-                                                      
-                                    <!-- Toggle Button (Arrow) -->
-                                    <ToggleButton Grid.Column="0" Grid.ColumnSpan="2"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                                        <ToggleButton.Template>
-                                            <ControlTemplate TargetType="ToggleButton">
-                                                <Border Background="Transparent"/>
-                                            </ControlTemplate>
-                                        </ToggleButton.Template>
-                                    </ToggleButton>
-                                    
-                                    <!-- Arrow Icon -->
-                                    <Path Grid.Column="1"
-                                          Data="M6 9 L12 15 L18 9"
-                                          Stroke="#71717A"
-                                          StrokeThickness="2"
-                                          StrokeStartLineCap="Round"
-                                          StrokeEndLineCap="Round"
-                                          StrokeLineJoin="Round"
-                                          Width="12" Height="12"
-                                          Stretch="Uniform"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          IsHitTestVisible="False"/>
-                                </Grid>
-                            </Border>
-                            
-                            <!-- Popup -->
-                            <Popup x:Name="PART_Popup"
-                                   AllowsTransparency="true"
-                                   IsOpen="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                   Placement="Bottom"
-                                   PopupAnimation="Slide">
-                                <Border x:Name="dropDownBorder"
-                                        Background="White"
-                                        BorderBrush="#E6E6EA"
-                                        BorderThickness="1"
-                                        CornerRadius="13"
-                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
-                                    <ScrollViewer x:Name="DropDownScrollViewer">
-                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
-                                    </ScrollViewer>
-                                </Border>
-                            </Popup>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="HasItems" Value="false">
-                                <Setter TargetName="dropDownBorder" Property="Height" Value="95"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="true">
-                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
-                            </Trigger>
-                            <Trigger Property="IsDropDownOpen" Value="true">
-                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+
 
         <!-- Premium Toggle Switch Style (CheckBox) -->
         <Style x:Key="T3ToggleSwitch" TargetType="CheckBox">
-            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontSize" Value="15"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
-            <Setter Property="Foreground" Value="#27272A"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -217,7 +102,7 @@
                             <Border x:Name="toggleTrack" 
                                     Grid.Column="1"
                                     Width="42" Height="24"
-                                    Background="#DCDCE2"
+                                    Background="{StaticResource T3.Border}"
                                     CornerRadius="12"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Center">
@@ -226,22 +111,19 @@
                                          Width="20" Height="20"
                                          Fill="White"
                                          HorizontalAlignment="Left"
-                                         Margin="2,0">
-                                    <Ellipse.Effect>
-                                        <DropShadowEffect ShadowDepth="1" Direction="270" Color="Black" Opacity="0.15" BlurRadius="2"/>
-                                    </Ellipse.Effect>
+                                         Margin="0,0">
                                 </Ellipse>
                             </Border>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="toggleTrack" Property="Background" Value="#18181B"/>
+                                <Setter TargetName="toggleTrack" Property="Background" Value="{StaticResource T3.Ink}"/>
                                 <Setter TargetName="toggleKnob" Property="HorizontalAlignment" Value="Right"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="toggleTrack" Property="Background" Value="#F4F4F6"/>
-                                <Setter TargetName="toggleKnob" Property="Fill" Value="#9A9AA2"/>
-                                <Setter Property="Foreground" Value="#9A9AA2"/>
+                                <Setter TargetName="toggleTrack" Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
+                                <Setter TargetName="toggleKnob" Property="Fill" Value="{StaticResource T3.TextDisabled}"/>
+                                <Setter Property="Foreground" Value="{StaticResource T3.TextDisabled}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -251,7 +133,7 @@
 
         <!-- Sleek Modern Slider -->
         <Style x:Key="T3Slider" TargetType="Slider">
-            <Setter Property="Background" Value="#E4E4E8"/>
+            <Setter Property="Background" Value="{StaticResource T3.Canvas}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Height" Value="24"/>
             <Setter Property="Template">
@@ -268,7 +150,7 @@
                                     Grid.Row="1"
                                     Height="6"
                                     Background="{TemplateBinding Background}"
-                                    CornerRadius="3"
+                                    CornerRadius="4"
                                     VerticalAlignment="Center"/>
                                     
                             <!-- Track Fill and Thumb -->
@@ -277,7 +159,7 @@
                                     <RepeatButton Command="{x:Static Slider.DecreaseLarge}">
                                         <RepeatButton.Template>
                                             <ControlTemplate TargetType="RepeatButton">
-                                                <Border Height="6" Background="#C2410C" CornerRadius="3"/>
+                                                <Border Height="6" Background="{StaticResource T3.Progress.Fill}" CornerRadius="4"/>
                                             </ControlTemplate>
                                         </RepeatButton.Template>
                                     </RepeatButton>
@@ -297,11 +179,8 @@
                                             <ControlTemplate TargetType="Thumb">
                                                 <Ellipse Width="18" Height="18"
                                                          Fill="White"
-                                                         Stroke="#C2410C"
+                                                         Stroke="{StaticResource T3.Progress.Fill}"
                                                          StrokeThickness="2">
-                                                    <Ellipse.Effect>
-                                                        <DropShadowEffect ShadowDepth="2" Direction="270" Color="#C2410C" Opacity="0.3" BlurRadius="4"/>
-                                                    </Ellipse.Effect>
                                                 </Ellipse>
                                             </ControlTemplate>
                                         </Thumb.Template>
@@ -315,41 +194,12 @@
         </Style>
 
         <!-- Sleek Modern Input Field -->
-        <Style x:Key="T3InputField" TargetType="TextBox">
-            <Setter Property="Background" Value="#F4F4F6"/>
-            <Setter Property="Foreground" Value="#27272A"/>
-            <Setter Property="BorderBrush" Value="#E6E6EA"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="12,0,12,0"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontFamily" Value="Hanken Grotesk"/>
-            <Setter Property="Height" Value="40"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TextBox">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="13"
-                                Padding="{TemplateBinding Padding}">
-                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsFocused" Value="True">
-                                <Setter Property="BorderBrush" Value="#18181B"/>
-                                <Setter Property="Background" Value="#FFFFFF"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+
 
         <!-- Premium Modern GroupBox Card -->
         <Style x:Key="T3PremiumCard" TargetType="GroupBox">
-            <Setter Property="Background" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Margin" Value="0,0,0,16"/>
             <Setter Property="Padding" Value="16"/>
@@ -367,15 +217,15 @@
                                 </Grid.RowDefinitions>
                                 <!-- Card Header -->
                                 <Border Grid.Row="0" 
-                                        Background="#FFFFFF"
+                                        Background="{StaticResource T3.Surface}"
                                         Padding="16,12"
-                                        BorderBrush="#E2E8F0"
+                                        BorderBrush="{StaticResource T3.Border}"
                                         BorderThickness="0,0,0,1">
                                     <ContentPresenter ContentSource="Header"
-                                                      TextBlock.FontSize="14"
+                                                      TextBlock.FontSize="15"
                                                       TextBlock.FontWeight="Bold"
-                                                      TextBlock.Foreground="#18181B"
-                                                      TextBlock.FontFamily="Hanken Grotesk"/>
+                                                      TextBlock.Foreground="{StaticResource T3.Ink}"
+                                                      TextBlock.FontFamily="Segoe UI"/>
                                 </Border>
                                 <!-- Card Content -->
                                 <ContentPresenter Grid.Row="1" Margin="{TemplateBinding Padding}"/>
@@ -389,7 +239,7 @@
         <!-- Top Navigation Tab Style -->
         <Style x:Key="T3TopNavTabStyle" TargetType="RadioButton">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.TextMuted}"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="FontWeight" Value="Medium"/>
@@ -403,12 +253,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="#18181B"/>
+                                <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter Property="Foreground" Value="#18181B"/>
+                                <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                                 <Setter Property="FontWeight" Value="SemiBold"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource T3.Ink}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -418,10 +268,10 @@
 
         <!-- PRIMARY BUTTON - solid deep slate, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#18181B"/>
+            <Setter Property="Background" Value="{StaticResource T3.Ink}"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="12,5"/>
-            <Setter Property="FontSize"        Value="13.5"/>
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Height"          Value="28"/>
@@ -439,14 +289,14 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#000000"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Ink}"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#18181B"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Ink}"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#F4F4F6"/>
-                    <Setter Property="Foreground" Value="#9A9AA2"/>
+                    <Setter Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
+                    <Setter Property="Foreground" Value="{StaticResource T3.TextDisabled}"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
@@ -454,16 +304,16 @@
 
         <!-- SECONDARY BUTTON - white background, border and text slate -->
         <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#FFFFFF"/>
-            <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="12,5"/>
-            <Setter Property="FontSize"        Value="13.5"/>
+            <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush"     Value="#DEDEE2"/>
+            <Setter Property="BorderBrush"     Value="{StaticResource T3.Border}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -478,15 +328,15 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FAFAFB"/>
-                    <Setter Property="BorderBrush" Value="#CFCFD5"/>
+                    <Setter Property="Background" Value="{StaticResource T3.RowAlt}"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource T3.BorderStrong}"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#EDEDEF"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Border}"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Foreground" Value="#9A9AA2"/>
-                    <Setter Property="BorderBrush" Value="#E6E6EA"/>
+                    <Setter Property="Foreground" Value="{StaticResource T3.TextDisabled}"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
@@ -495,8 +345,8 @@
         <!-- GHOST BUTTON -->
         <Style x:Key="GhostButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#52525B"/>
-            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.TextSecondary}"/>
+            <Setter Property="Padding" Value="12,4"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -514,50 +364,50 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#EDEDEF"/>
-                    <Setter Property="Foreground" Value="#18181B"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Border}"/>
+                    <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#E2E2E5"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Border}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <!-- SUCCESS BUTTON -->
-        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#0B8A5A"/>
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource T3.Button.Primary}">
+            <Setter Property="Background" Value="{StaticResource T3.Success.Text}"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#09734B"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Success.Text}"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#0B8A5A"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Success.Text}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <!-- DANGER BUTTON -->
-        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#D23B3B"/>
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource T3.Button.Primary}">
+            <Setter Property="Background" Value="{StaticResource T3.Danger.Text}"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#F87171"/>
-                    <Setter Property="Foreground" Value="#1F1F23"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Danger.Accent}"/>
+                    <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#D23B3B"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Danger.Text}"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <!-- ACCENT BUTTON -->
-        <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#18181B"/>
+        <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource T3.Button.Primary}">
+            <Setter Property="Background" Value="{StaticResource T3.Ink}"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#000000"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Ink}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -565,7 +415,7 @@
         <!-- Sidebar Icon Button Style -->
         <Style x:Key="T3SidebarButton" TargetType="Button">
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#71717A"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.TextMuted}"/>
             <Setter Property="Width"           Value="42"/>
             <Setter Property="Height"          Value="42"/>
             <Setter Property="Cursor"          Value="Hand"/>
@@ -579,10 +429,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#F4F4F6"/>
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#E6E6EA"/>
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -595,7 +445,7 @@
             <Setter Property="Width"           Value="40"/>
             <Setter Property="Height"          Value="32"/>
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#18181B"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
@@ -609,7 +459,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E4E4E7"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Canvas}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -618,134 +468,17 @@
         <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#D23B3B"/>
+                    <Setter Property="Background" Value="{StaticResource T3.Danger.Text}"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
         <!-- Premium CheckBox Style -->
-        <Style x:Key="T3CheckBox" TargetType="CheckBox">
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontFamily" Value="Hanken Grotesk"/>
-            <Setter Property="Foreground" Value="#27272A"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="CheckBox">
-                        <Grid x:Name="templateRoot" Background="Transparent" SnapsToDevicePixels="True">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Border x:Name="checkBoxBorder" 
-                                    Grid.Column="0"
-                                    Width="18" Height="18"
-                                    Margin="0,0,8,0"
-                                    BorderBrush="#D4D4DA"
-                                    BorderThickness="1.5"
-                                    Background="White"
-                                    CornerRadius="6"
-                                    HorizontalAlignment="Left"
-                                    VerticalAlignment="Center">
-                                <Path x:Name="optionMark" 
-                                      Data="M4,9 L8,13 L14,5" 
-                                      Stroke="White" 
-                                      StrokeThickness="2" 
-                                      StrokeStartLineCap="Round" 
-                                      StrokeEndLineCap="Round" 
-                                      StrokeLineJoin="Round"
-                                      Visibility="Collapsed"/>
-                            </Border>
-                            <ContentPresenter x:Name="contentPresenter" 
-                                              Grid.Column="1" 
-                                              Focusable="False" 
-                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" 
-                                              Margin="{TemplateBinding Padding}" 
-                                              RecognizesAccessKey="True" 
-                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" 
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="checkBoxBorder" Property="Background" Value="#18181B"/>
-                                <Setter TargetName="checkBoxBorder" Property="BorderBrush" Value="#18181B"/>
-                                <Setter TargetName="optionMark" Property="Visibility" Value="Visible"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="checkBoxBorder" Property="BorderBrush" Value="#18181B"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="checkBoxBorder" Property="Background" Value="#F4F4F6"/>
-                                <Setter TargetName="checkBoxBorder" Property="BorderBrush" Value="#E6E6EA"/>
-                                <Setter Property="Foreground" Value="#9A9AA2"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+
 
         <!-- Premium RadioButton Style -->
-        <Style x:Key="T3RadioButton" TargetType="RadioButton">
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontFamily" Value="Hanken Grotesk"/>
-            <Setter Property="Foreground" Value="#27272A"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Grid x:Name="templateRoot" Background="Transparent" SnapsToDevicePixels="True">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Border x:Name="radioBorder" 
-                                    Grid.Column="0"
-                                    Width="20" Height="20"
-                                    Margin="0,0,8,0"
-                                    BorderBrush="#D4D4DA"
-                                    BorderThickness="2"
-                                    Background="White"
-                                    CornerRadius="10"
-                                    HorizontalAlignment="Left"
-                                    VerticalAlignment="Center">
-                                <Ellipse x:Name="radioDot"
-                                         Width="9" Height="9"
-                                         Fill="#18181B"
-                                         Visibility="Collapsed"
-                                         HorizontalAlignment="Center"
-                                         VerticalAlignment="Center"/>
-                            </Border>
-                            <ContentPresenter x:Name="contentPresenter" 
-                                              Grid.Column="1" 
-                                              Focusable="False" 
-                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" 
-                                              Margin="{TemplateBinding Padding}" 
-                                              RecognizesAccessKey="True" 
-                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" 
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="radioBorder" Property="BorderBrush" Value="#18181B"/>
-                                <Setter TargetName="radioDot" Property="Visibility" Value="Visible"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="radioBorder" Property="BorderBrush" Value="#18181B"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="radioBorder" Property="Background" Value="#F4F4F6"/>
-                                <Setter TargetName="radioBorder" Property="BorderBrush" Value="#E6E6EA"/>
-                                <Setter Property="Foreground" Value="#9A9AA2"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+
 
         <!-- Custom Scrollbar Styling -->
         <Style TargetType="{x:Type Thumb}" x:Key="ScrollBarThumbStyle">
@@ -754,13 +487,13 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Thumb}">
-                        <Border x:Name="thumbBorder" Background="#A1A1AA" CornerRadius="2" Margin="0"/>
+                        <Border x:Name="thumbBorder" Background="{StaticResource T3.BorderStrong}" CornerRadius="2" Margin="0"/>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="true">
-                                <Setter TargetName="thumbBorder" Property="Background" Value="#71717A"/>
+                                <Setter TargetName="thumbBorder" Property="Background" Value="{StaticResource T3.TextMuted}"/>
                             </Trigger>
                             <Trigger Property="IsDragging" Value="true">
-                                <Setter TargetName="thumbBorder" Property="Background" Value="#18181B"/>
+                                <Setter TargetName="thumbBorder" Property="Background" Value="{StaticResource T3.Ink}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -807,7 +540,7 @@
         <!-- SIDEBAR TOGGLE BUTTON (for icon-only sidebar filter/nav) -->
         <Style x:Key="T3SidebarToggle" TargetType="ToggleButton">
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#71717A"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.TextMuted}"/>
             <Setter Property="Width"           Value="42"/>
             <Setter Property="Height"          Value="42"/>
             <Setter Property="Cursor"          Value="Hand"/>
@@ -822,7 +555,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#18181B"/>
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Ink}"/>
                                 <Setter Property="Foreground" Value="White"/>
                             </Trigger>
                             <MultiTrigger>
@@ -830,15 +563,15 @@
                                     <Condition Property="IsChecked" Value="False"/>
                                     <Condition Property="IsMouseOver" Value="True"/>
                                 </MultiTrigger.Conditions>
-                                <Setter TargetName="border" Property="Background" Value="#E6E6EA"/>
-                                <Setter Property="Foreground" Value="#18181B"/>
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                             </MultiTrigger>
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsChecked" Value="True"/>
                                     <Condition Property="IsMouseOver" Value="True"/>
                                 </MultiTrigger.Conditions>
-                                <Setter TargetName="border" Property="Background" Value="#27272A"/>
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Text}"/>
                             </MultiTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -846,104 +579,16 @@
             </Setter>
         </Style>
         <!-- Sleek Modern ComboBox Small -->
-        <Style x:Key="T3ComboBoxSmall" TargetType="ComboBox">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="#18181B"/>
-            <Setter Property="BorderBrush" Value="#E6E6EA"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,0,10,0"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontFamily" Value="Hanken Grotesk"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBox">
-                        <Grid>
-                            <Border x:Name="border"
-                                    Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="8">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="28"/>
-                                    </Grid.ColumnDefinitions>
-                                    <ContentPresenter Grid.Column="0"
-                                                      Content="{TemplateBinding SelectionBoxItem}"
-                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                                      ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                                                      Margin="{TemplateBinding Padding}"
-                                                      VerticalAlignment="Center"
-                                                      HorizontalAlignment="Left"
-                                                      IsHitTestVisible="False"/>
-                                    <ToggleButton Grid.Column="0" Grid.ColumnSpan="2"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                                        <ToggleButton.Template>
-                                            <ControlTemplate TargetType="ToggleButton">
-                                                <Border Background="Transparent"/>
-                                            </ControlTemplate>
-                                        </ToggleButton.Template>
-                                    </ToggleButton>
-                                    <Path Grid.Column="1"
-                                          Data="M6 9 L12 15 L18 9"
-                                          Stroke="#71717A"
-                                          StrokeThickness="1.5"
-                                          StrokeStartLineCap="Round"
-                                          StrokeEndLineCap="Round"
-                                          StrokeLineJoin="Round"
-                                          Width="10" Height="10"
-                                          Stretch="Uniform"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          IsHitTestVisible="False"/>
-                                </Grid>
-                            </Border>
-                            <Popup x:Name="PART_Popup"
-                                    AllowsTransparency="true"
-                                    IsOpen="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                    Placement="Bottom"
-                                    PopupAnimation="Slide">
-                                <Border x:Name="dropDownBorder"
-                                        Background="White"
-                                        BorderBrush="#E6E6EA"
-                                        BorderThickness="1"
-                                        CornerRadius="8"
-                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
-                                    <ScrollViewer x:Name="DropDownScrollViewer">
-                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
-                                    </ScrollViewer>
-                                </Border>
-                            </Popup>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="HasItems" Value="false">
-                                <Setter TargetName="dropDownBorder" Property="Height" Value="95"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="true">
-                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
-                            </Trigger>
-                            <Trigger Property="IsDropDownOpen" Value="true">
-                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+
 
         <!-- Sleek Modern ComboBox Small ToggleButton -->
         <Style x:Key="T3ComboBoxSmallToggle" TargetType="ToggleButton">
             <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="#18181B"/>
-            <Setter Property="BorderBrush" Value="#E6E6EA"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,0,10,0"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="8,0,8,0"/>
+            <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="Height" Value="32"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -967,7 +612,7 @@
                                                   IsHitTestVisible="False"/>
                                 <Path Grid.Column="1"
                                       Data="M6 9 L12 15 L18 9"
-                                      Stroke="#71717A"
+                                      Stroke="{StaticResource T3.TextMuted}"
                                       StrokeThickness="1.5"
                                       StrokeStartLineCap="Round"
                                       StrokeEndLineCap="Round"
@@ -981,10 +626,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="true">
-                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource T3.Ink}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="true">
-                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource T3.Ink}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -993,62 +638,16 @@
         </Style>
 
         <!-- Sleek Modern Input Field Small -->
-        <Style x:Key="T3InputFieldSmall" TargetType="TextBox">
-            <Setter Property="Background" Value="#F4F4F6"/>
-            <Setter Property="Foreground" Value="#27272A"/>
-            <Setter Property="BorderBrush" Value="#E6E6EA"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,0,10,0"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontFamily" Value="Hanken Grotesk"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TextBox">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8"
-                                Padding="{TemplateBinding Padding}">
-                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsFocused" Value="True">
-                                <Setter Property="BorderBrush" Value="#18181B"/>
-                                <Setter Property="Background" Value="#FFFFFF"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+
 
         <!-- Flat ProgressBar Style (Lumina Standard) -->
-        <Style x:Key="T3ProgressBar" TargetType="ProgressBar">
-            <Setter Property="Background" Value="#ECECEF"/>
-            <Setter Property="Foreground" Value="#C2410C"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Height" Value="8"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ProgressBar">
-                        <Grid x:Name="TemplateRoot">
-                            <Border x:Name="BackgroundBorder" Background="{TemplateBinding Background}" CornerRadius="4"/>
-                            <Border x:Name="PART_Track" ClipToBounds="True" CornerRadius="4" Background="Transparent">
-                                <Border x:Name="PART_Indicator" HorizontalAlignment="Left" Background="{TemplateBinding Foreground}" CornerRadius="4"/>
-                            </Border>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+
 
         <!-- Queue Item ProgressBar Style with complete trigger -->
-        <Style x:Key="QueueProgressBarStyle" TargetType="ProgressBar" BasedOn="{StaticResource T3ProgressBar}">
+        <Style x:Key="QueueProgressBarStyle" TargetType="ProgressBar" BasedOn="{StaticResource T3.ProgressBar}">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding Progress}" Value="100">
-                    <Setter Property="Foreground" Value="#10B981"/>
+                    <Setter Property="Foreground" Value="{StaticResource T3.Success.Accent}"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -1057,8 +656,8 @@
         <Style x:Key="TabPillRadioButton" TargetType="RadioButton">
             <Setter Property="GroupName" Value="TabPills"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#71717A"/>
-            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.TextMuted}"/>
+            <Setter Property="Padding" Value="12,4"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="FontWeight" Value="Medium"/>
@@ -1073,11 +672,11 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="White"/>
-                                <Setter Property="Foreground" Value="#18181B"/>
+                                <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                                 <Setter Property="FontWeight" Value="SemiBold"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#E2E2E6"/>
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -1085,14 +684,8 @@
             </Setter>
         </Style>
 
-        <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 
-        <Style x:Key="FormatCheckBox" TargetType="CheckBox">
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="Medium"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
+
 
         <Style x:Key="TabItemStyle" TargetType="TabItem">
             <Setter Property="Visibility" Value="Collapsed"/>
@@ -1101,20 +694,16 @@
             <Setter Property="Width" Value="24"/>
             <Setter Property="Height" Value="24"/>
             <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Background" Value="#F1F5F9"/>
+            <Setter Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
-        <Style x:Key="StepLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Foreground" Value="#64748B"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="8,0,18,0"/>
-        </Style>
+
+        </ResourceDictionary>
     </Window.Resources>
 
     <!-- ═══ Outer Border: CornerRadius + ClipToBounds (Lumina standard) ═══ -->
-    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
+    <Border BorderBrush="{StaticResource T3.BorderStrong}" BorderThickness="1.5" CornerRadius="8" ClipToBounds="True" Background="{StaticResource T3.Canvas}">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="66"/>    <!-- Col 0: Left Sidebar Rail -->
@@ -1130,7 +719,7 @@
             <!-- COL 0: LEFT SIDEBAR ICON RAIL (all rows)                    -->
             <!-- ════════════════════════════════════════════════════════════ -->
             <Border Grid.Column="0" Grid.RowSpan="3"
-                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0">
+                    Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
                 <Grid Margin="0,16,0,16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/> <!-- Logo -->
@@ -1142,10 +731,10 @@
 
                     <!-- Logo: BatchOut Sheets Export logo -->
                     <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
-                            Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
-                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                            Background="White" BorderBrush="{StaticResource T3.Border}" BorderThickness="1"
+                            HorizontalAlignment="Center" Margin="0,0,0,16">
                         <Path Data="M4 4 h16 v14 h-16 z M4 9 h16 M10 9 v10"
-                              Stroke="#18181B" StrokeThickness="1.6" StrokeLineJoin="Round"
+                              Stroke="{StaticResource T3.Ink}" StrokeThickness="1.6" StrokeLineJoin="Round"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                               Width="16" Height="16" Stretch="Uniform"
                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -1192,7 +781,7 @@
             <!-- ════════════════════════════════════════════════════════════ -->
             <!-- ROW 0 / COL 1: TITLE BAR (64px, #F4F4F6)                   -->
             <!-- ════════════════════════════════════════════════════════════ -->
-            <Grid Grid.Column="1" Grid.Row="0" Background="#F4F4F6">
+            <Grid Grid.Column="1" Grid.Row="0" Background="{StaticResource T3.SurfaceSunken}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -1200,10 +789,10 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Title & Subtitle -->
-                <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
+                <StackPanel Grid.Column="0" Orientation="Vertical" Margin="24,0,0,0" VerticalAlignment="Center"
                             WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="BatchOut" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
-                    <TextBlock Text="Batch export sheets &amp; views to multiple formats" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
+                    <TextBlock Text="BatchOut" FontSize="15" FontWeight="Bold" Foreground="{StaticResource T3.Ink}"/>
+                    <TextBlock Text="Batch export sheets &amp; views to multiple formats" FontSize="12.5" Foreground="{StaticResource T3.TextMuted}" Margin="0,0,0,0"/>
                 </StackPanel>
 
                 <!-- Window Control Buttons -->
@@ -1211,19 +800,19 @@
                             WindowChrome.IsHitTestVisibleInChrome="True">
                     <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
                             Click="minimize_button_clicked" ToolTip="Minimize">
-                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
                     </Button>
                     <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
                             Click="maximize_button_clicked" ToolTip="Maximize">
-                        <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                        <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
                     </Button>
-                    <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
+                    <Button x:Name="btn_close" Style="{StaticResource CloseButton}" IsCancel="True"
                             Click="close_button_clicked" ToolTip="Close">
-                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
                     </Button>
                 </StackPanel>
                 
-                <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="3"/>
+                <Border Height="1" VerticalAlignment="Bottom" Background="{StaticResource T3.Border}" Grid.ColumnSpan="3"/>
             </Grid>
 
             <!-- ════════════════════════════════════════════════════════════ -->
@@ -1231,26 +820,26 @@
             <!-- ════════════════════════════════════════════════════════════ -->
             <Border Grid.Column="1" Grid.Row="1"
                     Background="White"
-                    CornerRadius="0" BorderBrush="#E2E8F0" BorderThickness="0"
+                    CornerRadius="0" BorderBrush="{StaticResource T3.Border}" BorderThickness="0"
                     ClipToBounds="True">
                 <TabControl Margin="0" x:Name="main_tabs" BorderThickness="0" Background="Transparent">
 
             <!-- Selection Tab -->
             <TabItem Header="Selection" Style="{StaticResource TabItemStyle}">
-                <Grid Margin="10">
+                <Grid Margin="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="Select Sheets or Views to Export" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Grid.Row="0" Text="Select Sheets or Views to Export" Style="{StaticResource T3.Label}"/>
 
 
                     <!-- Selection Controls -->
-                    <Grid Grid.Row="1" Margin="0,5">
+                    <Grid Grid.Row="1" Margin="0,4">
                         <!-- Single Row with Sheets/Views Radio Buttons, View/Sheet Set, Save V/S Set, and Search -->
-                        <Grid Margin="0,5">
+                        <Grid Margin="0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -1267,7 +856,7 @@
                             <!-- Radio Buttons for Sheets/Views -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                 <RadioButton x:Name="sheets_radio" Content="Sheets" GroupName="selectionMode"
-                                             IsChecked="True" Margin="0,0,20,0"
+                                             IsChecked="True" Margin="0,0,16,0"
                                              Checked="selection_mode_changed" FontWeight="Medium"/>
                                 <RadioButton x:Name="views_radio" Content="Views" GroupName="selectionMode"
                                              Checked="selection_mode_changed" FontWeight="Medium"/>
@@ -1276,8 +865,8 @@
                             <!-- View Type Filter (for Views) - Hidden by default -->
                             <ComboBox Grid.Column="1" x:Name="view_type_filter" Height="32"
                                       SelectionChanged="filter_by_size" Visibility="Collapsed"
-                                      VerticalAlignment="Center" Width="150" Margin="20,0,0,0"
-                                      Style="{StaticResource T3ComboBoxSmall}">
+                                      VerticalAlignment="Center" Width="150" Margin="16,0,0,0"
+                                      Style="{StaticResource T3.ComboBox}">
                                 <ComboBoxItem Content="All Views" IsSelected="True"/>
                                 <ComboBoxItem Content="Floor Plan"/>
                                 <ComboBoxItem Content="Ceiling Plan"/>
@@ -1292,17 +881,17 @@
                             </ComboBox>
 
                             <!-- View/Sheet Set - multi-select dropdown -->
-                            <TextBlock Grid.Column="3" Text="View/Sheet Set:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <TextBlock Grid.Column="3" Text="View/Sheet Set:" VerticalAlignment="Center" Margin="0,0,4,0"/>
                             <Grid Grid.Column="4">
                                 <ToggleButton x:Name="sheet_set_toggle"
                                               Height="32"
                                               HorizontalContentAlignment="Left"
-                                              Padding="10,0,28,0"
+                                              Padding="8,0,24,0"
                                               Style="{StaticResource T3ComboBoxSmallToggle}"
                                               Click="sheet_set_toggle_clicked"
                                               ToolTip="Click to select one or more View/Sheet Sets">
                                     <TextBlock x:Name="sheet_set_label" Text="All Sheets/Views"
-                                               VerticalAlignment="Center" Foreground="#18181B" FontSize="12"/>
+                                               VerticalAlignment="Center" Foreground="{StaticResource T3.Ink}" FontSize="13"/>
                                 </ToggleButton>
                                 <Popup x:Name="sheet_set_popup"
                                        StaysOpen="False"
@@ -1310,11 +899,11 @@
                                        PopupAnimation="Fade"
                                        PlacementTarget="{Binding ElementName=sheet_set_toggle}"
                                        Placement="Bottom">
-                                    <Border BorderBrush="#E6E6EA" BorderThickness="1"
+                                    <Border BorderBrush="{StaticResource T3.Border}" BorderThickness="1"
                                             Background="White" MinWidth="240" MaxHeight="220"
                                             CornerRadius="8">
                                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                            <StackPanel x:Name="sheet_set_checklist" Margin="10,8,10,8"/>
+                                            <StackPanel x:Name="sheet_set_checklist" Margin="8,8,8,8"/>
                                         </ScrollViewer>
                                     </Border>
                                 </Popup>
@@ -1326,21 +915,21 @@
                                         Content="Refresh"
                                         Height="28"
                                         Margin="0,0,8,0"
-                                        Style="{StaticResource SecondaryButton}"
+                                        Style="{StaticResource T3.Button.Secondary}"
                                         Click="refresh_clicked"
                                         ToolTip="Reload sheets/views from the model — picks up changes made while this window is open"/>
                                 <Button x:Name="save_vs_set_button"
                                         Content="Save V/S Set"
                                         Height="28"
-                                        Style="{StaticResource SecondaryButton}"
+                                        Style="{StaticResource T3.Button.Secondary}"
                                         Click="save_vs_set_clicked"
                                         ToolTip="Save current selection as View/Sheet Set"/>
                             </StackPanel>
 
                             <!-- Search Box (showcase pill style) -->
                             <Border Grid.Column="8" Grid.ColumnSpan="2" Height="36"
-                                    Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
-                                    CornerRadius="18" Padding="10,0,10,0" VerticalAlignment="Center">
+                                    Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}" BorderThickness="1"
+                                    CornerRadius="18" Padding="8,0,8,0" VerticalAlignment="Center">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -1348,7 +937,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Path Grid.Column="0"
                                           Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
-                                          Stroke="#71717A" StrokeThickness="1.9"
+                                          Stroke="{StaticResource T3.TextMuted}" StrokeThickness="1.9"
                                           StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                           Width="14" Height="14" Stretch="Uniform"
                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -1356,10 +945,10 @@
                                         <TextBox x:Name="search_textbox"
                                                  Background="Transparent" BorderThickness="0" Padding="0"
                                                  VerticalAlignment="Center" VerticalContentAlignment="Center"
-                                                 Height="24" FontSize="13" FontFamily="Inter" Foreground="#18181B"
+                                                 Height="24" FontSize="13" FontFamily="Segoe UI" Foreground="{StaticResource T3.Ink}"
                                                  TextChanged="search_sheets"/>
                                         <TextBlock Text="Search sheets or views…"
-                                                   Foreground="#71717A" FontSize="13" FontFamily="Inter"
+                                                   Foreground="{StaticResource T3.TextMuted}" FontSize="13" FontFamily="Segoe UI"
                                                    VerticalAlignment="Center" IsHitTestVisible="False">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
@@ -1385,14 +974,19 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <Border Grid.Row="0" BorderBrush="#CBD5E1" BorderThickness="1" Margin="0,5" CornerRadius="8" Background="#F8FAFC">
+                        <Border Grid.Row="0" BorderBrush="{StaticResource T3.BorderStrong}" BorderThickness="1" Margin="0,4" CornerRadius="8" Background="{StaticResource T3.SurfaceSunken}">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
 
-                                <ListView Grid.Row="1" x:Name="sheets_listview"
+                                <TextBlock Grid.Row="1" x:Name="sheets_empty_state"
+                                           Style="{StaticResource T3.Empty}"
+                                           Visibility="Collapsed"
+                                           Text="No sheets match the current filter.&#x0a;Clear the search box, or pick a different Sheet Set above."/>
+
+                                <ListView VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Grid.Row="1" x:Name="sheets_listview"
                                           SelectionMode="Extended"
                                           BorderThickness="0"
                                           MouseDoubleClick="listview_item_double_clicked"
@@ -1435,18 +1029,18 @@
                                                         <Button x:Name="btn_edit_filename"
                                                                 Content="Edit"
                                                                 Height="28"
-                                                                Padding="8,2"
-                                                                FontSize="10"
-                                                                Style="{StaticResource SecondaryButton}"
+                                                                Padding="8,0"
+                                                                FontSize="11"
+                                                                Style="{StaticResource T3.Button.Secondary}"
                                                                 Click="edit_filename_clicked"
                                                                 ToolTip="Edit filename pattern for all items"
-                                                                Margin="10,0,0,0"/>
+                                                                Margin="8,0,0,0"/>
                                                     </StackPanel>
                                                 </GridViewColumn.Header>
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBox Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                                 Style="{StaticResource T3InputField}"
+                                                                 Style="{StaticResource T3.TextBox}"
                                                                  ToolTip="Custom filename (leave empty to use pattern)"
                                                                  PreviewMouseLeftButtonDown="textbox_prevent_toggle"/>
                                                     </DataTemplate>
@@ -1459,8 +1053,8 @@
                         </Border>
 
                         <!-- Selection Count Status Bar -->
-                        <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-                                Padding="14,8" Margin="0,5,0,0" CornerRadius="2">
+                        <Border Grid.Row="1" Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,0"
+                                Padding="12,8" Margin="0,4,0,0" CornerRadius="2">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -1469,9 +1063,9 @@
                                 <TextBlock x:Name="selection_count_text"
                                            Grid.Column="0"
                                            Text="0 sheets and 0 views selected. Total: 0"
-                                           FontSize="12"
+                                           FontSize="13"
                                            FontWeight="Medium"
-                                           Foreground="#0F172A"
+                                           Foreground="{StaticResource T3.Ink}"
                                            VerticalAlignment="Center"/>
                             </Grid>
                         </Border>
@@ -1482,18 +1076,18 @@
             <!-- Format Tab -->
             <TabItem Header="Format" Style="{StaticResource TabItemStyle}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="10" x:Name="format_panels_container">
+                    <StackPanel Margin="8" x:Name="format_panels_container">
 
-                        <TextBlock Text="Select Formats &amp; Configure Settings" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="Select Formats &amp; Configure Settings" Style="{StaticResource T3.Label}"/>
                         <TextBlock Text="Check a format to enable it. Click the header bar to expand/collapse its settings."
-                                   FontSize="11" Foreground="#64748B" Margin="0,0,0,10"/>
+                                   FontSize="11" Foreground="{StaticResource T3.TextSecondary}" Margin="0,0,0,8"/>
 
                         <!-- ═══ PDF ═══ -->
-                        <Border x:Name="pdf_panel_border" BorderBrush="#0F172A" BorderThickness="1"
-                                CornerRadius="4" Margin="0,0,0,6">
+                        <Border x:Name="pdf_panel_border" BorderBrush="{StaticResource T3.Ink}" BorderThickness="1"
+                                CornerRadius="4" Margin="0,0,0,4">
                             <!-- Header row -->
                             <StackPanel>
-                                <Border Background="#F8FAFC" CornerRadius="4,4,0,0" Cursor="Hand"
+                                <Border Background="{StaticResource T3.SurfaceSunken}" CornerRadius="4,4,0,0" Cursor="Hand"
                                         MouseLeftButtonUp="pdf_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -1503,20 +1097,20 @@
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_pdf" Grid.Column="0"
                                                   Content="PDF" IsChecked="True"
-                                                  FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
+                                                  FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource T3.Ink}"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Grid.Column="1" Text="Portable Document Format"
-                                                   FontSize="11" Foreground="#64748B"
+                                                   FontSize="11" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                                         <TextBlock x:Name="pdf_expand_arrow" Grid.Column="2"
-                                                   Text="▾" FontSize="12" Foreground="#0F172A"
+                                                   Text="▾" FontSize="13" Foreground="{StaticResource T3.Ink}"
                                                    VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 <!-- PDF Settings Body -->
                                 <Border x:Name="pdf_settings_body" Background="White"
-                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-                                        Padding="20,16" CornerRadius="0,0,4,4">
+                                        BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,0"
+                                        Padding="16,16" CornerRadius="0,0,4,4">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -1526,48 +1120,48 @@
 
                                         <!-- Left Column: Page Setup & Zoom -->
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="Page Setup" FontWeight="SemiBold" FontSize="12.5" Foreground="#0F172A" Margin="0,0,0,12"/>
+                                            <TextBlock Text="Page Setup" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource T3.Ink}" Margin="0,0,0,12"/>
                                             
                                             <CheckBox x:Name="pdf_auto_detect_size" Content="Auto-detect from Title Block"
-                                                      Margin="0,0,0,10" IsChecked="True"
+                                                      Margin="0,0,0,8" IsChecked="True"
                                                       Checked="pdf_auto_detect_changed" Unchecked="pdf_auto_detect_changed"/>
                                             
-                                            <TextBlock Text="Manual Paper Size" FontSize="11" Foreground="#64748B" Margin="0,0,0,5"/>
+                                            <TextBlock Text="Manual Paper Size" FontSize="11" Foreground="{StaticResource T3.TextSecondary}" Margin="0,0,0,4"/>
                                             <ComboBox x:Name="pdf_paper_size" Height="32" SelectedIndex="0" IsEnabled="False" 
-                                                      Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,15" HorizontalAlignment="Stretch">
+                                                      Style="{StaticResource T3.ComboBox}" Margin="0,0,0,16" HorizontalAlignment="Stretch">
                                                 <ComboBoxItem Content="Use Sheet Size"/>
                                                 <ComboBoxItem Content="A0"/><ComboBoxItem Content="A1"/>
                                                 <ComboBoxItem Content="A2"/><ComboBoxItem Content="A3"/>
                                                 <ComboBoxItem Content="A4"/>
                                             </ComboBox>
                                             
-                                            <TextBlock Text="Orientation" FontSize="11" Foreground="#64748B" Margin="0,0,0,5"/>
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,22">
+                                            <TextBlock Text="Orientation" FontSize="11" Foreground="{StaticResource T3.TextSecondary}" Margin="0,0,0,4"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,24">
                                                 <RadioButton x:Name="pdf_landscape" Content="Landscape" GroupName="orientation"
-                                                             IsChecked="True" Margin="0,0,20,0" IsEnabled="False"/>
+                                                             IsChecked="True" Margin="0,0,16,0" IsEnabled="False"/>
                                                 <RadioButton x:Name="pdf_portrait" Content="Portrait" GroupName="orientation" IsEnabled="False"/>
                                             </StackPanel>
 
-                                            <TextBlock Text="Scaling" FontWeight="SemiBold" FontSize="12.5" Foreground="#0F172A" Margin="0,0,0,12"/>
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                            <TextBlock Text="Scaling" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource T3.Ink}" Margin="0,0,0,12"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                                 <RadioButton x:Name="pdf_fit_to_page" Content="Fit to Page" GroupName="zoom"
-                                                             IsChecked="True" Margin="0,0,20,0"/>
+                                                             IsChecked="True" Margin="0,0,16,0"/>
                                                 <RadioButton x:Name="pdf_zoom_custom" Content="Custom Zoom (100%)" GroupName="zoom"/>
                                             </StackPanel>
                                         </StackPanel>
 
                                         <!-- Vertical Separator -->
-                                        <Border Grid.Column="1" Width="1" Background="#E2E8F0" HorizontalAlignment="Center" Margin="5,0"/>
+                                        <Border Grid.Column="1" Width="1" Background="{StaticResource T3.Border}" HorizontalAlignment="Center" Margin="4,0"/>
 
                                         <!-- Right Column: Visibility & Output Options -->
                                         <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Visibility Settings" FontWeight="SemiBold" FontSize="12.5" Foreground="#0F172A" Margin="0,0,0,12"/>
+                                            <TextBlock Text="Visibility Settings" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource T3.Ink}" Margin="0,0,0,12"/>
                                             <CheckBox x:Name="pdf_hide_ref_planes" Content="Hide reference/work planes" Margin="0,4"/>
                                             <CheckBox x:Name="pdf_hide_scope_boxes" Content="Hide scope boxes" Margin="0,4"/>
                                             <CheckBox x:Name="pdf_hide_crop_boundaries" Content="Hide crop boundaries" Margin="0,4"/>
-                                            <CheckBox x:Name="pdf_hide_unreferenced_tags" Content="Hide unreferenced view tags" Margin="0,4,0,20"/>
+                                            <CheckBox x:Name="pdf_hide_unreferenced_tags" Content="Hide unreferenced view tags" Margin="0,4,0,16"/>
 
-                                            <TextBlock Text="Output Settings" FontWeight="SemiBold" FontSize="12.5" Foreground="#0F172A" Margin="0,0,0,12"/>
+                                            <TextBlock Text="Output Settings" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource T3.Ink}" Margin="0,0,0,12"/>
                                             <CheckBox x:Name="pdf_view_links_blue" Content="View links in blue" Margin="0,4"/>
                                             <CheckBox x:Name="combine_pdf" Content="Combine all sheets into single PDF"
                                                       FontWeight="SemiBold" Margin="0,4"/>
@@ -1578,10 +1172,10 @@
                         </Border>
 
                         <!-- ═══ DWG ═══ -->
-                        <Border x:Name="dwg_panel_border" BorderBrush="#E2E8F0" BorderThickness="1"
-                                CornerRadius="4" Margin="0,0,0,6">
+                        <Border x:Name="dwg_panel_border" BorderBrush="{StaticResource T3.Border}" BorderThickness="1"
+                                CornerRadius="4" Margin="0,0,0,4">
                             <StackPanel>
-                                <Border Background="#F8FAFC" CornerRadius="4,4,0,0" Cursor="Hand"
+                                <Border Background="{StaticResource T3.SurfaceSunken}" CornerRadius="4,4,0,0" Cursor="Hand"
                                         MouseLeftButtonUp="dwg_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -1590,19 +1184,19 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_dwg" Grid.Column="0"
-                                                  Content="DWG" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
+                                                  Content="DWG" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource T3.Ink}"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Grid.Column="1" Text="AutoCAD Drawing File"
-                                                   FontSize="11" Foreground="#64748B"
+                                                   FontSize="11" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                                         <TextBlock x:Name="dwg_expand_arrow" Grid.Column="2"
-                                                   Text="▾" FontSize="12" Foreground="#64748B"
+                                                   Text="▾" FontSize="13" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="dwg_settings_body" Background="White"
-                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-                                        Padding="20,16" CornerRadius="0,0,4,4"
+                                        BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,0"
+                                        Padding="16,16" CornerRadius="0,0,4,4"
                                         Visibility="Collapsed">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -1613,27 +1207,27 @@
 
                                         <!-- Left Column: Setup -->
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="Export Setup" FontWeight="SemiBold" FontSize="12.5" Foreground="#0F172A" Margin="0,0,0,12"/>
+                                            <TextBlock Text="Export Setup" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource T3.Ink}" Margin="0,0,0,12"/>
                                             
-                                            <TextBlock Text="AutoCAD Version" FontSize="11" Foreground="#64748B" Margin="0,0,0,5"/>
-                                            <ComboBox x:Name="dwg_version" Height="32" SelectedIndex="0" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,15" HorizontalAlignment="Stretch">
+                                            <TextBlock Text="AutoCAD Version" FontSize="11" Foreground="{StaticResource T3.TextSecondary}" Margin="0,0,0,4"/>
+                                            <ComboBox x:Name="dwg_version" Height="32" SelectedIndex="0" Style="{StaticResource T3.ComboBox}" Margin="0,0,0,16" HorizontalAlignment="Stretch">
                                                 <ComboBoxItem Content="AutoCAD 2013"/>
                                                 <ComboBoxItem Content="AutoCAD 2010"/>
                                                 <ComboBoxItem Content="AutoCAD 2007"/>
                                             </ComboBox>
                                             
-                                            <TextBlock Text="DWG Export Setup" FontSize="11" Foreground="#64748B" Margin="0,0,0,5"/>
-                                            <ComboBox x:Name="cad_export_setup" Height="32" SelectedIndex="0" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,5" HorizontalAlignment="Stretch">
+                                            <TextBlock Text="DWG Export Setup" FontSize="11" Foreground="{StaticResource T3.TextSecondary}" Margin="0,0,0,4"/>
+                                            <ComboBox x:Name="cad_export_setup" Height="32" SelectedIndex="0" Style="{StaticResource T3.ComboBox}" Margin="0,0,0,4" HorizontalAlignment="Stretch">
                                                 <ComboBoxItem Content="Use setup from file"/>
                                             </ComboBox>
                                         </StackPanel>
 
                                         <!-- Vertical Separator -->
-                                        <Border Grid.Column="1" Width="1" Background="#E2E8F0" HorizontalAlignment="Center" Margin="5,0"/>
+                                        <Border Grid.Column="1" Width="1" Background="{StaticResource T3.Border}" HorizontalAlignment="Center" Margin="4,0"/>
 
                                         <!-- Right Column: Options -->
                                         <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Export Options" FontWeight="SemiBold" FontSize="12.5" Foreground="#0F172A" Margin="0,0,0,12"/>
+                                            <TextBlock Text="Export Options" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource T3.Ink}" Margin="0,0,0,12"/>
                                             <CheckBox x:Name="cad_export_views_on_sheets" Content="Export views on sheets" IsChecked="False" Margin="0,4"/>
                                             <CheckBox x:Name="cad_export_links_as_external" Content="Export links as external references" IsChecked="False" Margin="0,4"/>
                                         </StackPanel>
@@ -1643,10 +1237,10 @@
                         </Border>
 
                         <!-- ═══ DGN ═══ -->
-                        <Border x:Name="dgn_panel_border" BorderBrush="#E2E8F0" BorderThickness="1"
-                                CornerRadius="4" Margin="0,0,0,6">
+                        <Border x:Name="dgn_panel_border" BorderBrush="{StaticResource T3.Border}" BorderThickness="1"
+                                CornerRadius="4" Margin="0,0,0,4">
                             <StackPanel>
-                                <Border Background="#F8FAFC" CornerRadius="4" Cursor="Hand"
+                                <Border Background="{StaticResource T3.SurfaceSunken}" CornerRadius="4" Cursor="Hand"
                                         MouseLeftButtonUp="dgn_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -1655,31 +1249,31 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_dgn" Grid.Column="0"
-                                                  Content="DGN" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
+                                                  Content="DGN" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource T3.Ink}"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Grid.Column="1" Text="MicroStation Design File"
-                                                   FontSize="11" Foreground="#64748B"
+                                                   FontSize="11" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                                         <TextBlock x:Name="dgn_expand_arrow" Grid.Column="2"
-                                                   Text="▾" FontSize="12" Foreground="#64748B"
+                                                   Text="▾" FontSize="13" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="dgn_settings_body" Background="White"
-                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-                                        Padding="15,10" CornerRadius="0,0,4,4"
+                                        BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,0"
+                                        Padding="16,8" CornerRadius="0,0,4,4"
                                         Visibility="Collapsed">
                                     <TextBlock Text="Uses Revit's default DGN export settings. No additional configuration required."
-                                               FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                                               FontSize="11" Foreground="{StaticResource T3.TextSecondary}" TextWrapping="Wrap"/>
                                 </Border>
                             </StackPanel>
                         </Border>
 
                         <!-- ═══ DWF ═══ -->
-                        <Border x:Name="dwf_panel_border" BorderBrush="#E2E8F0" BorderThickness="1"
-                                CornerRadius="4" Margin="0,0,0,6">
+                        <Border x:Name="dwf_panel_border" BorderBrush="{StaticResource T3.Border}" BorderThickness="1"
+                                CornerRadius="4" Margin="0,0,0,4">
                             <StackPanel>
-                                <Border Background="#F8FAFC" CornerRadius="4" Cursor="Hand"
+                                <Border Background="{StaticResource T3.SurfaceSunken}" CornerRadius="4" Cursor="Hand"
                                         MouseLeftButtonUp="dwf_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -1688,31 +1282,31 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_dwf" Grid.Column="0"
-                                                  Content="DWF" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
+                                                  Content="DWF" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource T3.Ink}"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Grid.Column="1" Text="Design Web Format"
-                                                   FontSize="11" Foreground="#64748B"
+                                                   FontSize="11" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                                         <TextBlock x:Name="dwf_expand_arrow" Grid.Column="2"
-                                                   Text="▾" FontSize="12" Foreground="#64748B"
+                                                   Text="▾" FontSize="13" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="dwf_settings_body" Background="White"
-                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-                                        Padding="15,10" CornerRadius="0,0,4,4"
+                                        BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,0"
+                                        Padding="16,8" CornerRadius="0,0,4,4"
                                         Visibility="Collapsed">
                                     <TextBlock Text="Uses Revit's default DWF export settings. No additional configuration required."
-                                               FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                                               FontSize="11" Foreground="{StaticResource T3.TextSecondary}" TextWrapping="Wrap"/>
                                 </Border>
                             </StackPanel>
                         </Border>
 
                         <!-- ═══ NWC ═══ -->
-                        <Border x:Name="nwc_panel_border" BorderBrush="#E2E8F0" BorderThickness="1"
-                                CornerRadius="4" Margin="0,0,0,6">
+                        <Border x:Name="nwc_panel_border" BorderBrush="{StaticResource T3.Border}" BorderThickness="1"
+                                CornerRadius="4" Margin="0,0,0,4">
                             <StackPanel>
-                                <Border Background="#F8FAFC" CornerRadius="4" Cursor="Hand"
+                                <Border Background="{StaticResource T3.SurfaceSunken}" CornerRadius="4" Cursor="Hand"
                                         MouseLeftButtonUp="nwc_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -1721,32 +1315,32 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_nwd" Grid.Column="0"
-                                                  Content="NWC" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
+                                                  Content="NWC" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource T3.Ink}"
                                                   Checked="format_changed" Unchecked="format_changed"
                                                   ToolTip="Requires Navisworks to be installed"/>
                                         <TextBlock Grid.Column="1" Text="Navisworks Cache File"
-                                                   FontSize="11" Foreground="#64748B"
+                                                   FontSize="11" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                                         <TextBlock x:Name="nwc_expand_arrow" Grid.Column="2"
-                                                   Text="▾" FontSize="12" Foreground="#64748B"
+                                                   Text="▾" FontSize="13" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="nwc_settings_body" Background="White"
-                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-                                        Padding="15,10" CornerRadius="0,0,4,4"
+                                        BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,0"
+                                        Padding="16,8" CornerRadius="0,0,4,4"
                                         Visibility="Collapsed">
                                     <TextBlock Text="Exports each view/sheet as a separate NWC file. Requires Navisworks Exporters to be installed."
-                                               FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                                               FontSize="11" Foreground="{StaticResource T3.TextSecondary}" TextWrapping="Wrap"/>
                                 </Border>
                             </StackPanel>
                         </Border>
 
                         <!-- ═══ IFC ═══ -->
-                        <Border x:Name="ifc_panel_border" BorderBrush="#E2E8F0" BorderThickness="1"
-                                CornerRadius="4" Margin="0,0,0,6">
+                        <Border x:Name="ifc_panel_border" BorderBrush="{StaticResource T3.Border}" BorderThickness="1"
+                                CornerRadius="4" Margin="0,0,0,4">
                             <StackPanel>
-                                <Border Background="#F8FAFC" CornerRadius="4,4,0,0" Cursor="Hand"
+                                <Border Background="{StaticResource T3.SurfaceSunken}" CornerRadius="4,4,0,0" Cursor="Hand"
                                         MouseLeftButtonUp="ifc_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -1755,26 +1349,26 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_ifc" Grid.Column="0"
-                                                  Content="IFC" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
+                                                  Content="IFC" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource T3.Ink}"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Grid.Column="1" Text="Industry Foundation Classes"
-                                                   FontSize="11" Foreground="#64748B"
+                                                   FontSize="11" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                                         <TextBlock x:Name="ifc_expand_arrow" Grid.Column="2"
-                                                   Text="▾" FontSize="12" Foreground="#64748B"
+                                                   Text="▾" FontSize="13" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="ifc_settings_body" Background="White"
-                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-                                        Padding="20,16" CornerRadius="0,0,4,4"
+                                        BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,0"
+                                        Padding="16,16" CornerRadius="0,0,4,4"
                                         Visibility="Collapsed">
                                     <StackPanel>
-                                        <TextBlock Text="IFC Export Settings" FontWeight="SemiBold" FontSize="12.5" Foreground="#0F172A" Margin="0,0,0,12"/>
+                                        <TextBlock Text="IFC Export Settings" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource T3.Ink}" Margin="0,0,0,12"/>
                                         
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                            <TextBlock Text="IFC Version:" VerticalAlignment="Center" Foreground="#64748B" Margin="0,0,10,0"/>
-                                            <ComboBox x:Name="ifc_version" Height="32" SelectedIndex="1" Style="{StaticResource T3ComboBoxSmall}" Width="160">
+                                            <TextBlock Text="IFC Version:" VerticalAlignment="Center" Foreground="{StaticResource T3.TextSecondary}" Margin="0,0,8,0"/>
+                                            <ComboBox x:Name="ifc_version" Height="32" SelectedIndex="1" Style="{StaticResource T3.ComboBox}" Width="160">
                                                 <ComboBoxItem Content="IFC 2x2"/>
                                                 <ComboBoxItem Content="IFC 2x3"/>
                                                 <ComboBoxItem Content="IFC 4"/>
@@ -1782,17 +1376,17 @@
                                         </StackPanel>
                                         
                                         <TextBlock Text="Note: IFC exports the entire Revit model — one .ifc file regardless of sheet/view selection."
-                                                   FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                                                   FontSize="11" Foreground="{StaticResource T3.TextSecondary}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
                         </Border>
 
                         <!-- ═══ IMG ═══ -->
-                        <Border x:Name="img_panel_border" BorderBrush="#E2E8F0" BorderThickness="1"
-                                CornerRadius="4" Margin="0,0,0,6">
+                        <Border x:Name="img_panel_border" BorderBrush="{StaticResource T3.Border}" BorderThickness="1"
+                                CornerRadius="4" Margin="0,0,0,4">
                             <StackPanel>
-                                <Border Background="#F8FAFC" CornerRadius="4,4,0,0" Cursor="Hand"
+                                <Border Background="{StaticResource T3.SurfaceSunken}" CornerRadius="4,4,0,0" Cursor="Hand"
                                         MouseLeftButtonUp="img_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -1801,19 +1395,19 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_img" Grid.Column="0"
-                                                  Content="IMG" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
+                                                  Content="IMG" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource T3.Ink}"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Grid.Column="1" Text="PNG / JPEG Image"
-                                                   FontSize="11" Foreground="#64748B"
+                                                   FontSize="11" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                                         <TextBlock x:Name="img_expand_arrow" Grid.Column="2"
-                                                   Text="▾" FontSize="12" Foreground="#64748B"
+                                                   Text="▾" FontSize="13" Foreground="{StaticResource T3.TextSecondary}"
                                                    VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="img_settings_body" Background="White"
-                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-                                        Padding="20,16" CornerRadius="0,0,4,4"
+                                        BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,0"
+                                        Padding="16,16" CornerRadius="0,0,4,4"
                                         Visibility="Collapsed">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -1824,32 +1418,32 @@
 
                                         <!-- Left Column: Sizing & File Mode -->
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="Image Sizing" FontWeight="SemiBold" FontSize="12.5" Foreground="#0F172A" Margin="0,0,0,12"/>
+                                            <TextBlock Text="Image Sizing" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource T3.Ink}" Margin="0,0,0,12"/>
                                             
                                             <!-- Fit to pixels option -->
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                                 <RadioButton x:Name="img_fit_to_page" Content="Fit to" GroupName="imgSize"
                                                              IsChecked="True" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                                 <TextBox x:Name="img_fit_pixels" Text="1080" Width="60" Height="32"
-                                                         Style="{StaticResource T3InputFieldSmall}" Margin="0,0,5,0" VerticalContentAlignment="Center"/>
-                                                <TextBlock Text="pixels" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="#64748B"/>
+                                                         Style="{StaticResource T3.TextBox}" Margin="0,0,4,0" VerticalContentAlignment="Center"/>
+                                                <TextBlock Text="pixels" VerticalAlignment="Center" Margin="0,0,16,0" Foreground="{StaticResource T3.TextSecondary}"/>
                                                 
-                                                <TextBlock Text="Dir:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#64748B"/>
+                                                <TextBlock Text="Dir:" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="{StaticResource T3.TextSecondary}"/>
                                                 <RadioButton x:Name="img_dir_horizontal" Content="H" GroupName="imgDirection"
                                                              IsChecked="True" Margin="0,0,8,0" ToolTip="Horizontal"/>
                                                 <RadioButton x:Name="img_dir_vertical" Content="V" GroupName="imgDirection" ToolTip="Vertical"/>
                                             </StackPanel>
                                             
                                             <!-- Zoom to percent option -->
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,22">
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,24">
                                                 <RadioButton x:Name="img_zoom_to" Content="Zoom to" GroupName="imgSize"
                                                              Margin="0,0,8,0" VerticalAlignment="Center"/>
                                                 <TextBox x:Name="img_zoom_percent" Text="50" Width="55" Height="32"
-                                                         Style="{StaticResource T3InputFieldSmall}" Margin="0,0,5,0" VerticalContentAlignment="Center"/>
-                                                <TextBlock Text="% of actual size" VerticalAlignment="Center" Foreground="#64748B"/>
+                                                         Style="{StaticResource T3.TextBox}" Margin="0,0,4,0" VerticalContentAlignment="Center"/>
+                                                <TextBlock Text="% of actual size" VerticalAlignment="Center" Foreground="{StaticResource T3.TextSecondary}"/>
                                             </StackPanel>
 
-                                            <TextBlock Text="File Options" FontWeight="SemiBold" FontSize="12.5" Foreground="#0F172A" Margin="0,0,0,12"/>
+                                            <TextBlock Text="File Options" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource T3.Ink}" Margin="0,0,0,12"/>
                                             <RadioButton x:Name="img_separate_files" Content="Create separate images" GroupName="imgFile"
                                                          IsChecked="True" Margin="0,4"/>
                                             <RadioButton x:Name="img_combined_html" Content="Combine into single HTML file" GroupName="imgFile"
@@ -1857,26 +1451,26 @@
                                         </StackPanel>
 
                                         <!-- Vertical Separator -->
-                                        <Border Grid.Column="1" Width="1" Background="#E2E8F0" HorizontalAlignment="Center" Margin="5,0"/>
+                                        <Border Grid.Column="1" Width="1" Background="{StaticResource T3.Border}" HorizontalAlignment="Center" Margin="4,0"/>
 
                                         <!-- Right Column: Format & Quality -->
                                         <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Format &amp; Quality" FontWeight="SemiBold" FontSize="12.5" Foreground="#0F172A" Margin="0,0,0,12"/>
+                                            <TextBlock Text="Format &amp; Quality" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource T3.Ink}" Margin="0,0,0,12"/>
                                             
-                                            <TextBlock Text="Shaded Views Format" FontSize="11" Foreground="#64748B" Margin="0,0,0,5"/>
-                                            <ComboBox x:Name="img_shaded_format" Height="32" SelectedIndex="0" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,12" HorizontalAlignment="Stretch">
+                                            <TextBlock Text="Shaded Views Format" FontSize="11" Foreground="{StaticResource T3.TextSecondary}" Margin="0,0,0,4"/>
+                                            <ComboBox x:Name="img_shaded_format" Height="32" SelectedIndex="0" Style="{StaticResource T3.ComboBox}" Margin="0,0,0,12" HorizontalAlignment="Stretch">
                                                 <ComboBoxItem Content="PNG"/>
                                                 <ComboBoxItem Content="JPEG"/>
                                             </ComboBox>
                                             
-                                            <TextBlock Text="Non-Shaded Views Format" FontSize="11" Foreground="#64748B" Margin="0,0,0,5"/>
-                                            <ComboBox x:Name="img_nonshaded_format" Height="32" SelectedIndex="0" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,12" HorizontalAlignment="Stretch">
+                                            <TextBlock Text="Non-Shaded Views Format" FontSize="11" Foreground="{StaticResource T3.TextSecondary}" Margin="0,0,0,4"/>
+                                            <ComboBox x:Name="img_nonshaded_format" Height="32" SelectedIndex="0" Style="{StaticResource T3.ComboBox}" Margin="0,0,0,12" HorizontalAlignment="Stretch">
                                                 <ComboBoxItem Content="PNG"/>
                                                 <ComboBoxItem Content="JPEG"/>
                                             </ComboBox>
                                             
-                                            <TextBlock Text="Raster Quality" FontSize="11" Foreground="#64748B" Margin="0,0,0,5"/>
-                                            <ComboBox x:Name="img_dpi" Height="32" SelectedIndex="2" Style="{StaticResource T3ComboBoxSmall}" HorizontalAlignment="Stretch">
+                                            <TextBlock Text="Raster Quality" FontSize="11" Foreground="{StaticResource T3.TextSecondary}" Margin="0,0,0,4"/>
+                                            <ComboBox x:Name="img_dpi" Height="32" SelectedIndex="2" Style="{StaticResource T3.ComboBox}" HorizontalAlignment="Stretch">
                                                 <ComboBoxItem Content="72 DPI"/><ComboBoxItem Content="96 DPI"/>
                                                 <ComboBoxItem Content="150 DPI"/><ComboBoxItem Content="300 DPI"/>
                                                 <ComboBoxItem Content="600 DPI"/>
@@ -1894,15 +1488,15 @@
             <!-- Queue Tab -->
             <!-- Queue + Settings (combined) -->
             <TabItem Header="Queue" Style="{StaticResource TabItemStyle}">
-                <Grid Margin="10">
+                <Grid Margin="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
                     <!-- ── SETTINGS CARD ── -->
-                    <Border Grid.Row="0" BorderBrush="#E2E8F0" BorderThickness="1"
-                            Padding="12,10" Background="#F8FAFC" CornerRadius="3" Margin="0,0,0,10">
+                    <Border Grid.Row="0" BorderBrush="{StaticResource T3.Border}" BorderThickness="1"
+                            Padding="12,8" Background="{StaticResource T3.SurfaceSunken}" CornerRadius="4" Margin="0,0,0,8">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -1917,11 +1511,11 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Output Folder:" VerticalAlignment="Center"
-                                           FontWeight="Medium" FontSize="12"/>
+                                           FontWeight="Medium" FontSize="13"/>
                                 <TextBox x:Name="output_folder" Grid.Column="1" Height="32"
-                                         Style="{StaticResource T3InputFieldSmall}" Margin="5,0"/>
-                                <Button Grid.Column="2" Content="Browse" Height="28" Padding="12,4" FontSize="12"
-                                        Style="{StaticResource SecondaryButton}" Click="browse_output_folder"/>
+                                         Style="{StaticResource T3.TextBox}" Margin="4,0"/>
+                                <Button Grid.Column="2" Content="Browse" Height="28" Padding="12,4" FontSize="13"
+                                        Style="{StaticResource T3.Button.Secondary}" Click="browse_output_folder"/>
                             </Grid>
 
                             <!-- Organize + Reverse on one row -->
@@ -1934,7 +1528,7 @@
                                 </Grid.ColumnDefinitions>
 
                                 <TextBlock Grid.Column="0" Text="Organize:" VerticalAlignment="Center"
-                                           FontWeight="Medium" FontSize="12" Margin="0,0,8,0"/>
+                                           FontWeight="Medium" FontSize="13" Margin="0,0,8,0"/>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                     <RadioButton x:Name="save_same_folder" Content="Same folder"
                                                  GroupName="organization" IsChecked="True" Margin="0,0,12,0"/>
@@ -1957,10 +1551,10 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Text="Export Queue" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Grid.Row="0" Text="Export Queue" Style="{StaticResource T3.Label}"/>
 
-                        <Border Grid.Row="1" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,5" CornerRadius="3">
-                            <ListView x:Name="export_preview_list"
+                        <Border Grid.Row="1" BorderBrush="{StaticResource T3.Border}" BorderThickness="1" Margin="0,4" CornerRadius="4">
+                            <ListView VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Disabled" x:Name="export_preview_list"
                                       ScrollViewer.VerticalScrollBarVisibility="Auto">
                                 <ListView.View>
                                     <GridView>
@@ -1982,8 +1576,8 @@
                                                             <RowDefinition Height="Auto"/>
                                                             <RowDefinition Height="Auto"/>
                                                         </Grid.RowDefinitions>
-                                                        <ProgressBar Grid.Row="0" Value="{Binding Progress}" Height="8" Minimum="0" Maximum="100" Margin="0,0,0,4" Style="{StaticResource QueueProgressBarStyle}"/>
-                                                        <TextBlock Grid.Row="1" Text="{Binding Status}" FontSize="11" Foreground="#10B981" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,2,0,0">
+                                                        <ProgressBar Grid.Row="0" Value="{Binding Progress}" Height="8" Minimum="0" Maximum="100" Margin="0,0,0,4" Style="{StaticResource T3.ProgressBar}"/>
+                                                        <TextBlock Grid.Row="1" Text="{Binding Status}" FontSize="11" Foreground="{StaticResource T3.Success.Accent}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,0">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
                                                                     <Style.Triggers>
@@ -2005,25 +1599,25 @@
 
                         <StackPanel Grid.Row="2" Margin="0,8,0,0">
                             <!-- Status row: label left, percentage right (UIStandardShowcase pattern) -->
-                            <Grid Margin="0,0,0,6">
+                            <Grid Margin="0,0,0,4">
                                 <TextBlock x:Name="progress_text"
                                            Text="Ready to export"
-                                           FontSize="12" Foreground="#64748B"
+                                           FontSize="13" Foreground="{StaticResource T3.TextSecondary}"
                                            VerticalAlignment="Center"/>
                                 <TextBlock x:Name="progress_percent"
                                            Text=""
                                            HorizontalAlignment="Right"
-                                           FontSize="12" FontWeight="SemiBold"
-                                           Foreground="#C2410C"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{StaticResource T3.Progress.Fill}"
                                            VerticalAlignment="Center"/>
                             </Grid>
                             <ProgressBar x:Name="overall_progress"
                                          Height="8" Minimum="0" Maximum="100" Value="0">
                                 <ProgressBar.Style>
-                                    <Style TargetType="ProgressBar" BasedOn="{StaticResource T3ProgressBar}">
+                                    <Style TargetType="ProgressBar" BasedOn="{StaticResource T3.ProgressBar}">
                                         <Style.Triggers>
                                             <Trigger Property="Value" Value="100">
-                                                <Setter Property="Foreground" Value="#10B981"/>
+                                                <Setter Property="Foreground" Value="{StaticResource T3.Success.Accent}"/>
                                             </Trigger>
                                         </Style.Triggers>
                                     </Style>
@@ -2040,7 +1634,7 @@
             <!-- ROW 2 / COL 1: FOOTER / ACTION BAR                          -->
             <!-- ════════════════════════════════════════════════════════════ -->
             <Border Grid.Row="2" Grid.Column="1"
-                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
+                    Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,0" Padding="16,16">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -2049,10 +1643,10 @@
 
                     <!-- Left: copyright + status -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
-                        <Border Width="1" Height="14" Background="#DCDCE0" VerticalAlignment="Center" Margin="12,0,12,0"/>
+                        <TextBlock Style="{StaticResource T3.Copyright}"/>
+                        <Border Width="1" Height="14" Background="{StaticResource T3.Border}" VerticalAlignment="Center" Margin="12,0,12,0"/>
                         <TextBlock x:Name="status_text"
-                                   Text="Ready | 0 sheets | Revit" FontSize="12.5" Foreground="#71717A"
+                                   Text="Ready | 0 sheets | Revit" FontSize="12.5" Foreground="{StaticResource T3.TextMuted}"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
 
@@ -2060,19 +1654,20 @@
                     <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <Button x:Name="back_button"
                                 Content="Back"
-                                Style="{StaticResource SecondaryButton}"
+                                Style="{StaticResource T3.Button.Secondary}"
                                 Click="go_back"
-                                Margin="0,0,10,0"
+                                Margin="0,0,8,0"
                                 Width="100"
                                 Visibility="Collapsed"/>
 
                         <Button x:Name="next_button"
-                                Style="{StaticResource SuccessButton}"
+                                Style="{StaticResource T3.Button.Primary}"
                                 Click="go_next"
+                                IsDefault="True"
                                 Width="100">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                 <TextBlock x:Name="next_button_text" Text="Next" FontWeight="Medium"/>
-                                <TextBlock x:Name="next_button_icon" Text="→" FontFamily="Hanken Grotesk" FontWeight="Medium" Margin="5,0,0,0"/>
+                                <TextBlock x:Name="next_button_icon" Text="→" FontFamily="Segoe UI" FontWeight="Medium" Margin="4,0,0,0"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>

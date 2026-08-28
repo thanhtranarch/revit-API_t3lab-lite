@@ -19,6 +19,7 @@ Màu: `T3.Ink #18181B` · `T3.Text #27272A` · `T3.TextSecondary #52525B` · `T3
 Status (Fill / Accent / Text): Success `#EAF8F0 #22A85C #157038` · Warning `#FFF6E6 #F5CE5A #8A6308`
 · Danger `#FDECEC #F87171 #D23B3B` · Progress track `#ECECEF`, fill `#C2410C`.
 Cam `#C2410C` CHỈ dùng cho progress / trạng thái đang chạy. Không dùng làm button, border, brand.
+Amber `T3.Copyright #F59E0B` CHỈ dùng cho dòng copyright ở footer — xem luật 11.
 
 Type — Segoe UI, đúng 7 size: Display 19 SemiBold · Title 15 SemiBold · Body 13 Regular
 · BodyStrong 13 SemiBold · Caption 11.5 · Label 11 SemiBold uppercase · Mono 12.5 Consolas.
@@ -41,6 +42,16 @@ Kích thước cửa sổ: S 420×260–320 (NoResize) · M 560×420–560 · L 
    trên Window. Luôn có MinWidth/MinHeight. Không set Height cho TextBlock. Không fix Width cho text dịch.
 9. Mọi window có `IsDefault` và `IsCancel`. Focus = viền 1px `T3.Ink`, không dùng dotted rectangle.
 10. Mọi list/grid có empty state: TextBlock canh giữa, `T3.TextDisabled`, nói thiếu gì và làm gì tiếp.
+11. **Copyright BẮT BUỘC.** Mọi cửa sổ tool có ĐÚNG MỘT dòng `© Copyright by T3Lab`,
+    dùng `{StaticResource T3.Copyright}`, đặt ở footer **sát trái**, đứng trước câu
+    trạng thái và cách nó bằng một `Border` dọc 1×14 `T3.Border`, margin `12,0`.
+    Ký tự `©` phải là ký tự thật — không dùng `&#169;`. Không right-align, không
+    canh giữa, không thả nổi đè lên nội dung, không lặp lại.
+    Miễn trừ duy nhất: XAML item-template (root là `<Border>`/`<DataTemplate>` của một
+    dòng list, không phải cửa sổ) — copyright thuộc về cửa sổ chứa nó.
+12. **Ngôn ngữ UI là TIẾNG ANH.** Mọi chữ người dùng đọc — label, nút, header, tooltip,
+    empty state, thông báo lỗi/cảnh báo/thành công — viết bằng tiếng Anh, không ngoại lệ.
+    Comment trong XAML/code và tài liệu nội bộ thì không bị ràng buộc.
 
 ## 5 pattern — mọi tool phải là một trong số này
 - **P1 Parameter input form** (M) — form một cột, Expander cho Advanced, callout hệ quả có số lượng trên footer.
@@ -55,6 +66,7 @@ Kích thước cửa sổ: S 420×260–320 (NoResize) · M 560×420–560 · L 
 
 ## Checklist review (dán vào PR)
 Merge `T3Lab.Styles.xaml`, không tự định nghĩa brush · đúng một trong P1–P5 · size S/M/L
+· có đúng một dòng copyright ở footer trái · mọi chữ hiển thị là tiếng Anh
 · Segoe UI 13, không size lạ · margin chia hết 4 · đúng một primary, ngoài cùng phải
 · có `IsDefault` + `IsCancel` · grid một cột `*`, tắt scroll ngang · có empty state
 · chụp màn hình 100% và 125% không cắt chữ · thao tác phá huỷ có P5 · status không bao giờ chỉ bằng màu.

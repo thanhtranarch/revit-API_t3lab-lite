@@ -42,7 +42,7 @@ không hardcode màu, size, margin. Logic Revit dùng lại được thì đẩy
 
 ---
 
-## 2 · XAML — 12 luật, `audit_t3.py` kiểm tra tự động
+## 2 · XAML — 14 luật, `audit_t3.py` kiểm tra tự động
 
 | # | Luật | Vi phạm |
 |---|------|---------|
@@ -58,6 +58,8 @@ không hardcode màu, size, margin. Logic Revit dùng lại được thì đẩy
 | 10 | Mọi list/grid: `HorizontalScrollBarVisibility="Disabled"`; DataGrid thêm `EnableRowVirtualization="True"` | P1/P2 |
 | 11 | **Không bọc** `DataGrid`/`ListBox`/`ListView` trong `ScrollViewer` | **P0** |
 | 12 | Có empty state (`T3.Empty`) cho mọi list/grid | P2 |
+| 13 | **Copyright BẮT BUỘC**: đúng MỘT `<TextBlock Style="{StaticResource T3.Copyright}"/>` ở footer, sát trái, trước câu trạng thái | P2 |
+| 14 | **Mọi chữ hiển thị phải là TIẾNG ANH** — `Text` · `Content` · `Header` · `ToolTip` · empty state · thông báo lỗi | P2 |
 
 Thêm hai thứ `audit_t3.py` cũng bắt: `<Grid.RowDefinition/>` dot-notation (**P0**,
 crash `EMPTYPROPERTYELEMENT` lúc mở tool) và mọi `Effect` (P2).
@@ -80,13 +82,14 @@ crash `EMPTYPROPERTYELEMENT` lúc mở tool) và mọi `Effect` (P2).
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Window.Resources>
-  <!-- nội dung: xem .claude/skills/xaml-templates.md -->
+  <!-- nội dung + footer có copyright: xem .claude/skills/xaml-templates.md -->
 </Window>
 ```
 
-> Đường dẫn `Source` phụ thuộc vị trí deploy của `T3Lab.Styles.xaml`, **chưa chốt** —
-> xem `GAP #1` trong `docs/ui-governance/PRIORITY_QUEUE.md`. Chưa chốt thì chưa
-> merge được stylesheet lúc runtime.
+> `Source="../Resources/T3Lab.Styles.xaml"` là **bản deploy** trong extension, sinh ra
+> bằng `python3 dev/sync_t3_styles.py` từ nguồn `pyRevit UI Design System/T3Lab.Styles.xaml`.
+> Sửa stylesheet thì sửa ở **nguồn**, rồi chạy sync — đừng sửa bản deploy.
+> `dev/sync_t3_styles.py --check` báo lệch.
 
 ---
 
@@ -144,7 +147,8 @@ if __name__ == '__main__':
 - Error message nói đủ ba phần: **cái gì sai · ở đâu · làm gì tiếp**. Không mã lỗi trần.
 - Warning và success luôn kèm **số lượng**: "Đã đổi tên 34 sheet", không phải "Xong".
 - Status **không bao giờ chỉ bằng màu** — chấm màu phải đi kèm chữ (`ok` / `skipped` / `failed`).
-- Một tool dùng **một** ngôn ngữ, một giọng văn. Không trộn VI/EN trong cùng cửa sổ.
+- **Ngôn ngữ UI là TIẾNG ANH**, không ngoại lệ — kể cả tool chỉ người Việt dùng.
+  Comment trong code và tài liệu thì tiếng Việt vẫn được.
 - Thuật ngữ Revit giữ nguyên tiếng Anh: View Template, Workset, Sheet, Family.
 
 ---
@@ -160,6 +164,8 @@ if __name__ == '__main__':
 [ ] Edge case (không chọn gì / model rỗng / bấm Cancel) ra câu tiếng người
 [ ] Đọc được ở 100% VÀ 125% display scaling, không cắt chữ
 [ ] Thao tác phá huỷ có P5 confirm, nút đỏ KHÔNG phải IsDefault
+[ ] Footer có đúng một dòng © Copyright by T3Lab, sát trái
+[ ] Không còn chữ tiếng Việt nào hiển thị cho người dùng
 ```
 
 Bốn dòng cuối cần Revit thật. Chưa test thì ghi `NEEDS VERIFICATION`, **không tick**.

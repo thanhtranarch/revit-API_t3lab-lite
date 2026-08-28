@@ -5,7 +5,10 @@ Framework: IronPython 2.7 + WPF + Revit API
 
 ## Rules
 - **UI standard — one source, no exceptions:** `pyRevit UI Design System/T3LAB_UI_STANDARD.md` + `pyRevit UI Design System/T3Lab.Styles.xaml`. Read both before any UI work. Every colour, size, margin and control style comes from `{StaticResource T3.*}`; a tool XAML never defines its own brush, style or hex.
-- **Every new tool/script follows `.claude/rules/new-tool-standard.md`** — file layout, the 12 XAML rules, the `script.py` frame, and the pre-commit checklist.
+- **Every new tool/script follows `.claude/rules/new-tool-standard.md`** — file layout, the 14 XAML rules, the `script.py` frame, and the pre-commit checklist.
+- **All user-facing UI text is ENGLISH.** Labels, buttons, headers, tooltips, empty states, error/warning/success messages — no exceptions. Code comments and internal docs may stay Vietnamese.
+- **Copyright is mandatory:** exactly one `<TextBlock Style="{StaticResource T3.Copyright}"/>` in every tool window footer, left-most, before the status line. Only item-template XAMLs are exempt.
+- The runtime stylesheet is `T3Lab.extension/lib/GUI/Resources/T3Lab.Styles.xaml`, generated from the reference copy by `python3 dev/sync_t3_styles.py` (`--check` to verify). Edit the reference in `pyRevit UI Design System/`, never the deployed copy.
 - **The old standards are dead and their files are gone** (2026-08-28). Lumina, Revit-native, Terra v2 and Kinetix are no longer binding; `.claude/rules/ui-design-standard.md`, `.claude/standard/UIStandardShowcase.xaml`, `.claude/docs/wpf-window-templates.md`, `dev/audit_ui.py` and `dev/sync_wpf_styles.py` were deleted with the cleanup — recover them from git history if you ever need the old wording. `lib/GUI/Resources/WPF_styles.xaml` and the `T3LAB SHARED STYLES` block inside the 51 unmigrated XAMLs are frozen legacy: no longer synced, and they disappear file by file as migration proceeds.
 - Migration is governed by `docs/ui-governance/08-design-system-authority.md` — read it before editing any XAML. Full migration of a file requires QA in Revit before it counts as done.
 - XAML files go in `T3Lab.extension/lib/GUI/Tools/`
@@ -42,7 +45,6 @@ The following XAML files are **UI-locked** — their visual design is finalized 
 | File | Reason |
 |------|--------|
 | `T3Lab.extension/lib/GUI/Tools/DWGManagement.xaml` | Finalized custom design — UI locked |
-| `T3Lab.extension/lib/GUI/Tools/ExportManager.xaml` | Finalized custom design (BatchOut) — UI locked |
 | `T3Lab.extension/lib/GUI/Tools/T3LabAssistant.xaml` | Chat surface, not a tool dialog — Revit's own UI greys + Revit light/dark theme instead of Lumina. See `docs/assistant-revit-ui.md` |
 
 > **T3LabAssistant.xaml — do NOT re-apply the Lumina palette.** Its colours come
@@ -53,6 +55,8 @@ The following XAML files are **UI-locked** — their visual design is finalized 
 > unchanged and still audited.
 
 **All agents** (`@ui-agent`, `@ui-governance-agent`, `@tool-builder-agent`, `@script-frame-agent`) must skip these files entirely during any UI-related task. Do not include them in bulk XAML audits — `dev/audit_t3.py` already skips them.
+
+> **Note (2026-08-28):** `ExportManager.xaml` (BatchOut) was **unlocked and migrated to T3** — tokens, Segoe UI, 7-size type scale, spacing on the 4-grid, merged stylesheet, `T3.Copyright` footer, `IsDefault`/`IsCancel`, empty state, virtualization. Its wizard chrome (sidebar rail, step circles, pill tabs, toggle, slider) has no T3 equivalent yet and is waived under DESIGN SYSTEM GAP #4 — the waiver is declared in `dev/audit_t3.py` and printed on every run. **Not verified in Revit yet.**
 
 > **Note (2026-07-20):** a Pause/Stop panel was briefly added to `ExportManager.xaml` for a chunked BatchOut export, then **reverted** — the chunked ExternalEvent re-queue crashed Revit mid-export. Both `ExportManager.xaml` and `BatchOut.pushbutton/script.py` are back at their pre-refactor state (commit `984eef0`) and remain UI-locked. Do not re-attempt BatchOut pause without a Revit-tested design — see the notes in the progress/pause rollout memory.
 
@@ -88,6 +92,7 @@ Agent definitions: `.claude/agents/`
 | All XAML files | `T3Lab.extension/lib/GUI/Tools/` |
 | **Rule for every new tool** | `.claude/rules/new-tool-standard.md` |
 | **UI gate** | `python3 dev/audit_t3.py --quiet` (`--legacy` xem nợ migration) |
+| **Stylesheet sync** | `python3 dev/sync_t3_styles.py` (`--check`) |
 | Revit theme palette (legacy Revit-native) | `T3Lab.extension/lib/GUI/RevitTheme.py` |
 | Revit-native UI research (legacy) | `docs/revit-native-ui.md` |
 | Logo asset | `T3Lab.extension/lib/GUI/T3Lab_logo.png` |

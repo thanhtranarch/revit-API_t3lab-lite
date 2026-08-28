@@ -5,6 +5,62 @@
 
 ---
 
+## Cycle 0c — 2026-08-28 — COPYRIGHT · TIẾNG ANH · MIGRATE BATCHOUT
+
+```
+DATE:                   2026-08-28
+CYCLE:                  0c
+TOOLS AUDITED:          1 (ExportManager / BatchOut — migrate đầu tiên sang T3)
+ISSUES FOUND:           27 trên ExportManager + 2 bug trong chính audit_t3.py
+ISSUES FIXED:           15 (+2 bug gate)
+ISSUES REMAINING:       12 — hoãn có kiểm soát theo DESIGN SYSTEM GAP #4
+SCORE CHANGES:          — (chưa chấm điểm; cycle 1 sẽ chấm)
+REGRESSIONS:            —
+SYSTEM-WIDE PATTERNS:   BatchOut vốn đã dùng ~60% palette T3 — nó là tiền thân
+                        của Design System, nên migrate rẻ hơn dự kiến.
+DESIGN SYSTEM GAPS:     #1 ĐÓNG · #3 ĐÓNG · #2 vẫn mở · #4 MỚI (chrome wizard)
+NEXT PRIORITIES:        QA BatchOut trong Revit · quyết GAP #4 · Q4 quét P0 ·
+                        Q2 audit sâu 6 tool đầu
+COMMIT:                 <điền sha sau khi commit>
+```
+
+**Quyết định của user, đã áp vào chuẩn:**
+- `pyRevit UI Design System/` là **file mẫu để refer**, không phải artifact runtime →
+  GAP #1 đóng: bản deploy ở `lib/GUI/Resources/T3Lab.Styles.xaml`, sinh bằng
+  `dev/sync_t3_styles.py`.
+- **Copyright BẮT BUỘC** trong UI mọi tool → GAP #3 đóng: thêm token + style
+  `T3.Copyright`, luật 11 vào standard, luật 13 vào new-tool-standard, enforce trên
+  **mọi** file kể cả legacy. 53/53 file đạt.
+- **Toàn bộ UI phải tiếng Anh** → luật 12 vào standard, luật 14 vào new-tool-standard,
+  `audit_t3.py` dò dấu tiếng Việt trong `Text`/`Content`/`Header`/`ToolTip`.
+
+**BatchOut (`ExportManager.xaml`) — gỡ khoá và migrate sang T3:**
+gỡ bộ brush riêng 19 key → token T3 · toàn bộ hex → `{StaticResource T3.*}` ·
+Hanken Grotesk/Inter → Segoe UI · 19 FontSize về thang 7 size · 70 Margin/Padding về
+bội số 4 · bo góc window 22→8 · xoá `DropShadowEffect` · merge stylesheet deploy ·
+thay 18 style cục bộ bằng `T3.*` và xoá 10 định nghĩa · `T3.Copyright` ở footer ·
+`IsDefault`/`IsCancel` · empty state (tiếng Anh) · virtualization + tắt scroll ngang
+cho 2 `ListView`.
+
+**Kiểm chứng cấu trúc:** 136/136 `x:Name` và 53/53 event handler còn nguyên (chỉ mất
+`x:Name` nội bộ của ControlTemplate đi theo style đã thay — không tên nào được script.py
+dùng). 0 `{StaticResource}` mồ côi. XML parse sạch. Ba gate xanh.
+
+**CHƯA verify trong Revit** — xem checklist NEEDS VERIFICATION trong report.
+
+**Hai bug tự tìm thấy trong `audit_t3.py` và đã sửa:**
+1. Style `T3.Copyright` tự cấp `Text` nên file dùng style không chứa chuỗi literal →
+   check báo "thiếu copyright" nhầm. Nay đếm cả hai dạng.
+2. `Segoe MDL2 Assets` bị coi là font sai — nó là font **glyph** cho chrome cửa sổ
+   (min/max/close), mọi window tự vẽ caption đều cần. Nay được cho phép.
+
+**Cơ chế `PENDING_GAP`:** 12 vi phạm còn lại của BatchOut (26 `<Style>` cục bộ + 11
+`CornerRadius` tròn/pill) là chrome wizard mà T3 chưa có từ vựng. Khai báo trong
+`dev/audit_t3.py`, **luôn in ra** mỗi lần chạy kèm lý do, không làm đỏ gate. Hoãn thì
+được, giấu thì không.
+
+---
+
 ## Cycle 0b — 2026-08-28 — DỌN DẸP + GATE T3
 
 ```

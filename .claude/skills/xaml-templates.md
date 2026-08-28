@@ -7,6 +7,10 @@ luật cho tool mới: `.claude/rules/new-tool-standard.md`.
 Copy nguyên si. **Không sửa giá trị, không thêm hex, không định nghĩa `<Style>` trong
 file tool.** Cần style chưa có → ghi `DESIGN SYSTEM GAP`, hỏi trước.
 
+**Mọi chữ hiển thị cho người dùng phải là TIẾNG ANH** — label, nút, tooltip, empty
+state, thông báo lỗi. Ghi chú trong tài liệu này bằng tiếng Việt, nhưng chuỗi trong
+XAML thì không. `audit_t3.py` bắt lỗi này bằng cách dò dấu tiếng Việt.
+
 ---
 
 ## Khung `<Window>`
@@ -14,7 +18,7 @@ file tool.** Cần style chưa có → ghi `DESIGN SYSTEM GAP`, hỏi trước.
 ```xml
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Tên tool" Width="560" Height="420" MinWidth="560" MinHeight="420"
+        Title="Tool name" Width="560" Height="420" MinWidth="560" MinHeight="420"
         FontFamily="Segoe UI" FontSize="13"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Display"
@@ -58,9 +62,14 @@ Thứ tự cố định: ghost huỷ → secondary → secondary → **MỘT** p
     </Grid.ColumnDefinitions>
 
     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+      <!-- Copyright BẮT BUỘC — luôn là phần tử ĐẦU TIÊN, sát trái. Style tự cấp
+           chữ và màu; không tự viết Text hay Foreground. -->
+      <TextBlock Style="{StaticResource T3.Copyright}"/>
+      <Border Width="1" Height="16" Margin="12,0"
+              Background="{StaticResource T3.Border}" VerticalAlignment="Center"/>
       <Ellipse Width="6" Height="6" Margin="0,0,8,0" VerticalAlignment="Center"
                Fill="{StaticResource T3.Success.Accent}"/>
-      <TextBlock x:Name="status_text" Text="Sẵn sàng — 34 sheet được chọn"
+      <TextBlock x:Name="status_text" Text="Ready — 34 sheets selected"
                  Style="{StaticResource T3.Body.Secondary}" VerticalAlignment="Center"/>
     </StackPanel>
 
@@ -81,7 +90,7 @@ Thứ tự cố định: ghost huỷ → secondary → secondary → **MỘT** p
 
 ```xml
 <StackPanel Margin="0,0,0,12">
-  <TextBlock Text="Tiền tố" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
+  <TextBlock Text="Prefix" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
   <TextBox x:Name="tb_prefix" Style="{StaticResource T3.TextBox}"/>
 </StackPanel>
 ```
@@ -94,17 +103,17 @@ Thứ tự cố định: ghost huỷ → secondary → secondary → **MỘT** p
 <ComboBox x:Name="cb_level" Style="{StaticResource T3.ComboBox}"
           ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
 
-<CheckBox x:Name="chk_include" Content="Bao gồm sheet đã ẩn"
+<CheckBox x:Name="chk_include" Content="Include hidden sheets"
           Style="{StaticResource T3.CheckBox}"/>
 
-<RadioButton x:Name="rb_all" Content="Toàn bộ model" GroupName="scope"
+<RadioButton x:Name="rb_all" Content="Whole model" GroupName="scope"
              Style="{StaticResource T3.RadioButton}"/>
 ```
 
 ## Section — label uppercase + `Separator`, KHÔNG dùng card
 
 ```xml
-<TextBlock Text="PHẠM VI" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
+<TextBlock Text="SCOPE" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
 <Separator Style="{StaticResource T3.Rule}" Margin="0,0,0,12"/>
 ```
 
@@ -113,7 +122,7 @@ Thứ tự cố định: ghost huỷ → secondary → secondary → **MỘT** p
 ```xml
 <Border Style="{StaticResource T3.Callout.Warning}">
   <TextBlock Style="{StaticResource T3.Body}" TextWrapping="Wrap"
-             Text="12 sheet đang bị khoá bởi người khác và sẽ bị bỏ qua."/>
+             Text="12 sheets are checked out by someone else and will be skipped."/>
 </Border>
 ```
 
@@ -138,7 +147,7 @@ Bốn biến thể: `T3.Callout` (trung tính) · `.Success` · `.Warning` · `.
              SelectionMode="Extended"/>
     <TextBlock x:Name="lst_empty" Style="{StaticResource T3.Empty}"
                Visibility="Collapsed"
-               Text="Không có sheet nào khớp bộ lọc.&#x0a;Xoá bớt từ khoá để xem toàn bộ."/>
+               Text="No sheets match the filter.&#x0a;Clear the search box to see all of them."/>
   </Grid>
 </Grid>
 ```
@@ -155,11 +164,11 @@ Bốn biến thể: `T3.Callout` (trung tính) · `.Success` · `.Warning` · `.
   <DataGrid.Columns>
     <DataGridTextColumn Header="ID" Width="90" Binding="{Binding Id}"
                         ElementStyle="{StaticResource T3.Cell.Mono}"/>
-    <DataGridTextColumn Header="Tên" Width="*" Binding="{Binding Name}"/>
+    <DataGridTextColumn Header="Name" Width="*" Binding="{Binding Name}"/>
     <DataGridTextColumn Header="Category" Width="140" Binding="{Binding Category}"/>
-    <DataGridTextColumn Header="Số lượng" Width="70" Binding="{Binding Count}"
+    <DataGridTextColumn Header="Count" Width="70" Binding="{Binding Count}"
                         ElementStyle="{StaticResource T3.Cell.Number}"/>
-    <DataGridTemplateColumn Header="Trạng thái" Width="150"
+    <DataGridTemplateColumn Header="Status" Width="150"
                             CellTemplate="{StaticResource T3.StatusPill}"/>
   </DataGrid.Columns>
 </DataGrid>
@@ -177,7 +186,7 @@ không bật scroll ngang.
 ```xml
 <StackPanel>
   <TextBlock x:Name="lbl_phase" Style="{StaticResource T3.BodyStrong}"
-             Text="Đang xuất — 12 / 34"/>
+             Text="Exporting — 12 / 34"/>
   <TextBlock x:Name="lbl_item" Style="{StaticResource T3.Caption}" Margin="0,4,0,8"
              Text="A-101 — Ground Floor Plan"/>
 
@@ -194,7 +203,7 @@ không bao giờ là trạng thái.
 ## Expander — chỉ cho Advanced
 
 ```xml
-<Expander Header="Tuỳ chọn nâng cao" Style="{StaticResource T3.Expander}">
+<Expander Header="Advanced options" Style="{StaticResource T3.Expander}">
   <StackPanel Margin="0,8,0,0">…</StackPanel>
 </Expander>
 ```
@@ -204,15 +213,15 @@ không bao giờ là trạng thái.
 ```xml
 <StackPanel Margin="16">
   <TextBlock Style="{StaticResource T3.Display}" TextWrapping="Wrap"
-             Text="Xoá 34 view template?"/>
+             Text="Delete 34 view templates?"/>
   <TextBlock Style="{StaticResource T3.Body.Secondary}" Margin="0,8,0,0" TextWrapping="Wrap"
-             Text="Thao tác này không thể hoàn tác bằng Ctrl+Z sau khi đóng file."/>
+             Text="This cannot be undone with Ctrl+Z once the file is closed."/>
 </StackPanel>
 
 <!-- footer -->
 <Button Content="Cancel" IsCancel="True" IsDefault="True"
         Style="{StaticResource T3.Button.Secondary}" Margin="0,0,8,0"/>
-<Button x:Name="btn_delete" Content="Xoá 34 template"
+<Button x:Name="btn_delete" Content="Delete 34 templates"
         Style="{StaticResource T3.Button.Danger}"/>
 ```
 
@@ -226,6 +235,7 @@ không bao giờ là trạng thái.
 | Cần gì | Key |
 |--------|-----|
 | Chữ | `T3.Display` `T3.Title` `T3.Body` `T3.Body.Secondary` `T3.BodyStrong` `T3.Caption` `T3.Label` `T3.Mono` |
+| Copyright (bắt buộc) | `T3.Copyright` |
 | Empty state | `T3.Empty` |
 | Cell trong grid | `T3.Cell.Mono` `T3.Cell.Number` |
 | Nút | `T3.Button.Primary` `.Secondary` `.Ghost` `.Danger` |

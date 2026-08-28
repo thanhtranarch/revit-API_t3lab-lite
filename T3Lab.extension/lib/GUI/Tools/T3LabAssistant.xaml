@@ -1790,13 +1790,21 @@
                      "/ for skills" is already in the composer placeholder, and
                      at pane width the pair collided and ellipsised each other.
                 ── -->
-                <TextBlock x:Name="footer_disclaimer"
-                           Margin="4,4,4,0"
-                           Text="T3Lab AI can make mistakes  ·  Shift+Enter = new line"
-                           FontSize="10.5" Foreground="{DynamicResource T3ThemeFaint}"
-                           FontFamily="Hanken Grotesk"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis"/>
+                <!-- Copyright BẮT BUỘC (luật 11 của T3LAB_UI_STANDARD.md) — luôn hiện,
+                     kể cả khi pane hẹp và phần disclaimer bị thu lại. -->
+                <StackPanel Orientation="Horizontal" Margin="4,4,4,0"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="© Copyright by T3Lab"
+                               FontSize="10.5" Foreground="#F59E0B"
+                               FontFamily="Hanken Grotesk" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="footer_disclaimer"
+                               Margin="8,0,0,0"
+                               Text="·  T3Lab AI can make mistakes  ·  Shift+Enter = new line"
+                               FontSize="10.5" Foreground="{DynamicResource T3ThemeFaint}"
+                               FontFamily="Hanken Grotesk"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
 
                 <!-- ── Slash-skills popup (opens above the composer) ── -->
                 <Popup x:Name="skills_popup"
