@@ -1,31 +1,13 @@
 # PRIORITY QUEUE — hàng đợi cho cycle kế tiếp
 
-> Cập nhật cuối: 2026-08-28 (cycle 0 — bootstrap)
+> Cập nhật cuối: 2026-08-28 (cycle 0 — bootstrap + dọn dẹp)
 > Thứ tự xếp hàng theo `04-severity-and-issues.md` §4. Cycle sau vào là chạy từ trên xuống.
 
 ---
 
 ## P1 — HIGH
 
-### Q1 · Thay `dev/audit_ui.py` bằng `dev/audit_t3.py`
-
-**Vấn đề:** `dev/audit_ui.py` đang enforce chuẩn Lumina **đã bị bỏ** — nó cấm
-`FontFamily="Segoe UI"`, bắt buộc `Hanken Grotesk` ở root `<Window>`, và bắt buộc block
-`T3LAB SHARED STYLES`. Cả ba đều **ngược** với chuẩn T3. Hệ quả: file đầu tiên được
-migrate sang T3 sẽ làm script này báo fail, và gate đỏ sẽ chặn công việc đúng đắn.
-
-**Việc cần làm:** viết `dev/audit_t3.py` enforce luật T3
-(`08-design-system-authority.md` §4): Segoe UI/Consolas · 7 size · token `T3.*` không
-hex cứng · spacing chia 4 · một primary · `IsDefault`+`IsCancel` · empty state ·
-`HorizontalScrollBarVisibility="Disabled"` · một cột `*` · `UseLayoutRounding` +
-`SnapsToDevicePixels` + `TextFormattingMode` · `MinWidth`/`MinHeight` · không `Effect` ·
-không dot-notation · không `ScrollViewer` bọc list. Script cần cờ `--legacy-count` để
-đếm file chưa migrate, và **không** fail vì file legacy (chỉ fail vì file đã khai T3 mà
-sai T3).
-
-**Trạng thái:** `MANUAL REVIEW REQUIRED` — sửa gate là quyết định của user.
-**Cho tới khi làm xong:** không dùng `audit_ui.py`/`sync_wpf_styles.py --check` làm
-pass/fail; chỉ `dev/audit_tools.py --quiet` là gate thật.
+*(trống — Q1 đã xong 2026-08-28)*
 
 ---
 
@@ -61,6 +43,10 @@ grep -rlzoP '(?s)<ScrollViewer.{0,400}?<(DataGrid|ListBox|ListView)' T3Lab.exten
 Lệnh 1 tìm crash `EMPTYPROPERTYELEMENT`; lệnh 3 tìm nguyên nhân treo Revit phổ biến
 nhất (list bị bọc `ScrollViewer` → mất virtualization). Cả hai là **P0** nếu có kết quả.
 
+Vì sao vẫn cần grep dù đã có `audit_t3.py`: script chỉ soi đầy đủ file **đã khai T3**.
+51 file legacy không được soi, nên 2 lỗi P0 này phải quét thủ công cho tới khi chúng
+được migrate.
+
 ---
 
 ## DESIGN SYSTEM GAPS — chờ user duyệt
@@ -72,9 +58,13 @@ nên pyRevit không nạp được nó lúc runtime. Mọi tool migrate sang T3 
 `<ResourceDictionary Source="..."/>` trỏ tới một đường dẫn có thật trong extension.
 
 **Đề xuất:** deploy vào `T3Lab.extension/lib/GUI/Resources/T3Lab.Styles.xaml`, giữ bản
-ở `pyRevit UI Design System/` làm nguồn, và thêm bước đồng bộ (tương tự
-`dev/sync_wpf_styles.py`). Không migrate file nào trước khi gap này được chốt — nếu
-không, `Source` sẽ trỏ vào chỗ không tồn tại và tool chết lúc mở.
+ở `pyRevit UI Design System/` làm nguồn, và thêm một bước đồng bộ (`dev/sync_t3_styles.py`,
+chưa viết). Không migrate file nào trước khi gap này được chốt — nếu không, `Source` sẽ
+trỏ vào chỗ không tồn tại và tool chết lúc mở.
+
+Snippet trong `.claude/rules/new-tool-standard.md` và `.claude/skills/xaml-templates.md`
+đang dùng `Source="../Resources/T3Lab.Styles.xaml"` theo đúng đề xuất này — chốt xong
+thì hai file đó đã đúng sẵn.
 
 **Chặn:** Q3.
 
@@ -104,4 +94,23 @@ migrate, và ghi là ngoại lệ đã biết.
 
 ## Đã hoàn thành
 
-*(trống — cycle 0 chưa thực hiện việc nào)*
+### ✅ Q1 · Thay `dev/audit_ui.py` bằng `dev/audit_t3.py` — 2026-08-28
+
+`dev/audit_t3.py` enforce luật T3, chia file làm **T3-DECLARED** (soi đầy đủ, vi phạm ⇒
+`exit 1`) và **LEGACY** (chỉ đếm, không fail gate) — nên gate xanh ngay hôm nay dù
+0/51 file đạt chuẩn, và siết dần theo từng file được migrate. Cờ: `--quiet` ·
+`--legacy` · `--legacy-count` · `--file`.
+
+Đã xoá cùng đợt: `dev/audit_ui.py`, `dev/sync_wpf_styles.py`,
+`.claude/rules/ui-design-standard.md`, `.claude/standard/UIStandardShowcase.xaml`,
+`.claude/docs/wpf-window-templates.md`, `.claude/agents/ui-police-agent.md`,
+`.codex/agents/ui-police-agent.toml`, và 6 script migration one-shot
+(`fix_ui.py`, `migrate_xaml_colors.py`, `add_sidebar_nav.py`, `export_palette.py`,
+`mute_colors.js`, `refine_palette.js`).
+
+Đã thêm: `.claude/rules/new-tool-standard.md` — luật cho **mọi tool/script mới**.
+Đã viết lại theo T3: `.claude/agents/ui-agent.md`, `.claude/skills/xaml-templates.md`,
+`.codex/agents/ui-agent.toml`.
+
+**Kiểm chứng:** dựng 1 XAML cố ý sai → bắt đủ 18 vi phạm, `exit 1`; dựng 1 XAML từ
+đúng snippet trong `xaml-templates.md` → `exit 0`. Tài liệu và gate khớp nhau.

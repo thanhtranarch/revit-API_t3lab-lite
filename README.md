@@ -254,8 +254,11 @@ t3lab-revit-api/
 ### `lib/Snippets/`
 22 reusable IronPython patterns covering annotations, bounding boxes, context managers, unit conversion, element manipulation, Excel integration, filtered element collectors, filters, geometry probing, groups, host lookup, lines, graphic overrides, revisions, selection, similar-element matching, sheets, text and views.
 
+### `pyRevit UI Design System/`
+The **only** UI standard: `T3LAB_UI_STANDARD.md` (tokens, 7 type sizes, spacing, 10 layout rules, 5 patterns) and `T3Lab.Styles.xaml` (82 `T3.*` resource keys). Every new tool follows `.claude/rules/new-tool-standard.md`; `python3 dev/audit_t3.py` is the gate. The daily governance routine lives in `docs/ui-governance/`.
+
 ### `lib/GUI/Resources/WPF_styles.xaml`
-Single source of truth for all shared button styles (T3Lab Lumina design system). Propagated to every tool XAML with `python3 dev/sync_wpf_styles.py`.
+Legacy, frozen. Shared button styles of the retired Lumina system, still embedded in the 51 XAMLs not yet migrated. No longer synced — the block disappears file by file as migration proceeds.
 
 ### `checks/`
 | Script | Description |
@@ -290,10 +293,10 @@ Single source of truth for all shared button styles (T3Lab Lumina design system)
 
 | Command | Purpose |
 |---------|---------|
-| `python3 dev/sync_wpf_styles.py` | Propagate shared button styles to all tool XAML files |
-| `python3 dev/sync_wpf_styles.py --check` | Verify all tool XAML files match the master styles |
 | `python3 dev/audit_tools.py --quiet` | Audit pushbutton bundles and script structure |
-| `python3 dev/audit_ui.py --quiet` | Audit XAML files against the Lumina UI standard |
+| `python3 dev/audit_t3.py --quiet` | Audit XAML against the T3 UI standard (gate) |
+| `python3 dev/audit_t3.py --legacy` | List migration debt of the XAMLs not yet on T3 |
+| `python3 dev/audit_t3.py --file <path>` | Audit one XAML, full enforcement |
 | `python3 dev/test_<suite>.py` | Run a test suite — each is standalone, exits non-zero on failure |
 | `python3 dev/bench_assistant.py` | Benchmark assistant turn latency and token usage |
 | `python3 tools/train/validate_dataset.py` | Pre-flight the self-study corpus before a fine-tune |

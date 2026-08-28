@@ -25,9 +25,16 @@ không có chuẩn song song.
 | **Terra v2** | `#0F766E` `#115E59` `#0B4F4A` `#F6F8F8` `#E6EDEC` `#D9EBE8` `#DDE5E7` `#C7D2D4` `#15803D` `#166534` `#AEBFBC` | Như trên, ưu tiên cao hơn (chết lâu nhất) |
 | **Kinetix** | `#083D56` | Như trên |
 
-Các file luật cũ (`.claude/rules/ui-design-standard.md` và mọi mô tả Lumina trong
-agent definitions) **không được dùng làm căn cứ chấm điểm nữa**. Chúng chỉ còn giá trị
-tra cứu để *nhận dạng* code cũ.
+**Các file luật cũ đã bị XOÁ (2026-08-28):** `.claude/rules/ui-design-standard.md`,
+`.claude/standard/UIStandardShowcase.xaml`, `.claude/docs/wpf-window-templates.md`,
+`.claude/agents/ui-police-agent.md`, `dev/audit_ui.py`, `dev/sync_wpf_styles.py`, cùng
+6 script migration one-shot của chuẩn cũ. Nội dung vẫn còn trong lịch sử git nếu cần
+tra. Dấu hiệu nhận dạng legacy nay sống trong `dev/audit_t3.py` (`DEAD_PALETTE`,
+`DEAD_FONTS`) chứ không còn trong tài liệu.
+
+`lib/GUI/Resources/WPF_styles.xaml` và block `T3LAB SHARED STYLES` bên trong 51 XAML
+chưa migrate được **đóng băng**: không còn được đồng bộ, và biến mất dần theo từng file
+được migrate.
 
 ## 3 · Thứ tự thẩm quyền
 
@@ -194,18 +201,35 @@ Ba file dưới đây có thiết kế đã chốt riêng và **không thuộc p
 Liệt kê trong BASELINE với trạng thái `LOCKED`, điểm `—`, không tính vào Overall Score.
 Việc gỡ khoá là quyết định của user, không phải của routine.
 
-## 8 · Regression gate — trạng thái sau khi bỏ luật cũ
+## 8 · Regression gate
 
-| Script | Chuẩn nó gác | Còn dùng? |
-|--------|--------------|-----------|
-| `dev/audit_tools.py` | Code tĩnh (import, syntax, dead code) — trung lập với Design System | ✅ Giữ, chạy mỗi cycle |
-| `dev/audit_ui.py` | **Lumina** — cấm Segoe UI, bắt buộc Hanken Grotesk + block shared styles | ❌ **Đã lỗi thời.** Nó sẽ báo fail đúng những file đã migrate sang T3. Không dùng làm gate nữa |
-| `dev/sync_wpf_styles.py --check` | Đồng bộ block shared styles **Lumina** | ❌ Lỗi thời với file đã migrate; vẫn đúng với file legacy chưa migrate |
+| Script | Gác gì | Trạng thái |
+|--------|--------|-----------|
+| `dev/audit_tools.py --quiet` | Code tĩnh (bundle, cấu trúc script) — trung lập với Design System | ✅ Gate |
+| `dev/audit_t3.py --quiet` | **Luật T3** (§4) | ✅ Gate |
+| ~~`dev/audit_ui.py`~~ · ~~`dev/sync_wpf_styles.py`~~ | Chuẩn Lumina đã bỏ | ❌ **Đã xoá 2026-08-28** |
 
-**Việc cần làm (P1, đã nằm ở đầu `PRIORITY_QUEUE.md`):** viết `dev/audit_t3.py` enforce
-luật T3 (§4), rồi rút `audit_ui.py` + `sync_wpf_styles.py` khỏi gate khi file legacy
-cuối cùng được migrate. Cho tới lúc đó:
+### `dev/audit_t3.py` hoạt động thế nào
 
-- Chạy `audit_ui.py` để **đếm số file legacy còn lại**, không để pass/fail chặn công việc.
-- File đã migrate sang T3 mà `audit_ui.py` báo lỗi Lumina → **kết quả đúng như dự kiến**,
-  ghi vào report là *expected legacy-gate noise*, không sửa ngược lại.
+Script chia file làm hai loại, và đó là lý do gate xanh được ngay hôm nay dù 0/51 file
+đạt chuẩn:
+
+| Loại | Điều kiện | Xử lý |
+|------|-----------|-------|
+| **T3-DECLARED** | Đã merge `T3Lab.Styles.xaml` **hoặc** đã dùng `{StaticResource T3.*}` | Soi **đầy đủ**. Vi phạm ⇒ `exit 1` |
+| **LEGACY** | Chưa migrate | Chỉ **đếm** và liệt kê nợ. Không làm fail gate |
+
+Nghĩa là: file nào **khai** dùng T3 thì file đó **phải đúng** T3. Gate siết dần theo
+từng file được migrate, thay vì fail 51 file trong một đêm — một gate fail 51 file là
+gate không ai chạy.
+
+```bash
+python3 dev/audit_t3.py                 # báo cáo đầy đủ
+python3 dev/audit_t3.py --quiet         # chỉ vi phạm, exit 1 nếu có
+python3 dev/audit_t3.py --legacy        # liệt kê nợ migration từng file
+python3 dev/audit_t3.py --legacy-count  # in đúng một số: số file chưa migrate
+python3 dev/audit_t3.py --file <path>   # soi một file, luôn soi đầy đủ
+```
+
+Luật script kiểm tra tự động: xem `.claude/rules/new-tool-standard.md` §2.
+File UI-locked (§7) được bỏ qua hoàn toàn.

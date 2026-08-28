@@ -107,11 +107,6 @@ def main():
     for p, s in sorted(py_src.items()):
         for x in set(re.findall(r'["\']([\w\-. /\\]+\.xaml)["\']', s)):
             base = os.path.basename(x.replace("\\", "/"))
-            if base == "UIStandardShowcase.xaml":
-                # nằm ở .claude/standard/ — hợp lệ nhưng phụ thuộc repo checkout
-                if not os.path.exists(os.path.join(REPO, ".claude", "standard", base)):
-                    report("%s: missing %s" % (os.path.relpath(p, REPO), x), True)
-                continue
             if base not in xaml_names and "Resources" not in x:
                 if not os.path.exists(os.path.join(os.path.dirname(p), base)):
                     report("%s: XAML not found: %s" % (os.path.relpath(p, REPO), x), True)

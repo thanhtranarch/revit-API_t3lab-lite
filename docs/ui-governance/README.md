@@ -14,6 +14,8 @@ chấm điểm, chuẩn hoá, phát hiện regression, và cải thiện liên t
 | Dán prompt vào Routine của Claude | **`ROUTINE_PROMPT.md`** |
 | Hiểu agent làm gì | `../../.claude/agents/ui-governance-agent.md` |
 | Biết luật thiết kế là gì | `../../pyRevit UI Design System/T3LAB_UI_STANDARD.md` |
+| Viết một tool/script MỚI | `../../.claude/rules/new-tool-standard.md` |
+| Chạy gate UI | `python3 dev/audit_t3.py --quiet` |
 | Biết cái gì được sửa, cái gì không | `08-design-system-authority.md` |
 | Xem điểm hiện tại của từng tool | `BASELINE.md` |
 | Xem cycle sau làm gì | `PRIORITY_QUEUE.md` |
@@ -25,8 +27,13 @@ pyRevit UI Design System/           ← CHUẨN DUY NHẤT (nguồn, không sử
 ├── T3LAB_UI_STANDARD.md               luật: token, type, spacing, 10 luật bố cục, P1-P5
 └── T3Lab.Styles.xaml                  82 resource key T3.*
 
-.claude/agents/
-└── ui-governance-agent.md          ← định nghĩa agent
+.claude/
+├── rules/new-tool-standard.md      ← luật cho MỌI tool/script mới
+├── skills/xaml-templates.md           snippet T3 cho từng control
+├── agents/ui-agent.md                 agent viết XAML
+└── agents/ui-governance-agent.md   ← định nghĩa agent governance
+
+dev/audit_t3.py                     ← gate UI (--quiet / --legacy / --file)
 
 docs/ui-governance/
 ├── README.md                       ← file này
@@ -66,11 +73,10 @@ cấp hệ thống. Hết ngân sách thì đẩy phần dư vào `PRIORITY_QUEU
 | LOCKED (ngoài phạm vi) | 3 |
 | Overall Score | — (chưa tool nào được chấm) |
 
-Ba việc chặn cần user quyết trước khi migration bắt đầu — xem `PRIORITY_QUEUE.md`:
+Hai việc chặn cần user quyết trước khi migration bắt đầu — xem `PRIORITY_QUEUE.md`
+(Q1 — thay gate bằng `dev/audit_t3.py` — đã xong 2026-08-28):
 
 1. **GAP #1** — `T3Lab.Styles.xaml` nằm ngoài `T3Lab.extension/` nên pyRevit không nạp
    được lúc runtime. Chưa chốt vị trí deploy thì chưa migrate được file nào.
-2. **Q1** — `dev/audit_ui.py` đang gác chuẩn Lumina đã bỏ; nó sẽ báo fail đúng những
-   file được migrate cho đúng. Cần thay bằng `dev/audit_t3.py`.
-3. **GAP #3** — dòng copyright `© Copyright by T3Lab` có ở cả 54 file nhưng không có
+2. **GAP #3** — dòng copyright `© Copyright by T3Lab` có ở cả 54 file nhưng không có
    trong chuẩn T3. Giữ hay bỏ?

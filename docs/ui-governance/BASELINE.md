@@ -14,7 +14,7 @@
 | Đạt chuẩn T3 | **0** |
 | Còn LEGACY | **51** |
 | LOCKED (ngoài phạm vi) | 3 |
-| Gate `dev/audit_tools.py` | chưa chạy trong cycle này |
+| Gate `dev/audit_tools.py` · `dev/audit_t3.py` | cả hai xanh (2026-08-28) |
 
 **Chú thích cột** — xem `06-baseline-tracking.md` §1.
 `State`: `T3` đạt chuẩn · `LEGACY` chưa migrate · `LOCKED` ngoài phạm vi routine.

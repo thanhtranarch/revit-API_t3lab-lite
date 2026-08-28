@@ -12,7 +12,7 @@ Không đánh giá, không sửa ở bước này.
 | Tool / pushbutton | `T3Lab.extension/T3Lab.tab/*.panel/**/script.py` | 42 script, 7 panel |
 | UI window (XAML) | `T3Lab.extension/lib/GUI/Tools/*.xaml` | 54 file |
 | Python dialog class | `T3Lab.extension/lib/GUI/*.py` | `*Dialog.py`, `WPF_Base.py`, `forms.py` |
-| Shared UI component | `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml` | master Lumina |
+| Shared UI component | `pyRevit UI Design System/T3Lab.Styles.xaml` | 82 key `T3.*` — nguồn duy nhất |
 | Design System | `pyRevit UI Design System/` | chuẩn cao nhất |
 | Helper / snippet | `T3Lab.extension/lib/Snippets/` | message box, progress, validation |
 | Icon / ảnh | `T3Lab.extension/**/*.png`, `draft_icons/` | kích thước & độ tương phản |
@@ -38,19 +38,17 @@ git diff --name-only <SHA>..HEAD -- T3Lab.extension/ 'pyRevit UI Design System/'
 # Tool mới chưa có trong BASELINE.md
 ls T3Lab.extension/lib/GUI/Tools/*.xaml | xargs -n1 basename
 
-# Gate code tĩnh — chạy TRƯỚC khi sửa gì, để biết trạng thái nền
-python3 dev/audit_tools.py --quiet
+# Hai gate — chạy TRƯỚC khi sửa gì, để biết trạng thái nền
+python3 dev/audit_tools.py --quiet     # code tĩnh
+python3 dev/audit_t3.py --quiet        # luật T3 (chỉ soi file đã khai T3)
 
-# Đếm legacy còn lại (KHÔNG dùng làm pass/fail — nó gác chuẩn Lumina đã bỏ)
-python3 dev/audit_ui.py            # chỉ đọc số, bỏ qua exit code
+# Đếm nợ migration
+python3 dev/audit_t3.py --legacy-count  # in đúng một số
+python3 dev/audit_t3.py --legacy        # liệt kê nợ từng file
 ```
 
-> `dev/audit_ui.py` và `dev/sync_wpf_styles.py` gác chuẩn **Lumina đã bị bỏ**. Chúng
-> sẽ báo fail đúng những file vừa migrate sang T3 — đó là kết quả mong đợi, không phải
-> lỗi. Xem `08-design-system-authority.md` §8.
-
-> Nếu `audit_tools.py` đã **đỏ sẵn từ trước** khi bạn chưa sửa gì: ghi rõ trong report
-> là pre-existing, đừng nhận là do cycle này gây ra, và đưa lên đầu queue.
+> Nếu một gate đã **đỏ sẵn từ trước** khi bạn chưa sửa gì: ghi rõ trong report là
+> pre-existing, đừng nhận là do cycle này gây ra, và đưa lên đầu queue.
 
 ## 3 · Phân loại mỗi file
 
@@ -88,7 +86,7 @@ SCAN — cycle N
 Tổng: 54 XAML  →  T3-compliant 0 · legacy 51 · LOCKED 3
 Thay đổi từ cycle trước: 3 file  (AutoDimension.xaml, ManaSheets.xaml, TagChecker.xaml)
 Tool mới: 0
-Gate nền: audit_tools ✅   (audit_ui/sync_wpf_styles = legacy, chỉ đếm)
+Gate nền: audit_tools ✅ · audit_t3 ✅ (0 file khai T3 nên chưa soi ai)
 Chọn audit sâu cycle này (6): AutoDimension, ManaSheets, TagChecker,
                               PointCloud (score 64), SplitElements (score 68),
                               RibbonNames (chưa audit từ 2026-07-05)

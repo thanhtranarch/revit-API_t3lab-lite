@@ -29,7 +29,12 @@ Không làm việc bằng trí nhớ từ cycle trước — nội dung file có
 
   3. docs/ui-governance/08-design-system-authority.md
      → Thẩm quyền, danh sách hệ UI đã bị bỏ, luật migration, file UI-locked,
-       trạng thái regression gate. ĐỌC TRƯỚC KHI SỬA BẤT KỲ XAML NÀO.
+       cách audit_t3.py hoạt động. ĐỌC TRƯỚC KHI SỬA BẤT KỲ XAML NÀO.
+
+  3b. .claude/rules/new-tool-standard.md
+     → Luật cho MỌI tool/script mới: bố cục file, 12 luật XAML, khung
+       script.py, checklist trước khi commit. Dùng khi cycle tạo file mới
+       hoặc migrate một file sang T3.
 
   4. docs/ui-governance/01-scan.md → 07-report-template.md
      → Quy trình chi tiết từng bước của cycle.
@@ -38,12 +43,12 @@ Không làm việc bằng trí nhớ từ cycle trước — nội dung file có
   6. docs/ui-governance/PRIORITY_QUEUE.md → việc đã xếp hàng cho cycle này
   7. docs/ui-governance/CHANGELOG.md     → cycle gần nhất đã làm gì
 
-LUẬT CŨ ĐÃ BỊ BỎ. Các file sau KHÔNG còn là căn cứ chấm điểm, chỉ dùng để
-NHẬN DẠNG code cũ cần migrate:
-  - .claude/rules/ui-design-standard.md        (Lumina / Revit-native)
-  - .claude/standard/UIStandardShowcase.xaml   (showcase của chuẩn cũ)
-  - T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml (shared styles Lumina)
-  - Mọi mô tả Lumina trong .claude/agents/*.md
+LUẬT CŨ ĐÃ BỊ BỎ VÀ CÁC FILE LUẬT CŨ ĐÃ BỊ XOÁ (2026-08-28):
+ui-design-standard.md, UIStandardShowcase.xaml, wpf-window-templates.md,
+ui-police-agent, audit_ui.py, sync_wpf_styles.py. Còn trong lịch sử git.
+Thứ duy nhất còn lại của chuẩn cũ trong cây làm việc:
+  - T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml  (đóng băng)
+  - block "T3LAB SHARED STYLES" trong 51 XAML chưa migrate (đóng băng)
 Gặp Hanken Grotesk, Inter, Manrope, #0F172A, #3B82F6, #E2E8F0, #64748B,
 #0F766E, #083D56, T3Theme*, hay block "T3LAB SHARED STYLES" → đó là LEGACY
 DEBT cần migrate, KHÔNG phải chuẩn để tuân theo.
@@ -66,8 +71,9 @@ SCAN → AUDIT → SCORE → IDENTIFY → PRIORITIZE
      → IMPROVE → VERIFY → COMPARE → LOG → REPORT
 
   SCAN      (01-scan.md)   Kiểm kê; git diff từ cycle trước; chọn 5-8 tool
-                           audit sâu; chạy `python3 dev/audit_tools.py --quiet`
-                           lấy trạng thái nền.
+                           audit sâu; chạy 2 gate lấy trạng thái nền:
+                           `python3 dev/audit_tools.py --quiet` và
+                           `python3 dev/audit_t3.py --quiet`.
   AUDIT     (02)           Soi 7 nhóm A-G cho từng tool đã chọn.
   SCORE     (03)           Chấm 0-100 theo 8 category + trần điểm cứng.
   IDENTIFY  (04)           Mỗi lỗi = 1 issue đủ 9 trường, gắn P0-P4.
@@ -103,9 +109,12 @@ TUYỆT ĐỐI KHÔNG
 7. KHÔNG đổi behavior để lấy điểm cao hơn.
 8. KHÔNG đánh dấu FIXED khi chưa verify → dùng NEEDS VERIFICATION.
 9. KHÔNG bịa kết quả cần Revit thật → xuất checklist cho user tự test.
-10. KHÔNG dùng dev/audit_ui.py hay dev/sync_wpf_styles.py làm pass/fail —
-    chúng gác chuẩn Lumina ĐÃ BỎ và sẽ báo fail đúng file đã migrate đúng.
-    Gate thật duy nhất: `python3 dev/audit_tools.py --quiet`.
+10. KHÔNG nới hai gate. Chúng là:
+      python3 dev/audit_tools.py --quiet   (code tĩnh)
+      python3 dev/audit_t3.py --quiet      (luật T3)
+    audit_t3 chỉ soi đầy đủ file ĐÃ KHAI T3; file legacy chỉ được đếm
+    (`--legacy` / `--legacy-count`). Sửa script để cho qua một vi phạm là
+    MANUAL REVIEW REQUIRED, không tự làm.
 
 ════════════════════════════════════════════════════════════════
 KHI KHÔNG CHẮC

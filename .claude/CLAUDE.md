@@ -5,12 +5,12 @@ Framework: IronPython 2.7 + WPF + Revit API
 
 ## Rules
 - **UI standard — one source, no exceptions:** `pyRevit UI Design System/T3LAB_UI_STANDARD.md` + `pyRevit UI Design System/T3Lab.Styles.xaml`. Read both before any UI work. Every colour, size, margin and control style comes from `{StaticResource T3.*}`; a tool XAML never defines its own brush, style or hex.
-- **The old standards are dead** (2026-08-28). Lumina, Revit-native, Terra v2 and Kinetix are no longer binding. `.claude/rules/ui-design-standard.md`, `.claude/standard/UIStandardShowcase.xaml` and `lib/GUI/Resources/WPF_styles.xaml` are kept only to *identify* legacy code that still needs migrating — never as the standard to follow. Same for `dev/audit_ui.py` and `dev/sync_wpf_styles.py`: they enforce the retired Lumina rules and must not be used as a pass/fail gate. The only static gate is `python3 dev/audit_tools.py --quiet`.
+- **Every new tool/script follows `.claude/rules/new-tool-standard.md`** — file layout, the 12 XAML rules, the `script.py` frame, and the pre-commit checklist.
+- **The old standards are dead and their files are gone** (2026-08-28). Lumina, Revit-native, Terra v2 and Kinetix are no longer binding; `.claude/rules/ui-design-standard.md`, `.claude/standard/UIStandardShowcase.xaml`, `.claude/docs/wpf-window-templates.md`, `dev/audit_ui.py` and `dev/sync_wpf_styles.py` were deleted with the cleanup — recover them from git history if you ever need the old wording. `lib/GUI/Resources/WPF_styles.xaml` and the `T3LAB SHARED STYLES` block inside the 51 unmigrated XAMLs are frozen legacy: no longer synced, and they disappear file by file as migration proceeds.
 - Migration is governed by `docs/ui-governance/08-design-system-authority.md` — read it before editing any XAML. Full migration of a file requires QA in Revit before it counts as done.
 - XAML files go in `T3Lab.extension/lib/GUI/Tools/`
 - Python dialog classes stay in `T3Lab.extension/lib/GUI/`
 - Keep Revit API logic separate from WPF/UI code
-- Shared button styles live in `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml` and are propagated into every tool XAML with `python3 dev/sync_wpf_styles.py` (`--check` to verify) — never hand-edit the marked style block inside a tool XAML
 - **Path Portability Rule**: All file paths in agent definitions and documentation must be relative to the repository workspace (e.g. `T3Lab.extension/...`) to ensure portability.
 
 ## Daily Debug Workflow — lệnh `gd# revitapi`
@@ -29,7 +29,7 @@ Khi user chat **`gd<N> revitapi`** (ví dụ `gd1 revitapi`), thực hiện đú
 2. **Nếu GĐ<N> đã hoàn thành** (mọi ngày của nó ✅): báo "GĐ<N> đã thực hiện xong" + tóm tắt kết quả và commit liên quan. KHÔNG làm lại.
 3. **Nếu chưa hoàn thành**: báo "Đang thực hiện GĐ<N>" rồi thực hiện **ngày ⬜ kế tiếp** của giai đoạn đó theo đúng checklist trong file plan. Việc bắt buộc cần Revit (Ngày 4 visual QA, toàn bộ GĐ3 smoke test) thì không tự bịa kết quả — xuất checklist cho user tự test trong Revit, và tick kết quả dựa trên phản hồi user báo lại.
 4. **Sau khi làm xong phần việc**: tick `- [x]` trong file plan, cập nhật bảng tiến độ README (⬜ → 🔄/✅), chạy regression:
-   `python3 dev/audit_tools.py --quiet` · `python3 dev/audit_ui.py --quiet` · `python3 dev/sync_wpf_styles.py --check`
+   `python3 dev/audit_tools.py --quiet` · `python3 dev/audit_t3.py --quiet`
    rồi commit + push (kèm cả file plan đã tick).
 5. **Luôn kết thúc câu trả lời** bằng danh sách các GĐ còn chưa thực hiện (và GĐ đang dở nếu có).
 
@@ -52,7 +52,7 @@ The following XAML files are **UI-locked** — their visual design is finalized 
 > breaks dark mode. The copyright amber `#F59E0B` and the shared style block are
 > unchanged and still audited.
 
-**All agents** (`@ui-agent`, `@ui-police-agent`, `@tool-builder-agent`, `@script-frame-agent`) must skip these files entirely during any UI-related task. Do not run `sync_wpf_styles.py` against them. Do not include them in bulk XAML audits.
+**All agents** (`@ui-agent`, `@ui-governance-agent`, `@tool-builder-agent`, `@script-frame-agent`) must skip these files entirely during any UI-related task. Do not include them in bulk XAML audits — `dev/audit_t3.py` already skips them.
 
 > **Note (2026-07-20):** a Pause/Stop panel was briefly added to `ExportManager.xaml` for a chunked BatchOut export, then **reverted** — the chunked ExternalEvent re-queue crashed Revit mid-export. Both `ExportManager.xaml` and `BatchOut.pushbutton/script.py` are back at their pre-refactor state (commit `984eef0`) and remain UI-locked. Do not re-attempt BatchOut pause without a Revit-tested design — see the notes in the progress/pause rollout memory.
 
@@ -67,7 +67,6 @@ Spawn the appropriate agent based on the task:
 | Build a new pushbutton end-to-end | `@tool-builder-agent` |
 | Review or test completed code | `@qa-agent` |
 | Standardize script.py structure to BatchOut frame | `@script-frame-agent` |
-| Audit & fix ALL XAML files for UI consistency | `@ui-police-agent` ⚠️ enforces the retired Lumina rules — prefer `@ui-governance-agent` |
 | Daily UI/UX governance cycle (audit · score · standardize · track) | `@ui-governance-agent` |
 
 Agent definitions: `.claude/agents/`
@@ -87,8 +86,8 @@ Agent definitions: `.claude/agents/`
 | **UI stylesheet — 82 `T3.*` keys** | `pyRevit UI Design System/T3Lab.Styles.xaml` |
 | **UI governance routine + prompt** | `docs/ui-governance/` (start at `README.md`) |
 | All XAML files | `T3Lab.extension/lib/GUI/Tools/` |
-| ~~Canonical UI (Revit-native)~~ | ~~`.claude/standard/UIStandardShowcase.xaml`~~ — retired 2026-08-28 |
-| ~~Shared styles (Lumina)~~ | ~~`T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml`~~ — retired, legacy only |
+| **Rule for every new tool** | `.claude/rules/new-tool-standard.md` |
+| **UI gate** | `python3 dev/audit_t3.py --quiet` (`--legacy` xem nợ migration) |
 | Revit theme palette (legacy Revit-native) | `T3Lab.extension/lib/GUI/RevitTheme.py` |
 | Revit-native UI research (legacy) | `docs/revit-native-ui.md` |
 | Logo asset | `T3Lab.extension/lib/GUI/T3Lab_logo.png` |
@@ -108,7 +107,7 @@ T3Lab.extension/
 ├── lib/
 │   ├── GUI/
 │   │   ├── Tools/      ← ALL .xaml files live here
-│   │   ├── Resources/  ← shared WPF styles (WPF_styles.xaml)
+│   │   ├── Resources/  ← WPF_styles.xaml (legacy, frozen)
 │   │   ├── forms.py    ← WPF helpers
 │   │   ├── WPF_Base.py
 │   │   ├── *Dialog.py  ← Python WPF dialog classes
