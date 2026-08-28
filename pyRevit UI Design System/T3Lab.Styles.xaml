@@ -814,4 +814,186 @@
     <Setter Property="Padding" Value="{StaticResource T3.Pad.Panel}"/>
   </Style>
 
+
+  <!-- ══════════════════ 14 · CHROME CỬA SỔ & WIZARD ══════════════════
+       Thêm 2026-08-28 khi migrate BatchOut. Trước đó Design System không có
+       từ vựng cho sidebar rail, tab ẩn của wizard, và 3 nút chrome cửa sổ —
+       mỗi tool phải tự định nghĩa, đúng thứ hệ thống này sinh ra để chống.
+
+       Bo góc: các component dưới đây mang giá trị riêng (rail tile 13, pill 18)
+       vì hình dạng của chúng đòi hỏi thế. Ngoại lệ sống BÊN TRONG component;
+       file tool vẫn chỉ được dùng 0/2/4/8. ══════════════════ -->
+
+  <Style x:Key="T3.WinCtrl" TargetType="Button">
+      <Setter Property="Width"           Value="40"/>
+      <Setter Property="Height"          Value="32"/>
+      <Setter Property="Background"      Value="Transparent"/>
+      <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Cursor"          Value="Hand"/>
+      <Setter Property="Template">
+          <Setter.Value>
+              <ControlTemplate TargetType="Button">
+                  <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8">
+                      <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+              </ControlTemplate>
+          </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+          <Trigger Property="IsMouseOver" Value="True">
+              <Setter Property="Background" Value="{StaticResource T3.Canvas}"/>
+          </Trigger>
+      </Style.Triggers>
+  </Style>
+
+  <Style x:Key="T3.WinClose" TargetType="Button" BasedOn="{StaticResource T3.WinCtrl}">
+      <Style.Triggers>
+          <Trigger Property="IsMouseOver" Value="True">
+              <Setter Property="Background" Value="{StaticResource T3.Danger.Text}"/>
+              <Setter Property="Foreground" Value="{StaticResource T3.Surface}"/>
+          </Trigger>
+      </Style.Triggers>
+  </Style>
+
+  <Style x:Key="T3.TabItem.Hidden" TargetType="TabItem">
+      <Setter Property="Visibility" Value="Collapsed"/>
+  </Style>
+
+  <Style x:Key="T3.Rail.Tile" TargetType="ToggleButton">
+      <Setter Property="Background"      Value="Transparent"/>
+      <Setter Property="Foreground" Value="{StaticResource T3.TextMuted}"/>
+      <Setter Property="Width"           Value="42"/>
+      <Setter Property="Height"          Value="42"/>
+      <Setter Property="Cursor"          Value="Hand"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+          <Setter.Value>
+              <ControlTemplate TargetType="ToggleButton">
+                  <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="13">
+                      <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+                  <ControlTemplate.Triggers>
+                      <Trigger Property="IsChecked" Value="True">
+                          <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Ink}"/>
+                          <Setter Property="Foreground" Value="{StaticResource T3.Surface}"/>
+                      </Trigger>
+                      <MultiTrigger>
+                          <MultiTrigger.Conditions>
+                              <Condition Property="IsChecked" Value="False"/>
+                              <Condition Property="IsMouseOver" Value="True"/>
+                          </MultiTrigger.Conditions>
+                          <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                          <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
+                      </MultiTrigger>
+                      <MultiTrigger>
+                          <MultiTrigger.Conditions>
+                              <Condition Property="IsChecked" Value="True"/>
+                              <Condition Property="IsMouseOver" Value="True"/>
+                          </MultiTrigger.Conditions>
+                          <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Text}"/>
+                      </MultiTrigger>
+                  </ControlTemplate.Triggers>
+              </ControlTemplate>
+          </Setter.Value>
+      </Setter>
+  </Style>
+
+  <Style x:Key="T3.ComboBox.Toggle" TargetType="ToggleButton">
+      <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
+      <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="8,0,8,0"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontFamily" Value="Hanken Grotesk"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Template">
+          <Setter.Value>
+              <ControlTemplate TargetType="ToggleButton">
+                  <Border x:Name="border"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="8">
+                      <Grid>
+                          <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="28"/>
+                          </Grid.ColumnDefinitions>
+                          <ContentPresenter Grid.Column="0"
+                                            Margin="{TemplateBinding Padding}"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Left"
+                                            IsHitTestVisible="False"/>
+                          <Path Grid.Column="1"
+                                Data="M6 9 L12 15 L18 9"
+                                Stroke="{StaticResource T3.TextMuted}"
+                                StrokeThickness="1.5"
+                                StrokeStartLineCap="Round"
+                                StrokeEndLineCap="Round"
+                                StrokeLineJoin="Round"
+                                Width="10" Height="10"
+                                Stretch="Uniform"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                IsHitTestVisible="False"/>
+                      </Grid>
+                  </Border>
+                  <ControlTemplate.Triggers>
+                      <Trigger Property="IsMouseOver" Value="true">
+                          <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource T3.Ink}"/>
+                      </Trigger>
+                      <Trigger Property="IsChecked" Value="true">
+                          <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource T3.Ink}"/>
+                      </Trigger>
+                  </ControlTemplate.Triggers>
+              </ControlTemplate>
+          </Setter.Value>
+      </Setter>
+  </Style>
+
+  <Style TargetType="{x:Type Thumb}" x:Key="T3.ScrollBar.Thumb">
+      <Setter Property="OverridesDefaultStyle" Value="true"/>
+      <Setter Property="IsTabStop" Value="false"/>
+      <Setter Property="Template">
+          <Setter.Value>
+              <ControlTemplate TargetType="{x:Type Thumb}">
+                  <Border x:Name="thumbBorder" Background="{StaticResource T3.BorderStrong}" CornerRadius="2" Margin="0"/>
+                  <ControlTemplate.Triggers>
+                      <Trigger Property="IsMouseOver" Value="true">
+                          <Setter TargetName="thumbBorder" Property="Background" Value="{StaticResource T3.TextMuted}"/>
+                      </Trigger>
+                      <Trigger Property="IsDragging" Value="true">
+                          <Setter TargetName="thumbBorder" Property="Background" Value="{StaticResource T3.Ink}"/>
+                      </Trigger>
+                  </ControlTemplate.Triggers>
+              </ControlTemplate>
+          </Setter.Value>
+      </Setter>
+  </Style>
+
+  <!-- Rail tile 42×42 — ô logo/biểu tượng ở sidebar rail. Bo góc 13 là giá trị
+       riêng của component này; file tool KHÔNG bao giờ tự viết 13. -->
+  <Style x:Key="T3.Rail.Logo" TargetType="Border">
+    <Setter Property="Width"  Value="42"/>
+    <Setter Property="Height" Value="42"/>
+    <Setter Property="CornerRadius" Value="13"/>
+    <Setter Property="Background"   Value="{StaticResource T3.Ink}"/>
+  </Style>
+
+  <!-- Pill 36px — dải trạng thái/đếm nằm ngang. Bo góc 18 = nửa chiều cao. -->
+  <Style x:Key="T3.Pill" TargetType="Border">
+    <Setter Property="Height" Value="36"/>
+    <Setter Property="CornerRadius" Value="18"/>
+    <Setter Property="Padding" Value="8,0"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="Background"  Value="{StaticResource T3.SurfaceSunken}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+
 </ResourceDictionary>

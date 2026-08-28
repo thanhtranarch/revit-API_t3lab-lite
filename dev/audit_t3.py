@@ -58,13 +58,10 @@ COPYRIGHT_TEXT = "© Copyright by T3Lab"
 # KHÔNG phải chỗ để nới luật. Mỗi mục phải gắn với một DESIGN SYSTEM GAP đang
 # chờ user duyệt trong docs/ui-governance/PRIORITY_QUEUE.md, và luôn được IN RA
 # mỗi lần chạy — hoãn thì được, giấu thì không.
-PENDING_GAP = {
-    "ExportManager.xaml": (
-        "GAP #4 — T3 chưa định nghĩa chrome wizard (sidebar rail, step circle, "
-        "tab pill, toggle, slider) và chrome cửa sổ (min/max/close)",
-        ("<Style> định nghĩa trong file tool", "CornerRadius"),
-    ),
-}
+#   {"File.xaml": ("GAP #N — lý do", ("chuỗi khớp thông báo", ...))}
+# Trống từ 2026-08-28: GAP #4 đã đóng bằng 8 component chrome trong stylesheet.
+PENDING_GAP = {}
+
 
 # ── Chuẩn T3 (T3LAB_UI_STANDARD.md) ───────────────────────────────────────
 FONTS_OK = {"Segoe UI", "Consolas",
@@ -207,8 +204,13 @@ def audit(src, base, keys):
         tag = local(el.tag)
         attrs = {local(k): v for k, v in el.attrib.items()}
 
-        # Style tự chế trong file tool — chuẩn cấm, style mới phải vào stylesheet
-        if tag == "Style" and "TargetType" in attrs:
+        # Style CÓ x:Key trong file tool = một component mới đặt sai chỗ — nó phải
+        # nằm trong T3Lab.Styles.xaml để tool khác dùng lại được.
+        # Style KHÔNG có x:Key là implicit override, chỉ có hiệu lực trong đúng
+        # container chứa nó (vd ItemContainerStyle của một ListView). Stock WPF
+        # không có cách nào khác để làm việc đó, nên nó hợp lệ — màu/size bên
+        # trong vẫn bị soi bởi luật hex/font/size như mọi chỗ khác.
+        if tag == "Style" and "TargetType" in attrs and "Key" in attrs:
             n_local_style += 1
 
         for name, val in attrs.items():
@@ -294,8 +296,8 @@ def audit(src, base, keys):
             issues.append(("P1", "{StaticResource %s} không có trong T3Lab.Styles.xaml" % k))
 
     if n_local_style:
-        issues.append(("P2", "%d <Style> định nghĩa trong file tool — style mới phải "
-                             "thêm vào T3Lab.Styles.xaml" % n_local_style))
+        issues.append(("P2", "%d <Style x:Key> định nghĩa trong file tool — component "
+                             "mới phải thêm vào T3Lab.Styles.xaml" % n_local_style))
     if n_primary > 1:
         issues.append(("P2", "%d nút T3.Button.Primary — chuẩn cho đúng một" % n_primary))
     if has_list and not has_empty:

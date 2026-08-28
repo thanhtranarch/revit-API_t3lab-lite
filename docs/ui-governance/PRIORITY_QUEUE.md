@@ -60,33 +60,26 @@ ra để chống.
 
 **Đề xuất:** thêm `T3.Window.S` / `T3.Window.M` / `T3.Window.L` vào `T3Lab.Styles.xaml`.
 
-### GAP #4 · T3 chưa có từ vựng cho chrome wizard và chrome cửa sổ
-
-Lộ ra khi migrate BatchOut (`ExportManager.xaml`). Tool là wizard nhiều bước với
-sidebar rail — **không khớp pattern nào trong P1–P5**, và dùng các component T3 không
-định nghĩa: sidebar rail button, step circle, tab pill, toggle switch, slider, cùng 3
-nút chrome cửa sổ (min/max/close).
-
-Hệ quả cụ thể: 26 `<Style>` vẫn phải nằm trong file tool, và 11 `CornerRadius` là
-`12/13/18/20` (hình tròn và pill) — ép về `0/2/4/8` sẽ bẻ hình tròn thành hình vuông.
-
-**Đang hoãn có kiểm soát:** `dev/audit_t3.py` có `PENDING_GAP` khai báo đúng 12 vi phạm
-này, **luôn in ra** mỗi lần chạy kèm lý do, không làm đỏ gate. Hoãn thì được, giấu thì
-không.
-
-**Cần user quyết — hai hướng:**
-1. **Thêm component vào Design System**: `T3.Rail.Button` · `T3.Step.Circle` ·
-   `T3.Step.Label` · `T3.Tab.Pill` · `T3.Toggle` · `T3.Slider` · `T3.WinCtrl` ·
-   `T3.WinClose`, và mở rộng luật bo góc thêm giá trị "tròn/pill". Rồi bỏ waiver.
-2. **Redesign BatchOut về P1–P5**: bỏ sidebar rail và wizard. Rủi ro cao — tool đang
-   chạy tốt, và một lần refactor trước đã crash Revit giữa chừng (xem note 2026-07-20).
-
-Khuyến nghị hướng 1: rẻ hơn, không đụng tool đang chạy, và mọi tool wizard sau này
-dùng lại được.
-
 ---
 
 ## Đã hoàn thành
+
+### ✅ GAP #4 · Chrome wizard & cửa sổ — 2026-08-28
+
+Đóng bằng hướng 1 (thêm component), theo quyết định của user. 8 component vào
+`T3Lab.Styles.xaml`: `T3.WinCtrl` · `T3.WinClose` · `T3.TabItem.Hidden` ·
+`T3.Rail.Tile` · `T3.Rail.Logo` · `T3.Pill` · `T3.ComboBox.Toggle` ·
+`T3.ScrollBar.Thumb`. Stylesheet 84 → 92 key.
+
+Đo lại khi bắt tay vào thì gap nhỏ hơn ước tính ban đầu: trong 26 `<Style>` bị báo,
+**15 là định nghĩa chết** (không ai tham chiếu) và **5 là implicit style** hợp lệ —
+chỉ 6 cái thật sự cần nâng thành component. Xoá 15 style chết gỡ luôn phần lớn vi
+phạm `CornerRadius`.
+
+Hai chỗ chỉnh trong gate, cả hai là lỗi của gate chứ không phải nới luật:
+- `<Style>` không có `x:Key` là override cục bộ, stock WPF không có cách khác —
+  chỉ style **có** `x:Key` mới là component đặt sai chỗ.
+- `PENDING_GAP` nay **rỗng**: BatchOut 0 vi phạm, 0 waiver.
 
 ### ✅ GAP #1 · Vị trí deploy `T3Lab.Styles.xaml` — 2026-08-28
 
