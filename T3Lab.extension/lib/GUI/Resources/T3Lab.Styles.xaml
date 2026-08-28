@@ -1,3 +1,5 @@
+<!-- BẢN DEPLOY — SINH TỰ ĐỘNG, ĐỪNG SỬA Ở ĐÂY.
+     Sửa `pyRevit UI Design System/T3Lab.Styles.xaml` rồi chạy `python3 dev/sync_t3_styles.py`. -->
 <!--
   T3Lab.Styles.xaml — T3Lab pyRevit UI Standard
   Nguồn duy nhất của màu, type, spacing và control style cho toàn bộ tool suite.

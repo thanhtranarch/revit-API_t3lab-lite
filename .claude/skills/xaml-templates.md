@@ -1,611 +1,258 @@
+# XAML snippets — chuẩn T3
+
+Mọi snippet dưới đây dùng key có thật trong `pyRevit UI Design System/T3Lab.Styles.xaml`.
+Luật đầy đủ: `pyRevit UI Design System/T3LAB_UI_STANDARD.md` ·
+luật cho tool mới: `.claude/rules/new-tool-standard.md`.
+
+Copy nguyên si. **Không sửa giá trị, không thêm hex, không định nghĩa `<Style>` trong
+file tool.** Cần style chưa có → ghi `DESIGN SYSTEM GAP`, hỏi trước.
+
+**Mọi chữ hiển thị cho người dùng phải là TIẾNG ANH** — label, nút, tooltip, empty
+state, thông báo lỗi. Ghi chú trong tài liệu này bằng tiếng Việt, nhưng chuỗi trong
+XAML thì không. `audit_t3.py` bắt lỗi này bằng cách dò dấu tiếng Việt.
+
 ---
-name: xaml-templates
-description: XAML templates for T3Lab WPF windows. Contains complete snippets for window structure, title bar, footer, content cards, scrollbar styles, button styles, input controls, info alerts, and DataGrid. All templates match UIStandardShowcase.xaml exactly.
----
 
-# XAML Templates — T3Lab Lumina System
-
-> **IMPORTANT**: Always read `.claude/standard/UIStandardShowcase.xaml` before using these templates to verify current hex values and patterns. This file is a convenience summary — the Showcase is always authoritative. Never use absolute file paths (`C:\...`) in documentation or code.
-
----
-
-## 1. Window Root + WindowChrome
+## Khung `<Window>`
 
 ```xml
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab - Tool Name"
-        Height="680" Width="1100"
-        MinWidth="860" MinHeight="500"
-        WindowStartupLocation="CenterScreen"
-        Background="#E4E4E7"
-        FontFamily="Hanken Grotesk"
-        FontSize="14"
-        ResizeMode="CanResizeWithGrip">
+        Title="Tool name" Width="560" Height="420" MinWidth="560" MinHeight="420"
+        FontFamily="Segoe UI" FontSize="13"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        Background="{StaticResource T3.Canvas}"
+        WindowStartupLocation="CenterOwner">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../Resources/T3Lab.Styles.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Window.Resources>
 
-    <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="64"
-                      ResizeBorderThickness="5"
-                      GlassFrameThickness="0"
-                      CornerRadius="22"
-                      UseAeroCaptionButtons="False"/>
-    </WindowChrome.WindowChrome>
-
-    <Window.Resources>
-        <!-- Paste full shared styles block from T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml -->
-        <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT ═══ -->
-        <!-- ═══ END T3LAB SHARED STYLES ═══ -->
-    </Window.Resources>
-
-    <!-- Outer border separates window from white Revit canvas -->
-    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22"
-            ClipToBounds="True" Background="#E4E4E7">
-        <Grid>
-            ...
-        </Grid>
-    </Border>
+  <DockPanel>
+    <Border DockPanel.Dock="Top"    Style="{StaticResource T3.TitleBar}">…</Border>
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource T3.FooterBar}">…</Border>
+    <Grid Margin="16">…</Grid>
+  </DockPanel>
 </Window>
 ```
 
-Key values:
-- `Background="#E4E4E7"` on Window (NOT `White`)
-- `CornerRadius="22"` on WindowChrome (NOT `8`)
-- Outer `<Border BorderBrush="#A1A1AA" ... CornerRadius="22">` is required
+## Title bar (40px)
 
----
-
-## 2. Root Grid Layout
-
-### With Sidebar
 ```xml
-<Grid.ColumnDefinitions>
-    <ColumnDefinition Width="66"/>  <!-- Sidebar icon rail -->
-    <ColumnDefinition Width="*"/>   <!-- Main content -->
-</Grid.ColumnDefinitions>
-<Grid.RowDefinitions>
-    <RowDefinition Height="64"/>    <!-- Title bar -->
-    <RowDefinition Height="*"/>     <!-- Content -->
-    <RowDefinition Height="Auto"/>  <!-- Footer -->
-</Grid.RowDefinitions>
+<Border Style="{StaticResource T3.TitleBar}">
+  <TextBlock Text="Rename Sheets" Style="{StaticResource T3.Title}"
+             VerticalAlignment="Center"/>
+</Border>
 ```
 
-### Without Sidebar (simple tool)
+## Footer (48px) — trạng thái trái · nút phải
+
+Thứ tự cố định: ghost huỷ → secondary → secondary → **MỘT** primary. Gap 8.
+
 ```xml
-<Grid.RowDefinitions>
-    <RowDefinition Height="64"/>
-    <RowDefinition Height="*"/>
+<Border Style="{StaticResource T3.FooterBar}">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*"/>
+      <ColumnDefinition Width="Auto"/>
+    </Grid.ColumnDefinitions>
+
+    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+      <!-- Copyright BẮT BUỘC — luôn là phần tử ĐẦU TIÊN, sát trái. Style tự cấp
+           chữ và màu; không tự viết Text hay Foreground. -->
+      <TextBlock Style="{StaticResource T3.Copyright}"/>
+      <Border Width="1" Height="16" Margin="12,0"
+              Background="{StaticResource T3.Border}" VerticalAlignment="Center"/>
+      <Ellipse Width="6" Height="6" Margin="0,0,8,0" VerticalAlignment="Center"
+               Fill="{StaticResource T3.Success.Accent}"/>
+      <TextBlock x:Name="status_text" Text="Ready — 34 sheets selected"
+                 Style="{StaticResource T3.Body.Secondary}" VerticalAlignment="Center"/>
+    </StackPanel>
+
+    <StackPanel Grid.Column="1" Orientation="Horizontal">
+      <Button Content="Cancel" IsCancel="True"
+              Style="{StaticResource T3.Button.Ghost}" Margin="0,0,8,0"/>
+      <Button Content="Preview" Style="{StaticResource T3.Button.Secondary}" Margin="0,0,8,0"/>
+      <Button x:Name="btn_apply" Content="Rename 34 sheets" IsDefault="True"
+              Style="{StaticResource T3.Button.Primary}"/>
+    </StackPanel>
+  </Grid>
+</Border>
+```
+
+> Primary luôn **mang số đếm** khi thao tác có số lượng. "Rename 34 sheets", không phải "OK".
+
+## Field — label TRÊN control, cách 4px; nhóm field cách nhau 12px
+
+```xml
+<StackPanel Margin="0,0,0,12">
+  <TextBlock Text="Prefix" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
+  <TextBox x:Name="tb_prefix" Style="{StaticResource T3.TextBox}"/>
+</StackPanel>
+```
+
+Ô nhập số / ID dùng `T3.TextBox.Mono`.
+
+## ComboBox · CheckBox · RadioButton
+
+```xml
+<ComboBox x:Name="cb_level" Style="{StaticResource T3.ComboBox}"
+          ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
+
+<CheckBox x:Name="chk_include" Content="Include hidden sheets"
+          Style="{StaticResource T3.CheckBox}"/>
+
+<RadioButton x:Name="rb_all" Content="Whole model" GroupName="scope"
+             Style="{StaticResource T3.RadioButton}"/>
+```
+
+## Section — label uppercase + `Separator`, KHÔNG dùng card
+
+```xml
+<TextBlock Text="SCOPE" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
+<Separator Style="{StaticResource T3.Rule}" Margin="0,0,0,12"/>
+```
+
+## Callout — hệ quả, luôn kèm số lượng
+
+```xml
+<Border Style="{StaticResource T3.Callout.Warning}">
+  <TextBlock Style="{StaticResource T3.Body}" TextWrapping="Wrap"
+             Text="12 sheets are checked out by someone else and will be skipped."/>
+</Border>
+```
+
+Bốn biến thể: `T3.Callout` (trung tính) · `.Success` · `.Warning` · `.Danger`.
+
+## ListBox (P2 — selection list)
+
+`T3.ListBox` đã bật virtualization và tắt scroll ngang bằng Setter — **không khai lại**.
+
+```xml
+<Grid>
+  <Grid.RowDefinitions>
     <RowDefinition Height="Auto"/>
-</Grid.RowDefinitions>
-```
+    <RowDefinition Height="*"/>
+  </Grid.RowDefinitions>
 
----
+  <TextBox x:Name="tb_filter" Grid.Row="0" Margin="0,0,0,8"
+           Style="{StaticResource T3.TextBox}"/>
 
-## 3. Title Bar (Row 0, Height=64)
-
-```xml
-<Grid Grid.Row="0" Grid.Column="1" Background="#F4F4F6">
-    <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="Auto"/>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="Auto"/>
-    </Grid.ColumnDefinitions>
-
-    <!-- Title + Subtitle (two lines, no separator, no italic) -->
-    <StackPanel Grid.Column="0" Margin="22,0,0,0" VerticalAlignment="Center"
-                WindowChrome.IsHitTestVisibleInChrome="True">
-        <TextBlock Text="Tool Name" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
-        <TextBlock Text="Subtitle · Revit 2024–2026" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
-    </StackPanel>
-
-    <!-- Window Controls -->
-    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
-                Margin="0,0,16,0" WindowChrome.IsHitTestVisibleInChrome="True">
-        <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
-                Click="minimize_button_clicked" ToolTip="Minimize">
-            <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-        </Button>
-        <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
-                Click="maximize_button_clicked" ToolTip="Maximize">
-            <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-        </Button>
-        <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
-                Click="close_button_clicked" ToolTip="Close">
-            <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-        </Button>
-    </StackPanel>
-
-    <!-- Bottom divider -->
-    <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="3"/>
+  <Grid Grid.Row="1">
+    <ListBox x:Name="lst_items" Style="{StaticResource T3.ListBox}"
+             SelectionMode="Extended"/>
+    <TextBlock x:Name="lst_empty" Style="{StaticResource T3.Empty}"
+               Visibility="Collapsed"
+               Text="No sheets match the filter.&#x0a;Clear the search box to see all of them."/>
+  </Grid>
 </Grid>
 ```
 
-Key values:
-- Background: `#F4F4F6` (NOT `White`)
-- Bottom divider: `#DCDCE0` (NOT `#E2E8F0`)
-- Title: FontSize=15, FontWeight=Bold, Foreground=`#18181B`
-- Subtitle: FontSize=12.5, Foreground=`#71717A` (NO italic, NO separator)
-- `WindowChrome.IsHitTestVisibleInChrome="True"` on BOTH StackPanels
+> **Empty state là bắt buộc.** Nói *thiếu gì* và *làm gì tiếp* — không phải "No data".
+> **Không bao giờ** bọc `ListBox` trong `ScrollViewer`: mất virtualization, treo Revit.
 
----
+## DataGrid (P4 — results table)
 
-## 4. Sidebar Icon Rail (Column 0, optional)
+`T3.DataGrid` đã set row 26, virtualization, tắt scroll ngang, header/row/cell style.
 
 ```xml
-<Border Grid.Column="0" Grid.RowSpan="3"
-        Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0">
-    <Grid Margin="0,16,0,16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- Logo -->
-            <RowDefinition Height="Auto"/> <!-- Button 1 (Active) -->
-            <RowDefinition Height="Auto"/> <!-- Button 2 -->
-            <RowDefinition Height="*"/>    <!-- Spacer -->
-        </Grid.RowDefinitions>
-
-        <!-- Logo Icon -->
-        <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
-                Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
-                HorizontalAlignment="Center" Margin="0,0,0,24">
-            <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16"
-                  Stroke="#18181B" StrokeThickness="1.8" StrokeLineJoin="Round"
-                  Width="20" Height="20" Stretch="Uniform"
-                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
-        </Border>
-
-        <!-- Active nav button -->
-        <Border Grid.Row="1" Width="42" Height="42" CornerRadius="13"
-                Background="#18181B" HorizontalAlignment="Center" Margin="0,0,0,8">
-            <!-- Icon path here, Stroke="White" -->
-        </Border>
-
-        <!-- Inactive nav button -->
-        <Button Grid.Row="2" Style="{StaticResource T3SidebarButton}" Margin="0,0,0,8">
-            <!-- Icon path here, Stroke="#71717A" -->
-        </Button>
-    </Grid>
-</Border>
-```
-
----
-
-## 5. Content Area (Row 1)
-
-### Standard content card
-```xml
-<Border Grid.Row="1" Grid.Column="1"
-        Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-        CornerRadius="20" Padding="18" Margin="18,18,18,10">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel>
-            <!-- Content here -->
-        </StackPanel>
-    </ScrollViewer>
-</Border>
-```
-
-### Two-column layout
-```xml
-<Grid Grid.Row="1" Grid.Column="1" Margin="18,18,18,10">
-    <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="320"/>
-        <ColumnDefinition Width="*"/>
-    </Grid.ColumnDefinitions>
-
-    <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-            CornerRadius="20" Padding="18" Margin="0,0,16,0">
-        <!-- Left panel -->
-    </Border>
-
-    <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-            CornerRadius="20" Padding="18">
-        <!-- Right panel -->
-    </Border>
-</Grid>
-```
-
----
-
-## 6. Footer / Status Bar (Row 2)
-
-### Full status bar (with status indicator + copyright)
-```xml
-<Border Grid.Row="2" Grid.Column="1"
-        Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
-
-        <!-- Left: action buttons -->
-        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-            <Button Style="{StaticResource PrimaryButton}" Content="Run" Margin="0,0,8,0" Padding="16,10"/>
-            <Button Style="{StaticResource SecondaryButton}" Content="Configure" Padding="16,9"/>
-        </StackPanel>
-
-        <!-- Right: status + copyright -->
-        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-            <Ellipse Width="8" Height="8" Fill="#22A85C" VerticalAlignment="Center" Margin="0,0,8,0"/>
-            <TextBlock Text="System status: " FontSize="13.5" Foreground="#27272A" FontWeight="SemiBold" VerticalAlignment="Center"/>
-            <TextBlock x:Name="status_text" Text="Ready" FontSize="13.5" Foreground="#157038" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
-            <Border Width="1" Height="18" Background="#DEDEE2" Margin="0,0,16,0" VerticalAlignment="Center"/>
-            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                <TextBlock Text="© 2026 T3Lab · v2.4" FontSize="11" Foreground="#9A9AA2"/>
-                <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" Margin="0,2,0,0"/>
-            </StackPanel>
-        </StackPanel>
-    </Grid>
-</Border>
-```
-
-### Simple footer (dialog-style, cancel + confirm)
-```xml
-<Border Grid.Row="2"
-        Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,14">
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
-
-        <!-- Left: status + copyright stacked -->
-        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-            <TextBlock x:Name="status_text" Text="Ready to send"
-                       FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold"/>
-            <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" Margin="0,2,0,0"/>
-        </StackPanel>
-
-        <!-- Right: action buttons -->
-        <StackPanel Grid.Column="1" Orientation="Horizontal">
-            <Button x:Name="btn_cancel" Style="{StaticResource SecondaryButton}"
-                    Content="Cancel" Width="100" Margin="0,0,8,0" Click="close_button_clicked"/>
-            <Button x:Name="btn_send" Style="{StaticResource SuccessButton}"
-                    Content="Send" Width="140" Click="send_clicked"/>
-        </StackPanel>
-    </Grid>
-</Border>
-```
-
-Key values:
-- Background: `#F4F4F6` (NOT `#F8FAFC`)
-- BorderBrush: `#DCDCE0` (NOT `#E2E8F0`)
-- Copyright `© Copyright by T3Lab` in amber `#F59E0B` is placed **inside the footer** — never as a floating overlay
-
----
-
-## 7. Ultra-Thin Scrollbar (auto-applied to all ScrollBars)
-
-```xml
-<Style TargetType="{x:Type Thumb}" x:Key="ScrollBarThumbStyle">
-    <Setter Property="OverridesDefaultStyle" Value="true"/>
-    <Setter Property="IsTabStop" Value="false"/>
-    <Setter Property="Template">
-        <Setter.Value>
-            <ControlTemplate TargetType="{x:Type Thumb}">
-                <Border x:Name="thumbBorder" Background="#A1A1AA" CornerRadius="2" Margin="0"/>
-                <ControlTemplate.Triggers>
-                    <Trigger Property="IsMouseOver" Value="true">
-                        <Setter TargetName="thumbBorder" Property="Background" Value="#71717A"/>
-                    </Trigger>
-                    <Trigger Property="IsDragging" Value="true">
-                        <Setter TargetName="thumbBorder" Property="Background" Value="#18181B"/>
-                    </Trigger>
-                </ControlTemplate.Triggers>
-            </ControlTemplate>
-        </Setter.Value>
-    </Setter>
-</Style>
-
-<Style TargetType="{x:Type ScrollBar}">
-    <Setter Property="Background" Value="Transparent"/>
-    <Setter Property="BorderBrush" Value="Transparent"/>
-    <Setter Property="MinWidth" Value="0"/>
-    <Setter Property="MinHeight" Value="0"/>
-    <Setter Property="Template">
-        <Setter.Value>
-            <ControlTemplate TargetType="{x:Type ScrollBar}">
-                <Grid x:Name="Bg" Background="Transparent">
-                    <Track x:Name="PART_Track">
-                        <Track.Thumb>
-                            <Thumb Style="{StaticResource ScrollBarThumbStyle}"/>
-                        </Track.Thumb>
-                    </Track>
-                </Grid>
-                <ControlTemplate.Triggers>
-                    <Trigger Property="Orientation" Value="Vertical">
-                        <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="true"/>
-                    </Trigger>
-                    <Trigger Property="Orientation" Value="Horizontal">
-                        <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="false"/>
-                    </Trigger>
-                </ControlTemplate.Triggers>
-            </ControlTemplate>
-        </Setter.Value>
-    </Setter>
-    <Style.Triggers>
-        <Trigger Property="Orientation" Value="Vertical">
-            <Setter Property="Width" Value="4"/>
-            <Setter Property="Height" Value="Auto"/>
-        </Trigger>
-        <Trigger Property="Orientation" Value="Horizontal">
-            <Setter Property="Width" Value="Auto"/>
-            <Setter Property="Height" Value="4"/>
-        </Trigger>
-    </Style.Triggers>
-</Style>
-```
-
----
-
-## 8. Button Styles
-
-All buttons come from the shared styles block. Key named styles:
-
-| Key | Bg | Hover | Notes |
-|-----|----|-------|-------|
-| `PrimaryButton` | `#18181B` | `#000000` | Height=40, FontSize=13.5, CornerRadius=12 |
-| `SecondaryButton` | `#FFFFFF` border `#DEDEE2` | `#FAFAFB` | Same sizing |
-| `TertiaryButton` | `#ECECEF` | `#E2E2E6` | Same sizing |
-| `SuccessButton` | `#22A85C` | `#0F8A66` | Same sizing |
-| `DangerButton` | `#D23B3B` | `#F87171` | Same sizing |
-| `GhostButton` | Transparent | `#EDEDEF` | Same sizing |
-| `WinCtrlButton` | Transparent | `#E4E4E7` | Width=40, Height=32 |
-| `CloseButton` | Transparent | `#D23B3B` fg→White | Same as WinCtrlButton |
-| `T3SidebarButton` | Transparent | `#F4F4F6` | Width=42, Height=42, CornerRadius=13 |
-
----
-
-## 9. Input Controls
-
-### Text Input (T3InputField)
-```xml
-<TextBox Style="{StaticResource T3InputField}"/>
-<!-- Background=#F4F4F6, BorderBrush=#E6E6EA, CornerRadius=13, Height=44, FontSize=14 -->
-<!-- Focus: BorderBrush=#18181B, Background=White -->
-```
-
-### ComboBox (T3ComboBox)
-```xml
-<ComboBox Style="{StaticResource T3ComboBox}">
-    <ComboBoxItem Content="Option A" IsSelected="True"/>
-    <ComboBoxItem Content="Option B"/>
-</ComboBox>
-<!-- Height=44, CornerRadius=13, custom arrow, same #F4F4F6/#E6E6EA colors -->
-```
-
-### Multi-line TextArea
-```xml
-<Border Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1" CornerRadius="13">
-    <TextBox Background="Transparent" BorderThickness="0"
-             AcceptsReturn="True" TextWrapping="Wrap"
-             VerticalScrollBarVisibility="Auto"
-             FontFamily="Hanken Grotesk" FontSize="14" Foreground="#27272A"
-             Padding="12,10" MinHeight="140" VerticalContentAlignment="Top"/>
-</Border>
-```
-
-### Field Labels (always ALL-CAPS)
-```xml
-<TextBlock Text="FIELD NAME" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2" Margin="1,0,0,6"/>
-```
-
----
-
-## 10. Info / Alert Boxes
-
-### Info Alert (dark circle icon)
-```xml
-<Border Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
-        CornerRadius="14" Padding="12,10" Margin="0,0,0,16">
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-        <Border Grid.Column="0" Width="20" Height="20" CornerRadius="10"
-                Background="#18181B" VerticalAlignment="Top" Margin="0,1,8,0">
-            <Path Data="M12 11 V16.5 M12 7.6 V7.62" Stroke="White" StrokeThickness="2.1"
-                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                  Width="12" Height="12" Stretch="Uniform"
-                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
-        </Border>
-        <TextBlock Grid.Column="1" FontSize="13.5" Foreground="#3F3F46" TextWrapping="Wrap">
-            <Run Text="Tip. " FontWeight="Bold" Foreground="#18181B"/>
-            <Run Text="Your message here."/>
-        </TextBlock>
-    </Grid>
-</Border>
-```
-
-### Success Alert (green circle icon)
-```xml
-<Border Background="#EAF8F0" BorderBrush="#CDEBD9" BorderThickness="1"
-        CornerRadius="14" Padding="12,10" Margin="0,0,0,16">
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-        <Border Grid.Column="0" Width="20" Height="20" CornerRadius="10"
-                Background="#22A85C" VerticalAlignment="Top" Margin="0,1,8,0">
-            <Path Data="M5 12 L9.5 16.5 L19 7" Stroke="White" StrokeThickness="2.6"
-                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                  Width="11" Height="11" Stretch="Uniform"
-                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
-        </Border>
-        <TextBlock Grid.Column="1" FontSize="13.5" Foreground="#1B7A45" TextWrapping="Wrap">
-            <Run Text="Done. " FontWeight="Bold" Foreground="#157038"/>
-            <Run Text="Operation completed successfully."/>
-        </TextBlock>
-    </Grid>
-</Border>
-```
-
----
-
-## 11. Summary Cards (dashboard-style)
-
-```xml
-<Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-        CornerRadius="20" Padding="19,17">
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        <Grid Grid.Row="0">
-            <TextBlock Text="CARD TITLE" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2"/>
-            <Border Width="30" Height="30" CornerRadius="10" Background="#F4F4F6" HorizontalAlignment="Right">
-                <!-- Icon here -->
-            </Border>
-        </Grid>
-        <TextBlock Grid.Row="1" Text="245" FontSize="35" FontWeight="Bold" Foreground="#18181B" Margin="0,8,0,0"/>
-        <TextBlock Grid.Row="2" Text="Subtitle text" FontSize="12.5" Foreground="#71717A" Margin="0,4,0,0"/>
-    </Grid>
-</Border>
-```
-
-Dark accent card (for highlight metrics):
-```xml
-<Border Background="#18181B" BorderThickness="0" CornerRadius="20" Padding="19,17">
-    <!-- Same structure, text White and "#9A9AA2" for label -->
-</Border>
-```
-
----
-
-## 12. DataGrid
-
-```xml
-<DataGrid AutoGenerateColumns="False" IsReadOnly="True"
-          SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True"
-          Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-          GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F1F5F9"
-          RowBackground="White" AlternatingRowBackground="#F8FAFC"
-          FontFamily="Hanken Grotesk" FontSize="13.5" Foreground="#27272A">
-    <DataGrid.Resources>
-        <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#FFFFFF"/>
-            <Setter Property="Foreground" Value="#9A9AA2"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="11"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="BorderBrush" Value="#E2E8F0"/>
-            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-        </Style>
-    </DataGrid.Resources>
-    <DataGrid.Columns>
-        <DataGridTextColumn Header="NAME" Binding="{Binding Name}" Width="*"/>
-    </DataGrid.Columns>
+<DataGrid x:Name="grid_results" Style="{StaticResource T3.DataGrid}">
+  <DataGrid.Columns>
+    <DataGridTextColumn Header="ID" Width="90" Binding="{Binding Id}"
+                        ElementStyle="{StaticResource T3.Cell.Mono}"/>
+    <DataGridTextColumn Header="Name" Width="*" Binding="{Binding Name}"/>
+    <DataGridTextColumn Header="Category" Width="140" Binding="{Binding Category}"/>
+    <DataGridTextColumn Header="Count" Width="70" Binding="{Binding Count}"
+                        ElementStyle="{StaticResource T3.Cell.Number}"/>
+    <DataGridTemplateColumn Header="Status" Width="150"
+                            CellTemplate="{StaticResource T3.StatusPill}"/>
+  </DataGrid.Columns>
 </DataGrid>
 ```
 
----
+Luật cột: **đúng một** cột `Width="*"` (là Name). Còn lại fix px —
+`ID 90` · `Category 140` · `Status 150–170` · số `70`. Không đủ chỗ thì **bỏ bớt cột**,
+không bật scroll ngang.
 
-## 13. Progress Bar + Pause/Stop (batch tools)
+`T3.StatusPill` cần row VM có 2 property: `StatusText` (string) và
+`Severity` (`"Success"` / `"Warning"` / `"Danger"`).
 
-For any tool that loops over many items (export, create, rename…), use the shared
-progress panel + `ProgressPauseMixin` pattern. Canonical live example: `AutoJoin.xaml`
-+ `AutoJoin.pushbutton/script.py`.
-
-**Python side** — inherit the mixin (`T3Lab.extension/lib/GUI/ProgressPauseMixin.py`):
-
-```python
-from GUI.ProgressPauseMixin import ProgressPauseMixin
-
-class MyToolWindow(forms.WPFWindow, ProgressPauseMixin):
-    # Override PP_BAR / PP_PAUSE / PP_STOP / PP_PANEL / PP_STATUS
-    # class attrs if the XAML uses different x:Name values.
-
-    def run_clicked(self, sender, e):
-        items = collect_items()
-        self.begin_progress(len(items), disable=[self.btn_run])
-        for i, item in enumerate(items):
-            if not self.step_progress(i, "Processing {}...".format(item)):
-                break                      # user pressed Stop
-            process(item)                  # one item per step
-        cancelled = self.is_cancelled      # read BEFORE end_progress()
-        self.end_progress()
-```
-
-Rules: modal windows (`ShowDialog`) only — never pump the dispatcher inside a
-modeless ExternalEvent `Execute()`. Prefer per-item/chunk transactions
-(`TransactionGroup`) so pause never holds a transaction open.
-
-**XAML side** — place inside the status-bar row, above the copyright line
-(`Collapsed` when idle):
+## Progress & log (P3)
 
 ```xml
-<!-- Progress panel: bar + Pause + Stop (hidden when idle) -->
-<Grid x:Name="progress_panel" Visibility="Collapsed" Margin="0,0,0,6">
-    <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="10"/>
-        <ColumnDefinition Width="Auto"/>
-        <ColumnDefinition Width="6"/>
-        <ColumnDefinition Width="Auto"/>
-    </Grid.ColumnDefinitions>
+<StackPanel>
+  <TextBlock x:Name="lbl_phase" Style="{StaticResource T3.BodyStrong}"
+             Text="Exporting — 12 / 34"/>
+  <TextBlock x:Name="lbl_item" Style="{StaticResource T3.Caption}" Margin="0,4,0,8"
+             Text="A-101 — Ground Floor Plan"/>
 
-    <ProgressBar x:Name="pb_run" Grid.Column="0" Style="{StaticResource T3ProgressBar}"
-                 Minimum="0" Maximum="100" Value="0" VerticalAlignment="Center"/>
+  <ProgressBar x:Name="bar" Style="{StaticResource T3.ProgressBar}"
+               Minimum="0" Maximum="34" Value="12" Margin="0,0,0,12"/>
 
-    <!-- Pause / Resume — the mixin toggles btn_pause_icon/btn_pause_label
-         (Pause &#xE769; ↔ Play &#xE768;) when these x:Names are present -->
-    <Button x:Name="btn_pause" Grid.Column="2" Style="{StaticResource SecondaryButton}"
-            Height="28" Padding="14,0" FontSize="12"
-            Click="pause_resume_clicked">
-        <StackPanel Orientation="Horizontal">
-            <TextBlock x:Name="btn_pause_icon" Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
-            <TextBlock x:Name="btn_pause_label" Text="Pause" VerticalAlignment="Center"/>
-        </StackPanel>
-    </Button>
-
-    <!-- Stop -->
-    <Button x:Name="btn_stop" Grid.Column="4" Style="{StaticResource DangerButton}"
-            Height="28" Padding="14,0" FontSize="12"
-            Click="stop_clicked">
-        <StackPanel Orientation="Horizontal">
-            <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
-            <TextBlock Text="Stop" VerticalAlignment="Center"/>
-        </StackPanel>
-    </Button>
-</Grid>
+  <ListBox x:Name="log" Style="{StaticResource T3.LogBox}" Height="180"/>
+</StackPanel>
 ```
 
-Icon rule: button icons are **Segoe MDL2 Assets glyphs** in an embedded TextBlock
-(no `Foreground` — it inherits from the button style), never color emoji
-(💾/📂/▶). Common glyphs: Save `&#xE74E;`, Open `&#xE8E5;`, Play `&#xE768;`,
-Pause `&#xE769;`, Stop `&#xE71A;`, Add `&#xE710;`, Remove/X `&#xE711;`,
-Switch `&#xE8AB;`.
+Log ghi màu theo severity **và kèm chữ**: `ok` / `skipped` / `failed`. Màu một mình
+không bao giờ là trạng thái.
 
-Plain bar (no pause — quick loads only):
+## Expander — chỉ cho Advanced
 
 ```xml
-<ProgressBar Height="8" Style="{StaticResource T3ProgressBar}"/>
+<Expander Header="Advanced options" Style="{StaticResource T3.Expander}">
+  <StackPanel Margin="0,8,0,0">…</StackPanel>
+</Expander>
 ```
+
+## Confirmation (P5) — size S
+
+```xml
+<StackPanel Margin="16">
+  <TextBlock Style="{StaticResource T3.Display}" TextWrapping="Wrap"
+             Text="Delete 34 view templates?"/>
+  <TextBlock Style="{StaticResource T3.Body.Secondary}" Margin="0,8,0,0" TextWrapping="Wrap"
+             Text="This cannot be undone with Ctrl+Z once the file is closed."/>
+</StackPanel>
+
+<!-- footer -->
+<Button Content="Cancel" IsCancel="True" IsDefault="True"
+        Style="{StaticResource T3.Button.Secondary}" Margin="0,0,8,0"/>
+<Button x:Name="btn_delete" Content="Delete 34 templates"
+        Style="{StaticResource T3.Button.Danger}"/>
+```
+
+> Ở P5, **Cancel** là `IsDefault`, không phải nút phá huỷ. Nút phá huỷ mang **tên thao
+> tác + số**, không phải "OK" hay "Yes".
 
 ---
 
-## 14. Tab Selector (pill-style)
+## Bảng tra style key
 
-```xml
-<Border Background="#F4F4F6" CornerRadius="18" Padding="4" Height="36" HorizontalAlignment="Left">
-    <StackPanel Orientation="Horizontal">
-        <!-- Active tab -->
-        <Border Background="White" CornerRadius="14" Padding="12,6">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Active Tab" FontSize="13.5" FontWeight="SemiBold" Foreground="#18181B"/>
-                <Border Background="#18181B" CornerRadius="9" MinWidth="18" Height="18"
-                        Margin="6,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="9" FontSize="11" FontWeight="Bold" Foreground="White"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-            </StackPanel>
-        </Border>
-        <!-- Inactive tab -->
-        <Border Background="Transparent" Padding="12,6">
-            <TextBlock Text="Inactive Tab" FontSize="13.5" Foreground="#71717A"/>
-        </Border>
-    </StackPanel>
-</Border>
+| Cần gì | Key |
+|--------|-----|
+| Chữ | `T3.Display` `T3.Title` `T3.Body` `T3.Body.Secondary` `T3.BodyStrong` `T3.Caption` `T3.Label` `T3.Mono` |
+| Copyright (bắt buộc) | `T3.Copyright` |
+| Empty state | `T3.Empty` |
+| Cell trong grid | `T3.Cell.Mono` `T3.Cell.Number` |
+| Nút | `T3.Button.Primary` `.Secondary` `.Ghost` `.Danger` |
+| Nhập liệu | `T3.TextBox` `T3.TextBox.Mono` `T3.ComboBox` `T3.ComboBoxItem` `T3.CheckBox` `T3.RadioButton` |
+| List / grid | `T3.ListBox` `T3.ListBoxItem` `T3.LogBox` `T3.DataGrid` `T3.DataGridColumnHeader` `T3.DataGridRow` `T3.DataGridCell` |
+| Trạng thái | `T3.StatusPill` `T3.ProgressBar` |
+| Khung | `T3.TitleBar` `T3.FooterBar` `T3.Panel` `T3.Rule` `T3.Expander` |
+| Callout | `T3.Callout` `.Success` `.Warning` `.Danger` |
+
+Màu/size/spacing chỉ dùng khi thật sự cần đặt trực tiếp: `T3.Ink` `T3.Text`
+`T3.TextSecondary` `T3.TextMuted` `T3.TextDisabled` `T3.Border` `T3.BorderStrong`
+`T3.Surface` `T3.SurfaceSunken` `T3.Canvas` `T3.RowAlt` `T3.RowRule` ·
+`T3.Success.*` `T3.Warning.*` `T3.Danger.*` `T3.Progress.*` ·
+`T3.Size.*` `T3.H.*` `T3.Pad.*` `T3.R.*`.
+
+## Kiểm tra
+
+```bash
+python3 dev/audit_t3.py --file T3Lab.extension/lib/GUI/Tools/<Tool>.xaml
 ```
