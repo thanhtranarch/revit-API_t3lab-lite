@@ -1,24 +1,28 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        mc:Ignorable="d"
         Title="T3 UI Standard Showcase"
-        Width="1000" Height="620" MinWidth="1000" MinHeight="620"
+        Width="1180" Height="720" MinWidth="1060" MinHeight="640"
         WindowStartupLocation="CenterScreen"
-        ResizeMode="CanResizeWithGrip"
-        ShowInTaskbar="False"
-        WindowStyle="None"
-        FontFamily="Segoe UI" FontSize="13"
-        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        WindowStyle="None" AllowsTransparency="False"
+        Background="{DynamicResource T3.Surface}"
+        FontFamily="Segoe UI"
+        FontSize="13"
         TextOptions.TextFormattingMode="Display"
-        Background="{DynamicResource T3.Canvas}">
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True">
 
-    <!-- Cửa sổ tự vẽ caption nên phải khai WindowChrome. Bo góc 8 = T3.R.Window. -->
-    <shell:WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="40" ResizeBorderThickness="4"
-                            GlassFrameThickness="0" CornerRadius="8"
+    <WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="48"
+                            ResizeBorderThickness="6"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
                             UseAeroCaptionButtons="False"/>
-    </shell:WindowChrome.WindowChrome>
+    </WindowChrome.WindowChrome>
 
     <Window.Resources>
         <ResourceDictionary>
@@ -69,13 +73,13 @@
           <sys:Double x:Key="T3.H.Row">26</sys:Double>
           <sys:Double x:Key="T3.H.Control">28</sys:Double>
           <sys:Double x:Key="T3.H.Action">30</sys:Double>
-          <sys:Double x:Key="T3.H.TitleBar">40</sys:Double>
+          <sys:Double x:Key="T3.H.TitleBar">48</sys:Double>
           <sys:Double x:Key="T3.H.Footer">48</sys:Double>
           <Thickness x:Key="T3.Pad.Panel">16</Thickness>
           <Thickness x:Key="T3.Pad.Field">8,0</Thickness>
-          <CornerRadius x:Key="T3.R.Window">8</CornerRadius>
-          <CornerRadius x:Key="T3.R.Control">4</CornerRadius>
-          <CornerRadius x:Key="T3.R.Pill">2</CornerRadius>
+          <CornerRadius x:Key="T3.R.Window">12</CornerRadius>
+          <CornerRadius x:Key="T3.R.Control">6</CornerRadius>
+          <CornerRadius x:Key="T3.R.Pill">4</CornerRadius>
 
           <!-- ══════════════════ 4 · TEXT STYLES ══════════════════ -->
           <Style x:Key="T3.Display" TargetType="TextBlock">
@@ -91,6 +95,14 @@
             <Setter Property="FontSize"   Value="{StaticResource T3.Size.Title}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
+          </Style>
+
+          <Style x:Key="T3.Subtitle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+            <Setter Property="FontSize"   Value="{StaticResource T3.Size.Caption}"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.TextMuted}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
           </Style>
 
           <Style x:Key="T3.Body" TargetType="TextBlock">
@@ -436,45 +448,9 @@
             <Setter Property="FontSize"   Value="{StaticResource T3.Size.Body}"/>
             <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding"    Value="8,0,0,0"/>
+            <Setter Property="Cursor"     Value="Hand"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
-            <Setter Property="Template">
-              <Setter.Value>
-                <ControlTemplate TargetType="CheckBox">
-                  <Grid Background="Transparent">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="Auto"/>
-                      <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Border x:Name="box" Grid.Column="0" Width="15" Height="15" Margin="0,0,8,0"
-                            Background="{StaticResource T3.Surface}"
-                            BorderBrush="#D4D4DA" BorderThickness="1.5"
-                            CornerRadius="3" VerticalAlignment="Center">
-                      <Path x:Name="mark" Data="M4,9 L8,13 L14,5"
-                            Stroke="White" StrokeThickness="2"
-                            StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                            Visibility="Collapsed"/>
-                    </Border>
-                    <ContentPresenter Grid.Column="1" VerticalAlignment="Center" RecognizesAccessKey="True"/>
-                  </Grid>
-                  <ControlTemplate.Triggers>
-                    <Trigger Property="IsChecked" Value="True">
-                      <Setter TargetName="box"  Property="Background"  Value="{StaticResource T3.Ink}"/>
-                      <Setter TargetName="box"  Property="BorderBrush" Value="{StaticResource T3.Ink}"/>
-                      <Setter TargetName="mark" Property="Visibility"  Value="Visible"/>
-                    </Trigger>
-                    <Trigger Property="IsMouseOver" Value="True">
-                      <Setter TargetName="box" Property="BorderBrush" Value="{StaticResource T3.Ink}"/>
-                    </Trigger>
-                    <Trigger Property="IsEnabled" Value="False">
-                      <Setter TargetName="box" Property="Background"  Value="{StaticResource T3.SurfaceSunken}"/>
-                      <Setter TargetName="box" Property="BorderBrush" Value="{StaticResource T3.Border}"/>
-                      <Setter Property="Foreground" Value="{StaticResource T3.TextDisabled}"/>
-                    </Trigger>
-                  </ControlTemplate.Triggers>
-                </ControlTemplate>
-              </Setter.Value>
-            </Setter>
           </Style>
 
           <Style x:Key="T3.RadioButton" TargetType="RadioButton">
@@ -620,21 +596,55 @@
           <Style x:Key="T3.DataGridRow" TargetType="DataGridRow">
             <Setter Property="Height" Value="{StaticResource T3.H.Row}"/>
             <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
-            <Style.Triggers>
-              <Trigger Property="AlternationIndex" Value="1">
-                <Setter Property="Background" Value="{StaticResource T3.RowAlt}"/>
-              </Trigger>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
-              </Trigger>
-              <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Background"  Value="{StaticResource T3.Canvas}"/>
-                <Setter Property="Foreground"  Value="{StaticResource T3.Text}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource T3.Ink}"/>
-                <Setter Property="BorderThickness" Value="3,0,0,0"/>
-              </Trigger>
-            </Style.Triggers>
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="DataGridRow">
+                  <Border x:Name="DGBorder"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          SnapsToDevicePixels="True">
+                    <Grid>
+                      <Rectangle x:Name="Indicator" Width="3" HorizontalAlignment="Left"
+                                 Fill="Transparent" SnapsToDevicePixels="True" Panel.ZIndex="1"/>
+                      <SelectiveScrollingGrid>
+                        <SelectiveScrollingGrid.ColumnDefinitions>
+                          <ColumnDefinition Width="*"/>
+                        </SelectiveScrollingGrid.ColumnDefinitions>
+                        <SelectiveScrollingGrid.RowDefinitions>
+                          <RowDefinition Height="*"/>
+                          <RowDefinition Height="Auto"/>
+                        </SelectiveScrollingGrid.RowDefinitions>
+                        <DataGridCellsPresenter ItemsPanel="{TemplateBinding ItemsPanel}"
+                                                 SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                        <DataGridDetailsPresenter Grid.Row="1"
+                                                  SelectiveScrollingGrid.SelectiveScrollingOrientation="{Binding AreRowDetailsFrozen, ConverterParameter={x:Static SelectiveScrollingOrientation.Vertical}, Converter={x:Static DataGrid.RowDetailsScrollingConverter}, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                  Visibility="{TemplateBinding DetailsVisibility}"/>
+                        <DataGridRowHeader Grid.RowSpan="2"
+                                           SelectiveScrollingGrid.SelectiveScrollingOrientation="Vertical"
+                                           Visibility="{Binding HeadersVisibility, ConverterParameter={x:Static DataGridHeadersVisibility.Row}, Converter={x:Static DataGrid.HeadersVisibilityConverter}, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                      </SelectiveScrollingGrid>
+                    </Grid>
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="AlternationIndex" Value="1">
+                      <Setter Property="Background" Value="{StaticResource T3.RowAlt}"/>
+                    </Trigger>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
+                    </Trigger>
+                    <Trigger Property="IsSelected" Value="True">
+                      <Setter Property="Background"  Value="{StaticResource T3.Canvas}"/>
+                      <Setter Property="Foreground"  Value="{StaticResource T3.Text}"/>
+                      <Setter TargetName="Indicator" Property="Fill" Value="{StaticResource T3.Ink}"/>
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
           </Style>
 
           <Style x:Key="T3.DataGridCell" TargetType="DataGridCell">
@@ -677,10 +687,110 @@
             <Setter Property="CellStyle"         Value="{StaticResource T3.DataGridCell}"/>
           </Style>
 
+          <!-- ══════════════════ GRIDVIEW & LISTVIEW STYLES ══════════════════
+               Chuẩn hóa bảng dựng bằng ListView + GridView để có diện mạo
+               đồng nhất 100% với T3.DataGrid (header phẳng, hover xám nhạt,
+               không bị vệt xanh Windows XP/7). ══════════════════ -->
+          <Style x:Key="T3.GridViewColumnHeader" TargetType="GridViewColumnHeader">
+            <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+            <Setter Property="FontSize"   Value="{StaticResource T3.Size.Label}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.TextDisabled}"/>
+            <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Height"  Value="{StaticResource T3.H.Row}"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="VerticalContentAlignment"   Value="Center"/>
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="GridViewColumnHeader">
+                  <Border Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          Padding="{TemplateBinding Padding}"
+                          SnapsToDevicePixels="True">
+                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      RecognizesAccessKey="True"
+                                      SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+
+          <Style x:Key="T3.ListViewItem" TargetType="ListViewItem">
+            <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+            <Setter Property="FontSize"   Value="{StaticResource T3.Size.Body}"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
+            <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource T3.RowRule}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="MinHeight" Value="{StaticResource T3.H.Row}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="2,0,2,0"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="ListViewItem">
+                  <Border x:Name="Bd"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          Padding="{TemplateBinding Padding}"
+                          SnapsToDevicePixels="True">
+                    <Grid>
+                      <Rectangle x:Name="Indicator" Width="3" HorizontalAlignment="Left"
+                                 Fill="Transparent" SnapsToDevicePixels="True"/>
+                      <GridViewRowPresenter VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                            SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                    </Grid>
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
+                    </Trigger>
+                    <Trigger Property="IsSelected" Value="True">
+                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.Canvas}"/>
+                      <Setter TargetName="Indicator" Property="Fill" Value="{StaticResource T3.Ink}"/>
+                      <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
+                    </Trigger>
+                    <MultiTrigger>
+                      <MultiTrigger.Conditions>
+                        <Condition Property="IsSelected" Value="True"/>
+                        <Condition Property="IsMouseOver" Value="True"/>
+                      </MultiTrigger.Conditions>
+                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.Canvas}"/>
+                    </MultiTrigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+
+          <Style x:Key="T3.ListView" TargetType="ListView">
+            <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+            <Setter Property="FontSize" Value="{StaticResource T3.Size.Body}"/>
+            <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource T3.ListViewItem}"/>
+          </Style>
+
+          <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource T3.GridViewColumnHeader}"/>
+          <Style TargetType="ListViewItem" BasedOn="{StaticResource T3.ListViewItem}"/>
+
           <!-- Status pill: nền tint + dot + CHỮ. Không bao giờ chỉ dùng màu.
                Row VM cần 2 property: StatusText (string) và Severity ("Success"/"Warning"/"Danger"). -->
           <DataTemplate x:Key="T3.StatusPill">
-            <Border x:Name="pill" CornerRadius="2" Padding="7,2"
+            <Border x:Name="pill" CornerRadius="{StaticResource T3.R.Pill}" Padding="7,2"
                     HorizontalAlignment="Left" VerticalAlignment="Center">
               <StackPanel Orientation="Horizontal">
                 <Ellipse x:Name="dot" Width="6" Height="6" Margin="0,0,6,0" VerticalAlignment="Center"/>
@@ -835,7 +945,7 @@
               <Setter Property="Template">
                   <Setter.Value>
                       <ControlTemplate TargetType="Button">
-                          <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8">
+                          <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="{StaticResource T3.R.Control}">
                               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                           </Border>
                       </ControlTemplate>
@@ -873,7 +983,7 @@
               <Setter Property="Template">
                   <Setter.Value>
                       <ControlTemplate TargetType="ToggleButton">
-                          <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="13">
+                          <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{StaticResource T3.R.Window}">
                               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                           </Border>
                           <ControlTemplate.Triggers>
@@ -909,7 +1019,7 @@
               <Setter Property="BorderThickness" Value="1"/>
               <Setter Property="Padding" Value="8,0,8,0"/>
               <Setter Property="FontSize" Value="13"/>
-              <Setter Property="FontFamily" Value="Hanken Grotesk"/>
+              <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
               <Setter Property="Height" Value="32"/>
               <Setter Property="VerticalContentAlignment" Value="Center"/>
               <Setter Property="Template">
@@ -919,7 +1029,7 @@
                                   Background="{TemplateBinding Background}"
                                   BorderBrush="{TemplateBinding BorderBrush}"
                                   BorderThickness="{TemplateBinding BorderThickness}"
-                                  CornerRadius="8">
+                                  CornerRadius="{StaticResource T3.R.Control}">
                               <Grid>
                                   <Grid.ColumnDefinitions>
                                       <ColumnDefinition Width="*"/>
@@ -963,7 +1073,7 @@
               <Setter Property="Template">
                   <Setter.Value>
                       <ControlTemplate TargetType="{x:Type Thumb}">
-                          <Border x:Name="thumbBorder" Background="{StaticResource T3.BorderStrong}" CornerRadius="2" Margin="0"/>
+                          <Border x:Name="thumbBorder" Background="{StaticResource T3.BorderStrong}" CornerRadius="{StaticResource T3.R.Pill}" Margin="0"/>
                           <ControlTemplate.Triggers>
                               <Trigger Property="IsMouseOver" Value="true">
                                   <Setter TargetName="thumbBorder" Property="Background" Value="{StaticResource T3.TextMuted}"/>
@@ -977,12 +1087,84 @@
               </Setter>
           </Style>
 
-          <!-- Rail tile 42×42 — ô logo/biểu tượng ở sidebar rail. Bo góc 13 là giá trị
-               riêng của component này; file tool KHÔNG bao giờ tự viết 13. -->
+          <Style x:Key="T3.ScrollBar.PageButton" TargetType="{x:Type RepeatButton}">
+              <Setter Property="OverridesDefaultStyle" Value="true"/>
+              <Setter Property="Background" Value="Transparent"/>
+              <Setter Property="Focusable" Value="false"/>
+              <Setter Property="IsTabStop" Value="false"/>
+              <Setter Property="Template">
+                  <Setter.Value>
+                      <ControlTemplate TargetType="{x:Type RepeatButton}">
+                          <Rectangle Fill="{TemplateBinding Background}" Height="{TemplateBinding Height}" Width="{TemplateBinding Width}"/>
+                      </ControlTemplate>
+                  </Setter.Value>
+              </Setter>
+          </Style>
+
+          <!-- ScrollBar: siêu mỏng (5px), trong suốt, không nút mũi tên — chuẩn Revit -->
+          <Style TargetType="{x:Type ScrollBar}">
+              <Setter Property="OverridesDefaultStyle" Value="true"/>
+              <Setter Property="SnapsToDevicePixels" Value="true"/>
+              <Setter Property="Background" Value="Transparent"/>
+              <Style.Triggers>
+                  <Trigger Property="Orientation" Value="Vertical">
+                      <Setter Property="Width" Value="5"/>
+                      <Setter Property="MinWidth" Value="5"/>
+                      <Setter Property="Template">
+                          <Setter.Value>
+                              <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                  <Grid Background="Transparent">
+                                      <Track x:Name="PART_Track" IsDirectionReversed="true" Margin="0,4">
+                                          <Track.DecreaseRepeatButton>
+                                              <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}"
+                                                            Style="{StaticResource T3.ScrollBar.PageButton}"/>
+                                          </Track.DecreaseRepeatButton>
+                                          <Track.Thumb>
+                                              <Thumb Style="{StaticResource T3.ScrollBar.Thumb}" Width="5"/>
+                                          </Track.Thumb>
+                                          <Track.IncreaseRepeatButton>
+                                              <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}"
+                                                            Style="{StaticResource T3.ScrollBar.PageButton}"/>
+                                          </Track.IncreaseRepeatButton>
+                                      </Track>
+                                  </Grid>
+                              </ControlTemplate>
+                          </Setter.Value>
+                      </Setter>
+                  </Trigger>
+                  <Trigger Property="Orientation" Value="Horizontal">
+                      <Setter Property="Height" Value="5"/>
+                      <Setter Property="MinHeight" Value="5"/>
+                      <Setter Property="Template">
+                          <Setter.Value>
+                              <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                  <Grid Background="Transparent">
+                                      <Track x:Name="PART_Track" IsDirectionReversed="false" Margin="4,0">
+                                          <Track.DecreaseRepeatButton>
+                                              <RepeatButton Command="{x:Static ScrollBar.PageLeftCommand}"
+                                                            Style="{StaticResource T3.ScrollBar.PageButton}"/>
+                                          </Track.DecreaseRepeatButton>
+                                          <Track.Thumb>
+                                              <Thumb Style="{StaticResource T3.ScrollBar.Thumb}" Height="5"/>
+                                          </Track.Thumb>
+                                          <Track.IncreaseRepeatButton>
+                                              <RepeatButton Command="{x:Static ScrollBar.PageRightCommand}"
+                                                            Style="{StaticResource T3.ScrollBar.PageButton}"/>
+                                          </Track.IncreaseRepeatButton>
+                                      </Track>
+                                  </Grid>
+                              </ControlTemplate>
+                          </Setter.Value>
+                      </Setter>
+                  </Trigger>
+              </Style.Triggers>
+          </Style>
+
+          <!-- Rail tile 42×42 — ô logo/biểu tượng ở sidebar rail. -->
           <Style x:Key="T3.Rail.Logo" TargetType="Border">
             <Setter Property="Width"  Value="42"/>
             <Setter Property="Height" Value="42"/>
-            <Setter Property="CornerRadius" Value="13"/>
+            <Setter Property="CornerRadius" Value="{StaticResource T3.R.Window}"/>
             <Setter Property="Background"   Value="{StaticResource T3.Ink}"/>
           </Style>
 
@@ -1175,22 +1357,27 @@
         </ResourceDictionary>
     </Window.Resources>
 
-    <Border Background="{StaticResource T3.Canvas}"
-            BorderBrush="{StaticResource T3.BorderStrong}"
-            BorderThickness="1" CornerRadius="8">
-        <DockPanel>
+    <!-- ═══ Outer Window Border ═══ -->
+    <Border BorderBrush="{StaticResource T3.BorderStrong}" BorderThickness="1.5"
+            CornerRadius="12" ClipToBounds="True" Background="{DynamicResource T3.Surface}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48"/>      <!-- Row 0: Full-width Title Bar -->
+                <RowDefinition Height="*"/>       <!-- Row 1: Main Body with Sidebar Rail -->
+                <RowDefinition Height="48"/>      <!-- Row 2: Full-width Footer Bar -->
+            </Grid.RowDefinitions>
 
-            <!-- ══════════════════ TITLE BAR ══════════════════ -->
-            <Border DockPanel.Dock="Top" Style="{StaticResource T3.TitleBar}">
+            <!-- ══════════════════ ROW 0: FULL-WIDTH TITLE BAR ══════════════════ -->
+            <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="T3 UI Standard" Style="{StaticResource T3.Title}"/>
-                        <TextBlock Text="the five patterns, rendered — copy from here"
-                                   Style="{StaticResource T3.Body.Secondary}" Margin="12,0,0,0"/>
+                    <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="16,0,0,0"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                        <TextBlock Text="UI Standard Showcase" Style="{StaticResource T3.Title}"/>
+                        <TextBlock Text="Complete production reference implementation of T3 design system" Style="{StaticResource T3.Subtitle}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal"
                                 shell:WindowChrome.IsHitTestVisibleInChrome="True">
@@ -1210,8 +1397,408 @@
                 </Grid>
             </Border>
 
-            <!-- ══════════════════ FOOTER ══════════════════ -->
-            <Border DockPanel.Dock="Bottom" Style="{StaticResource T3.FooterBar}">
+            <!-- ══════════════════ ROW 1: WORKSPACE WITH REFINED SIDEBAR ══════════════════ -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="58"/>    <!-- Col 0: Refined Sidebar Rail -->
+                    <ColumnDefinition Width="*"/>     <!-- Col 1: Main Content Views -->
+                </Grid.ColumnDefinitions>
+
+                <!-- ── Col 0: Left Navigation Icon Rail ── -->
+                <Border Grid.Column="0"
+                        Background="{StaticResource T3.SurfaceSunken}"
+                        BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
+                    <Grid Margin="0,12,0,12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/> <!-- Nav 1: Studio Overview -->
+                            <RowDefinition Height="Auto"/> <!-- Nav 2: Inventory Grid -->
+                            <RowDefinition Height="Auto"/> <!-- Nav 3: Execution Logs -->
+                            <RowDefinition Height="*"/>    <!-- Spacer -->
+                            <RowDefinition Height="Auto"/> <!-- Nav 4: Preferences -->
+                        </Grid.RowDefinitions>
+
+                        <!-- Nav 1: Unified Studio -->
+                        <ToggleButton x:Name="nav_toggle_params" Grid.Row="0"
+                                      Style="{StaticResource T3.Rail.Tile}"
+                                      Margin="0,0,0,8" IsChecked="True"
+                                      ToolTip="Unified Studio (Form &amp; Grid)">
+                            <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                                  StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  Width="18" Height="18" Stretch="Uniform"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </ToggleButton>
+
+                        <!-- Nav 2: Elements Inventory -->
+                        <ToggleButton x:Name="nav_toggle_elements" Grid.Row="1"
+                                      Style="{StaticResource T3.Rail.Tile}"
+                                      Margin="0,0,0,8"
+                                      ToolTip="Element Inventory">
+                            <Path Data="M4 4 h16 v14 h-16 z M4 9 h16 M10 9 v10"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                                  StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  Width="18" Height="18" Stretch="Uniform"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </ToggleButton>
+
+                        <!-- Nav 3: Execution Monitor -->
+                        <ToggleButton x:Name="nav_toggle_monitor" Grid.Row="2"
+                                      Style="{StaticResource T3.Rail.Tile}"
+                                      Margin="0,0,0,8"
+                                      ToolTip="Execution Monitor &amp; Live Logs">
+                            <Path Data="M2 4 h10 M2 9 h10 M2 14 h7 M15 9 h6 M18 6 l3 3 l-3 3"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                                  StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  Width="18" Height="18" Stretch="Uniform"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </ToggleButton>
+
+                        <!-- Nav 4: Preferences -->
+                        <ToggleButton x:Name="nav_toggle_settings" Grid.Row="4"
+                                      Style="{StaticResource T3.Rail.Tile}"
+                                      ToolTip="Preferences &amp; Audit Settings">
+                            <Path Data="M12 15 a3 3 0 1 0 0 -6 a3 3 0 0 0 0 6 M19.4 15 a1.65 1.65 0 0 0 .33 1.82 l.06 .06 a2 2 0 0 1 -2.83 2.83 l-.06 -.06 a1.65 1.65 0 0 0 -1.82 -.33 a1.65 1.65 0 0 0 -1 1.51 V21 a2 2 0 0 1 -4 0 v-.09 A1.65 1.65 0 0 0 9 19.4 a1.65 1.65 0 0 0 -1.82 .33 l-.06 .06 a2 2 0 0 1 -2.83 -2.83 l.06 -.06 a1.65 1.65 0 0 0 .33 -1.82 a1.65 1.65 0 0 0 -1.51 -1 H3 a2 2 0 0 1 0 -4 h.09 A1.65 1.65 0 0 0 4.6 9 a1.65 1.65 0 0 0 -.33 -1.82 l-.06 -.06 a2 2 0 0 1 2.83 -2.83 l.06 .06 a1.65 1.65 0 0 0 1.82 .33 H9 a1.65 1.65 0 0 0 1 -1.51 V3 a2 2 0 0 1 4 0 v.09 a1.65 1.65 0 0 0 1 1.51 a1.65 1.65 0 0 0 1.82 -.33 l.06 -.06 a2 2 0 0 1 2.83 2.83 l-.06 .06 a1.65 1.65 0 0 0 -.33 1.82 V9 a1.65 1.65 0 0 0 1.51 1 H21 a2 2 0 0 1 0 4 h-.09 a1.65 1.65 0 0 0 -1.51 1 z"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                                  StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  Width="18" Height="18" Stretch="Uniform"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </ToggleButton>
+                    </Grid>
+                </Border>
+
+                <!-- ── Col 1: Main View Router (Hidden TabControl) ── -->
+                <TabControl x:Name="main_view_tabs" Grid.Column="1"
+                            Margin="0" Background="Transparent" BorderThickness="0">
+                    <TabControl.ItemContainerStyle>
+                        <Style TargetType="TabItem" BasedOn="{StaticResource T3.TabItem.Hidden}"/>
+                    </TabControl.ItemContainerStyle>
+
+                    <!-- VIEW 0: UNIFIED STUDIO (Side Config + Workspace) -->
+                    <TabItem>
+                        <Grid Margin="0" Background="{StaticResource T3.Surface}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="320"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- LEFT CONFIGURATION PANEL (P1 Form + P5 Safety Callouts) -->
+                            <Border Grid.Column="0" Background="{StaticResource T3.Surface}"
+                                    BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0"
+                                    Padding="0" ClipToBounds="True">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                              Padding="16,16,12,16">
+                                    <StackPanel>
+                                        <!-- Section 1: Scope -->
+                                        <TextBlock Text="SCOPE &amp; TARGET" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
+
+                                        <TextBlock Text="TARGET SHEET SET" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="cb_scope" Style="{StaticResource T3.ComboBox}"
+                                                  ItemContainerStyle="{StaticResource T3.ComboBoxItem}"
+                                                  SelectedIndex="0" Margin="0,0,0,16">
+                                            <ComboBoxItem Content="All sheets in project (245)"/>
+                                            <ComboBoxItem Content="Current selection (4)"/>
+                                            <ComboBoxItem Content="Unapproved sheets only"/>
+                                        </ComboBox>
+
+                                        <!-- Section 2: Renumbering Parameters -->
+                                        <TextBlock Text="RENUMBERING RULES" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
+
+                                        <TextBlock Text="PREFIX" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                        <TextBox x:Name="tb_prefix" Text="A-" Style="{StaticResource T3.TextBox}" Margin="0,0,0,12"/>
+
+                                        <Grid Margin="0,0,0,16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="START AT" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                                <TextBox x:Name="tb_start" Text="101" Style="{StaticResource T3.TextBox.Mono}"/>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="STEP" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                                <TextBox x:Name="tb_step" Text="1" Style="{StaticResource T3.TextBox.Mono}"/>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="4">
+                                                <TextBlock Text="PAD TO" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                                <TextBox x:Name="tb_pad" Text="3" Style="{StaticResource T3.TextBox.Mono}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Section 3: Options -->
+                                        <TextBlock Text="OPTIONS" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
+
+                                        <CheckBox x:Name="chk_skip" Content="Skip sheets already matching pattern"
+                                                  Style="{StaticResource T3.CheckBox}" IsChecked="True" Margin="0,0,0,8"/>
+                                        <CheckBox x:Name="chk_rollback" Content="Write rollback log to project folder"
+                                                  Style="{StaticResource T3.CheckBox}" IsChecked="True" Margin="0,0,0,16"/>
+
+                                        <!-- Section 4: Advanced Expander -->
+                                        <Expander Header="Advanced settings (2 active)" Style="{StaticResource T3.Expander}"
+                                                  IsExpanded="False" Margin="0,0,0,16">
+                                            <StackPanel Margin="16,8,0,0">
+                                                <CheckBox Content="Renumber revision sheets too"
+                                                          Style="{StaticResource T3.CheckBox}" Margin="0,0,0,8"/>
+                                                <CheckBox Content="Auto-resolve numbering collisions"
+                                                          Style="{StaticResource T3.CheckBox}" IsChecked="True" Margin="0,0,0,8"/>
+                                                <CheckBox Content="Preserve title on sheet parameter"
+                                                          Style="{StaticResource T3.CheckBox}" IsChecked="True"/>
+                                            </StackPanel>
+                                        </Expander>
+
+                                        <!-- Section 5: P5 Safety & Impact Callouts -->
+                                        <TextBlock Text="SAFETY &amp; IMPACT" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
+
+                                        <Border Style="{StaticResource T3.Callout.Success}" Margin="0,0,0,8">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                    <TextBlock Text="&#xE73E;" Style="{StaticResource T3.Callout.Icon}"/>
+                                                    <TextBlock Text="Non-destructive preview active" Style="{StaticResource T3.BodyStrong}"
+                                                               Foreground="{StaticResource T3.Success.Text}"/>
+                                                </StackPanel>
+                                                <TextBlock Text="Elements are previewed and validated before applying transaction changes."
+                                                           Style="{StaticResource T3.Body.Secondary}" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+
+                            <!-- RIGHT CENTRAL WORKSPACE (P4 Metrics + P2/P4 Filter & DataGrid + P3 Monitor) -->
+                            <Grid Grid.Column="1" Background="{StaticResource T3.Surface}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/> <!-- Row 0: Top Summary Metrics Strip -->
+                                    <RowDefinition Height="Auto"/> <!-- Row 1: Filter & Search Toolbar -->
+                                    <RowDefinition Height="*"/>    <!-- Row 2: Main DataGrid -->
+                                    <RowDefinition Height="Auto"/> <!-- Row 3: Execution Progress & Live Log Monitor -->
+                                </Grid.RowDefinitions>
+
+                                <!-- 1. P4 Metric Strip: Docked flush at top with 1px bottom border -->
+                                <Border Grid.Row="0" Background="{StaticResource T3.SurfaceSunken}"
+                                        BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,0,1"
+                                        Padding="16,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="1"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="1"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="1"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="1"/>
+                                            <ColumnDefinition Width="1.4*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="CHECKED" Style="{StaticResource T3.Caption}"/>
+                                            <TextBlock Text="245" Style="{StaticResource T3.Display}"/>
+                                        </StackPanel>
+
+                                        <Border Grid.Column="1" Background="{StaticResource T3.Border}" Margin="0,4"/>
+
+                                        <StackPanel Grid.Column="2" Margin="16,0,0,0">
+                                            <TextBlock Text="COMPLIANT" Style="{StaticResource T3.Caption}"
+                                                       Foreground="{StaticResource T3.Success.Text}"/>
+                                            <TextBlock Text="198" Style="{StaticResource T3.Display}"
+                                                       Foreground="{StaticResource T3.Success.Text}"/>
+                                        </StackPanel>
+
+                                        <Border Grid.Column="3" Background="{StaticResource T3.Border}" Margin="0,4"/>
+
+                                        <StackPanel Grid.Column="4" Margin="16,0,0,0">
+                                            <TextBlock Text="NEEDS REVIEW" Style="{StaticResource T3.Caption}"
+                                                       Foreground="{StaticResource T3.Warning.Text}"/>
+                                            <TextBlock Text="18" Style="{StaticResource T3.Display}"
+                                                       Foreground="{StaticResource T3.Warning.Text}"/>
+                                        </StackPanel>
+
+                                        <Border Grid.Column="5" Background="{StaticResource T3.Border}" Margin="0,4"/>
+
+                                        <StackPanel Grid.Column="6" Margin="16,0,0,0">
+                                            <TextBlock Text="FAILED" Style="{StaticResource T3.Caption}"
+                                                       Foreground="{StaticResource T3.Danger.Text}"/>
+                                            <TextBlock Text="29" Style="{StaticResource T3.Display}"
+                                                       Foreground="{StaticResource T3.Danger.Text}"/>
+                                        </StackPanel>
+
+                                        <Border Grid.Column="7" Background="{StaticResource T3.Border}" Margin="0,4"/>
+
+                                        <StackPanel Grid.Column="8" Margin="16,0,0,0" VerticalAlignment="Center">
+                                            <Grid Margin="0,0,0,4">
+                                                <TextBlock Text="PASS RATE" Style="{StaticResource T3.Caption}"/>
+                                                <TextBlock Text="81%" Style="{StaticResource T3.Caption}"
+                                                           HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                                            </Grid>
+                                            <ProgressBar Value="81" Maximum="100" Style="{StaticResource T3.Meter}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <!-- 2. Filter & Search Toolbar: Docked flush under Metrics with 1px bottom border -->
+                                <Border Grid.Row="1" Background="{StaticResource T3.Surface}"
+                                        BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,0,1"
+                                        Padding="16,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <RadioButton x:Name="chip_all" Content="All 245" GroupName="filterChip"
+                                                         Style="{StaticResource T3.Chip}" IsChecked="True"/>
+                                            <RadioButton x:Name="chip_compliant" Content="Compliant 198" GroupName="filterChip"
+                                                         Style="{StaticResource T3.Chip}"/>
+                                            <RadioButton x:Name="chip_review" Content="Review 18" GroupName="filterChip"
+                                                         Style="{StaticResource T3.Chip}"/>
+                                            <RadioButton x:Name="chip_failed" Content="Failed 29" GroupName="filterChip"
+                                                         Style="{StaticResource T3.Chip}"/>
+                                            <TextBox x:Name="tb_search" Style="{StaticResource T3.Search}"
+                                                     Tag="Filter by name or ID..." Width="180" Margin="8,0,0,0"/>
+                                            <ComboBox x:Name="cb_category" Style="{StaticResource T3.ComboBox}"
+                                                      ItemContainerStyle="{StaticResource T3.ComboBoxItem}"
+                                                      Width="130" Margin="8,0,0,0" SelectedIndex="0">
+                                                <ComboBoxItem Content="All categories"/>
+                                                <ComboBoxItem Content="Floor Plan"/>
+                                                <ComboBoxItem Content="Detail View"/>
+                                                <ComboBoxItem Content="Elevation"/>
+                                                <ComboBoxItem Content="Section"/>
+                                                <ComboBoxItem Content="3D View"/>
+                                                <ComboBoxItem Content="Schedule"/>
+                                            </ComboBox>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button x:Name="btn_select_all" Content="All" Style="{StaticResource T3.Button.Ghost}"
+                                                    Margin="0,0,4,0"/>
+                                            <Button x:Name="btn_select_none" Content="None" Style="{StaticResource T3.Button.Ghost}"
+                                                    Margin="0,0,12,0"/>
+                                            <TextBlock x:Name="lbl_selection_count" Text="4 of 245 selected"
+                                                       Style="{StaticResource T3.Caption}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <!-- 3. Main DataGrid: Docked flush directly in Row 2, zero margins, fills 100% -->
+                                <Grid Grid.Row="2">
+                                    <DataGrid x:Name="sample_grid" Style="{StaticResource T3.DataGrid}"
+                                              BorderThickness="0" SelectionMode="Extended">
+                                        <DataGrid.Columns>
+                                            <DataGridCheckBoxColumn Width="32"
+                                                                    Binding="{Binding is_selected, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <DataGridTextColumn Header="ID" Width="90" Binding="{Binding id}"
+                                                                ElementStyle="{StaticResource T3.Cell.Mono}"/>
+                                            <DataGridTextColumn Header="NAME" Width="*" Binding="{Binding name}"/>
+                                            <DataGridTextColumn Header="CATEGORY" Width="130" Binding="{Binding category}"
+                                                                ElementStyle="{StaticResource T3.Body.Secondary}"/>
+                                            <DataGridTextColumn Header="TEMPLATE" Width="140" Binding="{Binding template}"
+                                                                ElementStyle="{StaticResource T3.Cell.Muted}"/>
+                                            <DataGridTemplateColumn Header="STATUS" Width="130">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <ContentControl Content="{Binding}"
+                                                                        ContentTemplate="{StaticResource T3.StatusPill}"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTextColumn Header="ISSUES" Width="60" Binding="{Binding issues}"
+                                                                ElementStyle="{StaticResource T3.Cell.Number}"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <!-- Empty State -->
+                                    <TextBlock x:Name="grid_empty" Style="{StaticResource T3.Empty}"
+                                               Text="No matching elements found" Visibility="Collapsed"/>
+                                </Grid>
+
+                                <!-- 4. P3 Execution Progress & Live Log Monitor: Docked flush at bottom with 1px top border -->
+                                <Border Grid.Row="3" Background="{StaticResource T3.SurfaceSunken}"
+                                        BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,0"
+                                        Padding="16,12">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,8">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="PHASE 2 OF 3" Style="{StaticResource T3.Label}"/>
+                                                <TextBlock Text="· Renumbering sheets"
+                                                           Style="{StaticResource T3.Body.Secondary}" Margin="8,0,0,0"/>
+                                            </StackPanel>
+                                            <TextBlock Text="184 / 245 (75%)" Style="{StaticResource T3.Caption}"
+                                                       HorizontalAlignment="Right"/>
+                                        </Grid>
+
+                                        <ProgressBar x:Name="exec_progress" Value="75" Maximum="100"
+                                                     Style="{StaticResource T3.Meter}" Margin="0,0,0,8"/>
+
+                                        <TextBlock Text="Current: Sheet A-184 · Ground Floor Plan Detail"
+                                                   Style="{StaticResource T3.Caption}" Margin="0,0,0,8"/>
+
+                                        <!-- Live Log Box -->
+                                        <ListBox x:Name="log_box" Style="{StaticResource T3.LogBox}" Height="76" Margin="0,0,0,8">
+                                            <ListBoxItem>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="12:04:31" Style="{StaticResource T3.Log.Time}"/>
+                                                    <TextBlock Text="Transaction opened" Style="{StaticResource T3.Log.Plain}"/>
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="12:04:31" Style="{StaticResource T3.Log.Time}"/>
+                                                    <TextBlock Text="Collected 245 sheets in active scope" Style="{StaticResource T3.Log.Plain}"/>
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="12:04:32" Style="{StaticResource T3.Log.Time}"/>
+                                                    <TextBlock Text="A-1001 -&gt; A-101   ok" Style="{StaticResource T3.Log.Ok}"/>
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="12:04:33" Style="{StaticResource T3.Log.Time}"/>
+                                                    <TextBlock Text="A-1003   skipped, already matches pattern" Style="{StaticResource T3.Log.Skipped}"/>
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="12:04:34" Style="{StaticResource T3.Log.Time}"/>
+                                                    <TextBlock Text="A-1005   failed, sheet is checked out by TCB" Style="{StaticResource T3.Log.Failed}"/>
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                        </ListBox>
+
+                                        <!-- Tally Strip -->
+                                        <Grid>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="180 ok" Style="{StaticResource T3.Tally}"/>
+                                                <Ellipse Style="{StaticResource T3.Dot}" Fill="{StaticResource T3.Warning.Accent}"
+                                                         Margin="8,0,4,0"/>
+                                                <TextBlock Text="3 skipped" Style="{StaticResource T3.Tally}"/>
+                                                <Ellipse Style="{StaticResource T3.Dot}" Fill="{StaticResource T3.Danger.Accent}"
+                                                         Margin="8,0,4,0"/>
+                                                <TextBlock Text="1 failed" Style="{StaticResource T3.Tally}"/>
+                                            </StackPanel>
+
+                                            <CheckBox x:Name="chk_autoscroll" Content="Auto-scroll log"
+                                                      Style="{StaticResource T3.CheckBox}"
+                                                      IsChecked="True" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </Grid>
+
+            <!-- ══════════════════ ROW 2: FULL-WIDTH FOOTER BAR ══════════════════ -->
+            <Border Grid.Row="2" Style="{StaticResource T3.FooterBar}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -1221,647 +1808,23 @@
                         <TextBlock Style="{StaticResource T3.Copyright}"/>
                         <Border Width="1" Height="16" Margin="12,0"
                                 Background="{StaticResource T3.Border}" VerticalAlignment="Center"/>
-                        <Ellipse Style="{StaticResource T3.Dot}"
+                        <Ellipse x:Name="status_dot" Style="{StaticResource T3.Dot}"
                                  Fill="{StaticResource T3.Success.Accent}"/>
-                        <TextBlock Text="Reference window — nothing here touches the model"
+                        <TextBlock x:Name="status_text" Text="Ready · 245 sheets in scope · 4 selected"
                                    Style="{StaticResource T3.Body.Secondary}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <Button Content="Close" Style="{StaticResource T3.Button.Ghost}"
+                        <Button x:Name="btn_copy_log" Content="Copy Log" Style="{StaticResource T3.Button.Ghost}"
+                                Margin="0,0,8,0"/>
+                        <Button x:Name="btn_export_csv" Content="Export CSV" Style="{StaticResource T3.Button.Secondary}"
+                                Margin="0,0,8,0"/>
+                        <Button Content="Cancel" Style="{StaticResource T3.Button.Secondary}"
                                 Margin="0,0,8,0" Click="close_button_clicked"/>
-                        <Button Content="Primary action" IsDefault="True"
+                        <Button x:Name="btn_execute" Content="Execute Batch (4)" IsDefault="True"
                                 Style="{StaticResource T3.Button.Primary}"/>
                     </StackPanel>
                 </Grid>
             </Border>
-
-            <!-- ══════════════════ BODY ══════════════════
-                 ScrollViewer chỉ bọc StackPanel. KHÔNG BAO GIỜ bọc list/grid —
-                 mất virtualization là treo Revit trên model lớn. -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled" Padding="16">
-                <StackPanel>
-
-                    <!-- ─────────── P1 · PARAMETER INPUT FORM · size M ─────────── -->
-                    <TextBlock Text="P1 · PARAMETER INPUT FORM · SIZE M"
-                               Style="{StaticResource T3.Label}"/>
-                    <TextBlock Text="One column. Label above control. Expander hides advanced settings. A callout states the consequence with a number, right above the footer."
-                               Style="{StaticResource T3.Caption}" TextWrapping="Wrap" Margin="0,4,0,8"/>
-
-                    <Border Style="{StaticResource T3.Panel}" Padding="0"
-                            HorizontalAlignment="Left" Width="560" Margin="0,0,0,32">
-                        <DockPanel>
-                            <Border DockPanel.Dock="Top" Style="{StaticResource T3.TitleBar}">
-                                <Grid>
-                                    <TextBlock Text="Renumber Sheets" Style="{StaticResource T3.Title}"
-                                               HorizontalAlignment="Left"/>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="11" Margin="0,0,16,0" VerticalAlignment="Center"
-                                                   Foreground="{StaticResource T3.TextSecondary}"/>
-                                        <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="11" Margin="0,0,16,0" VerticalAlignment="Center"
-                                                   Foreground="{StaticResource T3.TextSecondary}"/>
-                                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="11" VerticalAlignment="Center"
-                                                   Foreground="{StaticResource T3.TextSecondary}"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-
-                            <Border DockPanel.Dock="Bottom" Style="{StaticResource T3.FooterBar}">
-                                <Grid>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left"
-                                                VerticalAlignment="Center">
-                                        <Ellipse Style="{StaticResource T3.Dot}"
-                                                 Fill="{StaticResource T3.Success.Accent}"/>
-                                        <TextBlock Text="Ready · 245 sheets in scope"
-                                                   Style="{StaticResource T3.Body.Secondary}"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button Content="Cancel" Style="{StaticResource T3.Button.Secondary}"
-                                                Margin="0,0,8,0"/>
-                                        <Button Content="Renumber" Style="{StaticResource T3.Button.Primary}"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-
-                            <StackPanel Margin="16">
-                                <TextBlock Text="TARGET" Style="{StaticResource T3.Label}"/>
-                                <Separator Style="{StaticResource T3.Rule}" Margin="0,4,0,12"/>
-
-                                <TextBlock Text="SHEET SET" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
-                                <ComboBox Style="{StaticResource T3.ComboBox}"
-                                          ItemContainerStyle="{StaticResource T3.ComboBoxItem}"
-                                          SelectedIndex="0" Margin="0,0,0,12">
-                                    <ComboBoxItem Content="All sheets in project (245)"/>
-                                    <ComboBoxItem Content="Current selection"/>
-                                </ComboBox>
-
-                                <TextBlock Text="PREFIX" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
-                                <TextBox Text="A-1" Style="{StaticResource T3.TextBox}" Margin="0,0,0,12"/>
-
-                                <Grid Margin="0,0,0,12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="12"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="12"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="START AT" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
-                                        <TextBox Text="01" Style="{StaticResource T3.TextBox.Mono}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="STEP" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
-                                        <TextBox Text="1" Style="{StaticResource T3.TextBox.Mono}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="4">
-                                        <TextBlock Text="PAD TO" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
-                                        <TextBox Text="2 digits" Style="{StaticResource T3.TextBox.Mono}"/>
-                                    </StackPanel>
-                                </Grid>
-
-                                <TextBlock Text="OPTIONS" Style="{StaticResource T3.Label}" Margin="0,12,0,0"/>
-                                <Separator Style="{StaticResource T3.Rule}" Margin="0,4,0,12"/>
-                                <CheckBox Content="Skip sheets already matching the pattern"
-                                          Style="{StaticResource T3.CheckBox}" IsChecked="True" Margin="0,0,0,8"/>
-                                <CheckBox Content="Write a rollback log to the project folder"
-                                          Style="{StaticResource T3.CheckBox}" Margin="0,0,0,12"/>
-
-                                <Expander Style="{StaticResource T3.Expander}" Margin="0,0,0,12">
-                                    <Expander.Header>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Advanced" Style="{StaticResource T3.BodyStrong}"/>
-                                            <TextBlock Text="3 settings, defaults in use"
-                                                       Style="{StaticResource T3.Caption}" Margin="8,0,0,0"/>
-                                        </StackPanel>
-                                    </Expander.Header>
-                                    <StackPanel Margin="0,8,0,0">
-                                        <CheckBox Content="Renumber revision sheets too"
-                                                  Style="{StaticResource T3.CheckBox}"/>
-                                    </StackPanel>
-                                </Expander>
-
-                                <Border Style="{StaticResource T3.Callout}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE946;" Style="{StaticResource T3.Callout.Icon}"
-                                                   Foreground="{StaticResource T3.TextSecondary}"/>
-                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource T3.Body}">
-                                            <Run Text="245 sheets will be renumbered." FontWeight="SemiBold"/>
-                                            <Run Text=" Existing numbers are overwritten and cannot be recovered without the rollback log."/>
-                                        </TextBlock>
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
-
-                    <!-- ─────────── P2 · ELEMENT SELECTION LIST · size M ─────────── -->
-                    <TextBlock Text="P2 · ELEMENT SELECTION LIST · SIZE M"
-                               Style="{StaticResource T3.Label}"/>
-                    <TextBlock Text="Filter pinned above the list. Header row names the columns. The primary carries the count, so the button says what will happen."
-                               Style="{StaticResource T3.Caption}" TextWrapping="Wrap" Margin="0,4,0,8"/>
-
-                    <Border Style="{StaticResource T3.Panel}" Padding="0"
-                            HorizontalAlignment="Left" Width="640" Margin="0,0,0,32">
-                        <DockPanel>
-                            <Border DockPanel.Dock="Top" Style="{StaticResource T3.TitleBar}">
-                                <TextBlock Text="Select Views to Export" Style="{StaticResource T3.Title}"
-                                           HorizontalAlignment="Left"/>
-                            </Border>
-
-                            <Border DockPanel.Dock="Bottom" Style="{StaticResource T3.FooterBar}">
-                                <Grid>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left"
-                                                VerticalAlignment="Center">
-                                        <TextBlock Text="4 of 18 selected" Style="{StaticResource T3.BodyStrong}"/>
-                                        <TextBlock Text="Shift-click for a range"
-                                                   Style="{StaticResource T3.Caption}" Margin="12,0,0,0"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button Content="None" Style="{StaticResource T3.Button.Ghost}" Margin="0,0,8,0"/>
-                                        <Button Content="All" Style="{StaticResource T3.Button.Ghost}" Margin="0,0,8,0"/>
-                                        <Button Content="Cancel" Style="{StaticResource T3.Button.Secondary}" Margin="0,0,8,0"/>
-                                        <Button Content="Export 4" Style="{StaticResource T3.Button.Primary}"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-
-                            <StackPanel Margin="16">
-                                <Grid Margin="0,0,0,12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="160"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox Grid.Column="0" Style="{StaticResource T3.Search}"
-                                             Tag="Filter by name or ID..." Text=""/>
-                                    <ComboBox Grid.Column="2" Style="{StaticResource T3.ComboBox}"
-                                              ItemContainerStyle="{StaticResource T3.ComboBoxItem}"
-                                              SelectedIndex="0">
-                                        <ComboBoxItem Content="All categories"/>
-                                        <ComboBoxItem Content="Floor Plan"/>
-                                    </ComboBox>
-                                </Grid>
-
-                                <Border Style="{StaticResource T3.ListHeader}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="28"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="140"/>
-                                            <ColumnDefinition Width="90"/>
-                                        </Grid.ColumnDefinitions>
-                                        <CheckBox Grid.Column="0" Style="{StaticResource T3.CheckBox}"
-                                                  IsThreeState="True" IsChecked="{x:Null}"/>
-                                        <TextBlock Grid.Column="1" Text="NAME"
-                                                   Style="{StaticResource T3.ListHeader.Label}"/>
-                                        <TextBlock Grid.Column="2" Text="CATEGORY"
-                                                   Style="{StaticResource T3.ListHeader.Label}"/>
-                                        <TextBlock Grid.Column="3" Text="ID"
-                                                   Style="{StaticResource T3.ListHeader.Label}"
-                                                   TextAlignment="Right"/>
-                                    </Grid>
-                                </Border>
-
-                                <ListBox Style="{StaticResource T3.ListBox}" Height="208"
-                                         SelectionMode="Extended" BorderThickness="0,0,0,1">
-                                    <ListBoxItem IsSelected="True">
-                                        <Grid Width="576">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="28"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="140"/>
-                                                <ColumnDefinition Width="90"/>
-                                            </Grid.ColumnDefinitions>
-                                            <CheckBox Grid.Column="0" Style="{StaticResource T3.CheckBox}" IsChecked="True"/>
-                                            <TextBlock Grid.Column="1" Text="01_Plan_Column setting-out"
-                                                       Style="{StaticResource T3.Body}"/>
-                                            <TextBlock Grid.Column="2" Text="Floor Plan"
-                                                       Style="{StaticResource T3.Body.Secondary}"/>
-                                            <TextBlock Grid.Column="3" Text="104231"
-                                                       Style="{StaticResource T3.Cell.Number}"/>
-                                        </Grid>
-                                    </ListBoxItem>
-                                    <ListBoxItem>
-                                        <Grid Width="576">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="28"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="140"/>
-                                                <ColumnDefinition Width="90"/>
-                                            </Grid.ColumnDefinitions>
-                                            <CheckBox Grid.Column="0" Style="{StaticResource T3.CheckBox}" IsChecked="True"/>
-                                            <TextBlock Grid.Column="1" Text="02_Plan_Column dimensions"
-                                                       Style="{StaticResource T3.Body}"/>
-                                            <TextBlock Grid.Column="2" Text="Floor Plan"
-                                                       Style="{StaticResource T3.Body.Secondary}"/>
-                                            <TextBlock Grid.Column="3" Text="104232"
-                                                       Style="{StaticResource T3.Cell.Number}"/>
-                                        </Grid>
-                                    </ListBoxItem>
-                                    <ListBoxItem>
-                                        <Grid Width="576">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="28"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="140"/>
-                                                <ColumnDefinition Width="90"/>
-                                            </Grid.ColumnDefinitions>
-                                            <CheckBox Grid.Column="0" Style="{StaticResource T3.CheckBox}"/>
-                                            <TextBlock Grid.Column="1" Text="Detail_Column rebar splice"
-                                                       Style="{StaticResource T3.Body.Secondary}"/>
-                                            <TextBlock Grid.Column="2" Text="Detail View"
-                                                       Style="{StaticResource T3.Body.Secondary}"/>
-                                            <TextBlock Grid.Column="3" Text="104235"
-                                                       Style="{StaticResource T3.Cell.Number}"/>
-                                        </Grid>
-                                    </ListBoxItem>
-                                    <ListBoxItem>
-                                        <Grid Width="576">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="28"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="140"/>
-                                                <ColumnDefinition Width="90"/>
-                                            </Grid.ColumnDefinitions>
-                                            <CheckBox Grid.Column="0" Style="{StaticResource T3.CheckBox}" IsChecked="True"/>
-                                            <TextBlock Grid.Column="1" Text="3D_Overall perspective"
-                                                       Style="{StaticResource T3.Body}"/>
-                                            <TextBlock Grid.Column="2" Text="3D View"
-                                                       Style="{StaticResource T3.Body.Secondary}"/>
-                                            <TextBlock Grid.Column="3" Text="104240"
-                                                       Style="{StaticResource T3.Cell.Number}"/>
-                                        </Grid>
-                                    </ListBoxItem>
-                                    <ListBoxItem>
-                                        <Grid Width="576">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="28"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="140"/>
-                                                <ColumnDefinition Width="90"/>
-                                            </Grid.ColumnDefinitions>
-                                            <CheckBox Grid.Column="0" Style="{StaticResource T3.CheckBox}"/>
-                                            <TextBlock Grid.Column="1" Text="Section_Longitudinal section"
-                                                       Style="{StaticResource T3.Body.Secondary}"/>
-                                            <TextBlock Grid.Column="2" Text="Section"
-                                                       Style="{StaticResource T3.Body.Secondary}"/>
-                                            <TextBlock Grid.Column="3" Text="104245"
-                                                       Style="{StaticResource T3.Cell.Number}"/>
-                                        </Grid>
-                                    </ListBoxItem>
-                                </ListBox>
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
-
-                    <!-- ─────────── P3 · PROGRESS & LOG · size M ─────────── -->
-                    <TextBlock Text="P3 · PROGRESS &amp; LOG · SIZE M"
-                               Style="{StaticResource T3.Label}"/>
-                    <TextBlock Text="Phase, n / total, and the item in flight. Severity is in the word, never in the colour alone. The footer says not to close Revit while a transaction is open."
-                               Style="{StaticResource T3.Caption}" TextWrapping="Wrap" Margin="0,4,0,8"/>
-
-                    <Border Style="{StaticResource T3.Panel}" Padding="0"
-                            HorizontalAlignment="Left" Width="600" Margin="0,0,0,32">
-                        <DockPanel>
-                            <Border DockPanel.Dock="Top" Style="{StaticResource T3.TitleBar}">
-                                <TextBlock Text="Renumbering Sheets" Style="{StaticResource T3.Title}"
-                                           HorizontalAlignment="Left"/>
-                            </Border>
-
-                            <Border DockPanel.Dock="Bottom" Style="{StaticResource T3.FooterBar}">
-                                <Grid>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left"
-                                                VerticalAlignment="Center">
-                                        <Ellipse Style="{StaticResource T3.Dot}"
-                                                 Fill="{StaticResource T3.Progress.Fill}"/>
-                                        <TextBlock Text="Running · transaction open, do not close Revit"
-                                                   Style="{StaticResource T3.Body.Secondary}"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button Content="Copy log" Style="{StaticResource T3.Button.Ghost}"
-                                                Margin="0,0,8,0"/>
-                                        <Button Content="Cancel" Style="{StaticResource T3.Button.Secondary}"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-
-                            <StackPanel Margin="16">
-                                <Grid>
-                                    <TextBlock Text="Writing sheet numbers" Style="{StaticResource T3.BodyStrong}"
-                                               HorizontalAlignment="Left"/>
-                                    <TextBlock HorizontalAlignment="Right" Style="{StaticResource T3.BodyStrong}">
-                                        <Run Text="184" Foreground="{StaticResource T3.Progress.Fill}"/>
-                                        <Run Text=" / 245" Foreground="{StaticResource T3.TextSecondary}"/>
-                                    </TextBlock>
-                                </Grid>
-
-                                <ProgressBar Style="{StaticResource T3.ProgressBar}"
-                                             Minimum="0" Maximum="245" Value="184" Margin="0,8,0,4"/>
-
-                                <Grid Margin="0,0,0,12">
-                                    <TextBlock Text="A-1084 · Pad footing detail M1"
-                                               Style="{StaticResource T3.Caption}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="~40s remaining" Style="{StaticResource T3.Caption}"
-                                               HorizontalAlignment="Right"/>
-                                </Grid>
-
-                                <TextBlock Text="LOG" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
-                                <ListBox Style="{StaticResource T3.LogBox}" Height="140">
-                                    <ListBoxItem>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="12:04:31" Style="{StaticResource T3.Log.Time}"/>
-                                            <TextBlock Text="Transaction opened" Style="{StaticResource T3.Log.Plain}"/>
-                                        </StackPanel>
-                                    </ListBoxItem>
-                                    <ListBoxItem>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="12:04:31" Style="{StaticResource T3.Log.Time}"/>
-                                            <TextBlock Text="Collected 245 sheets" Style="{StaticResource T3.Log.Plain}"/>
-                                        </StackPanel>
-                                    </ListBoxItem>
-                                    <ListBoxItem>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="12:04:32" Style="{StaticResource T3.Log.Time}"/>
-                                            <TextBlock Text="A-1001 → A-101   ok" Style="{StaticResource T3.Log.Ok}"/>
-                                        </StackPanel>
-                                    </ListBoxItem>
-                                    <ListBoxItem>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="12:04:33" Style="{StaticResource T3.Log.Time}"/>
-                                            <TextBlock Text="A-1003   skipped, already matches"
-                                                       Style="{StaticResource T3.Log.Skipped}"/>
-                                        </StackPanel>
-                                    </ListBoxItem>
-                                    <ListBoxItem>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="12:04:34" Style="{StaticResource T3.Log.Time}"/>
-                                            <TextBlock Text="A-1005   failed, sheet is checked out by TCB"
-                                                       Style="{StaticResource T3.Log.Failed}"/>
-                                        </StackPanel>
-                                    </ListBoxItem>
-                                </ListBox>
-
-                                <Grid Margin="0,8,0,0">
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                        <Ellipse Style="{StaticResource T3.Dot}"
-                                                 Fill="{StaticResource T3.Success.Accent}"/>
-                                        <TextBlock Text="176 ok" Style="{StaticResource T3.Tally}"/>
-                                        <Ellipse Style="{StaticResource T3.Dot}"
-                                                 Fill="{StaticResource T3.Warning.Accent}"/>
-                                        <TextBlock Text="6 skipped" Style="{StaticResource T3.Tally}"/>
-                                        <Ellipse Style="{StaticResource T3.Dot}"
-                                                 Fill="{StaticResource T3.Danger.Accent}"/>
-                                        <TextBlock Text="2 failed" Style="{StaticResource T3.Tally}"/>
-                                    </StackPanel>
-                                    <CheckBox Content="Auto-scroll" Style="{StaticResource T3.CheckBox}"
-                                              IsChecked="True" HorizontalAlignment="Right"/>
-                                </Grid>
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
-
-                    <!-- ─────────── P4 · RESULTS TABLE · size L ─────────── -->
-                    <TextBlock Text="P4 · RESULTS TABLE · SIZE L"
-                               Style="{StaticResource T3.Label}"/>
-                    <TextBlock Text="Summary strip, chip filters, one grid. Exactly one column is Width=&quot;*&quot; (the name); everything else is fixed px. The primary sends the user back to Revit."
-                               Style="{StaticResource T3.Caption}" TextWrapping="Wrap" Margin="0,4,0,8"/>
-
-                    <Border Style="{StaticResource T3.Panel}" Padding="0" Margin="0,0,0,32">
-                        <DockPanel>
-                            <Border DockPanel.Dock="Top" Style="{StaticResource T3.TitleBar}">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="Compliance Reviewer" Style="{StaticResource T3.Title}"/>
-                                    <TextBlock Text="FJX_WH · Revit 2026 · run 12:04"
-                                               Style="{StaticResource T3.Body.Secondary}" Margin="12,0,0,0"/>
-                                </StackPanel>
-                            </Border>
-
-                            <Border DockPanel.Dock="Bottom" Style="{StaticResource T3.FooterBar}">
-                                <Grid>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left"
-                                                VerticalAlignment="Center">
-                                        <Ellipse Style="{StaticResource T3.Dot}"
-                                                 Fill="{StaticResource T3.Warning.Accent}"/>
-                                        <TextBlock Text="47 views need attention · 1 selected"
-                                                   Style="{StaticResource T3.Body.Secondary}"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button Content="Copy IDs" Style="{StaticResource T3.Button.Ghost}" Margin="0,0,8,0"/>
-                                        <Button Content="Export CSV" Style="{StaticResource T3.Button.Secondary}" Margin="0,0,8,0"/>
-                                        <Button Content="Close" Style="{StaticResource T3.Button.Secondary}" Margin="0,0,8,0"/>
-                                        <Button Content="Select in Revit" Style="{StaticResource T3.Button.Primary}"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-
-                            <Grid Margin="16">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="280"/>
-                                </Grid.RowDefinitions>
-
-                                <!-- Summary strip: số trên, nhãn dưới, chia bằng rule 1px -->
-                                <Grid Grid.Row="0" Margin="0,0,0,12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="180"/>
-                                    </Grid.ColumnDefinitions>
-
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="CHECKED" Style="{StaticResource T3.Label}"/>
-                                        <TextBlock Text="245" Style="{StaticResource T3.Display}"/>
-                                    </StackPanel>
-                                    <Border Grid.Column="1" Width="1" Margin="24,0"
-                                            Background="{StaticResource T3.Border}"/>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="COMPLIANT" Style="{StaticResource T3.Label}"/>
-                                        <TextBlock Text="198" Style="{StaticResource T3.Display}"
-                                                   Foreground="{StaticResource T3.Success.Text}"/>
-                                    </StackPanel>
-                                    <Border Grid.Column="3" Width="1" Margin="24,0"
-                                            Background="{StaticResource T3.Border}"/>
-                                    <StackPanel Grid.Column="4">
-                                        <TextBlock Text="NEEDS REVIEW" Style="{StaticResource T3.Label}"/>
-                                        <TextBlock Text="18" Style="{StaticResource T3.Display}"
-                                                   Foreground="{StaticResource T3.Warning.Text}"/>
-                                    </StackPanel>
-                                    <Border Grid.Column="5" Width="1" Margin="24,0"
-                                            Background="{StaticResource T3.Border}"/>
-                                    <StackPanel Grid.Column="6">
-                                        <TextBlock Text="FAILED" Style="{StaticResource T3.Label}"/>
-                                        <TextBlock Text="29" Style="{StaticResource T3.Display}"
-                                                   Foreground="{StaticResource T3.Danger.Text}"/>
-                                    </StackPanel>
-
-                                    <StackPanel Grid.Column="8" VerticalAlignment="Center">
-                                        <Grid Margin="0,0,0,4">
-                                            <TextBlock Text="Pass rate" Style="{StaticResource T3.Caption}"
-                                                       HorizontalAlignment="Left"/>
-                                            <TextBlock Text="81%" Style="{StaticResource T3.BodyStrong}"
-                                                       HorizontalAlignment="Right"/>
-                                        </Grid>
-                                        <ProgressBar Style="{StaticResource T3.Meter}"
-                                                     Minimum="0" Maximum="100" Value="81"/>
-                                    </StackPanel>
-                                </Grid>
-
-                                <!-- Chip filter + search -->
-                                <Grid Grid.Row="1" Margin="0,0,0,12">
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                        <RadioButton Content="All 245" GroupName="compliance"
-                                                     Style="{StaticResource T3.Chip}" IsChecked="True"/>
-                                        <RadioButton Content="Compliant 198" GroupName="compliance"
-                                                     Style="{StaticResource T3.Chip}"/>
-                                        <RadioButton Content="Review 18" GroupName="compliance"
-                                                     Style="{StaticResource T3.Chip}"/>
-                                        <RadioButton Content="Failed 29" GroupName="compliance"
-                                                     Style="{StaticResource T3.Chip}"/>
-                                        <TextBox Style="{StaticResource T3.Search}" Tag="Filter..."
-                                                 Text="" Width="200" Margin="8,0,0,0"/>
-                                    </StackPanel>
-                                    <TextBlock Text="Sorted by Status, then Name"
-                                               Style="{StaticResource T3.Caption}"
-                                               HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                </Grid>
-
-                                <!-- Grid thật, nạp dữ liệu từ UIShowcaseDialog.py -->
-                                <Grid Grid.Row="2">
-                                    <DataGrid x:Name="sample_grid" Height="280" Style="{StaticResource T3.DataGrid}">
-                                        <DataGrid.Columns>
-                                            <DataGridTextColumn Header="ID" Width="90" Binding="{Binding id}"
-                                                                ElementStyle="{StaticResource T3.Cell.Mono}"/>
-                                            <DataGridTextColumn Header="VIEW NAME" Width="*" Binding="{Binding name}"/>
-                                            <DataGridTextColumn Header="CATEGORY" Width="140" Binding="{Binding category}"/>
-                                            <DataGridTextColumn Header="TEMPLATE" Width="150" Binding="{Binding template}"
-                                                                ElementStyle="{StaticResource T3.Cell.Muted}"/>
-                                            <DataGridTemplateColumn Header="STATUS" Width="170"
-                                                                    CellTemplate="{StaticResource T3.StatusPill}"/>
-                                            <DataGridTextColumn Header="ISSUES" Width="70" Binding="{Binding issues}"
-                                                                ElementStyle="{StaticResource T3.Cell.Number}"/>
-                                        </DataGrid.Columns>
-                                    </DataGrid>
-                                    <TextBlock x:Name="grid_empty" Style="{StaticResource T3.Empty}"
-                                               Visibility="Collapsed"
-                                               Text="No views checked yet.&#x0a;Open a model and run the checker first."/>
-                                </Grid>
-                            </Grid>
-                        </DockPanel>
-                    </Border>
-
-                    <!-- ─────────── P5 · CONFIRMATION · size S ─────────── -->
-                    <TextBlock Text="P5 · CONFIRMATION · SIZE S"
-                               Style="{StaticResource T3.Label}"/>
-                    <TextBlock Text="The headline is a question with a number. The destructive button carries the verb and the count — and it is NOT IsDefault; Cancel is. The success variant reuses the same shell in the past tense."
-                               Style="{StaticResource T3.Caption}" TextWrapping="Wrap" Margin="0,4,0,8"/>
-
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-
-                        <!-- Destructive -->
-                        <Border Style="{StaticResource T3.Panel}" Padding="0" Width="440" Margin="0,0,16,0">
-                            <DockPanel>
-                                <Border DockPanel.Dock="Top" Style="{StaticResource T3.TitleBar}">
-                                    <Grid>
-                                        <TextBlock Text="Delete Unused View Templates"
-                                                   Style="{StaticResource T3.Title}" HorizontalAlignment="Left"/>
-                                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                                                   HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                   Foreground="{StaticResource T3.TextSecondary}"/>
-                                    </Grid>
-                                </Border>
-                                <Border DockPanel.Dock="Bottom" Style="{StaticResource T3.FooterBar}">
-                                    <Grid>
-                                        <CheckBox Content="Don't ask again this session"
-                                                  Style="{StaticResource T3.CheckBox}"
-                                                  HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                            <Button Content="Cancel" Style="{StaticResource T3.Button.Secondary}"
-                                                    Margin="0,0,8,0"/>
-                                            <Button Content="Delete 31" Style="{StaticResource T3.Button.Danger}"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                                <StackPanel Margin="16">
-                                    <TextBlock Text="Delete 34 view templates?"
-                                               Style="{StaticResource T3.Display}" TextWrapping="Wrap"/>
-                                    <TextBlock Style="{StaticResource T3.Body.Secondary}" TextWrapping="Wrap"
-                                               Margin="0,8,0,12">
-                                        <Run Text="None of these are assigned to a view or a sheet. Deletion happens in one transaction and"/>
-                                        <Run Text="cannot be undone after the next sync." FontWeight="SemiBold"/>
-                                    </TextBlock>
-                                    <Border Style="{StaticResource T3.Callout.Danger}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE7BA;" Style="{StaticResource T3.Callout.Icon}"
-                                                       Foreground="{StaticResource T3.Danger.Text}"/>
-                                            <TextBlock Text="3 templates are checked out by another user and will be skipped."
-                                                       TextWrapping="Wrap" Style="{StaticResource T3.Body}"/>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
-
-                        <!-- Success -->
-                        <Border Style="{StaticResource T3.Panel}" Padding="0" Width="440">
-                            <DockPanel>
-                                <Border DockPanel.Dock="Top" Style="{StaticResource T3.TitleBar}">
-                                    <Grid>
-                                        <TextBlock Text="Renumber Sheets" Style="{StaticResource T3.Title}"
-                                                   HorizontalAlignment="Left"/>
-                                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                                                   HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                   Foreground="{StaticResource T3.TextSecondary}"/>
-                                    </Grid>
-                                </Border>
-                                <Border DockPanel.Dock="Bottom" Style="{StaticResource T3.FooterBar}">
-                                    <Grid>
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left"
-                                                    VerticalAlignment="Center">
-                                            <Ellipse Style="{StaticResource T3.Dot}"
-                                                     Fill="{StaticResource T3.Success.Accent}"/>
-                                            <TextBlock Text="Done in 11.4s" Style="{StaticResource T3.Body.Secondary}"/>
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                            <Button Content="Open log" Style="{StaticResource T3.Button.Ghost}"
-                                                    Margin="0,0,8,0"/>
-                                            <Button Content="Close" Style="{StaticResource T3.Button.Primary}"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                                <StackPanel Margin="16">
-                                    <TextBlock Text="239 sheets renumbered."
-                                               Style="{StaticResource T3.Display}" TextWrapping="Wrap"/>
-                                    <TextBlock Style="{StaticResource T3.Body.Secondary}" TextWrapping="Wrap"
-                                               Margin="0,8,0,12">
-                                        <Run Text="6 sheets already matched the pattern and were skipped. The rollback log is at"/>
-                                        <Run Text="...\FJX_WH\_logs\renumber_1204.csv" FontFamily="Consolas"/>
-                                    </TextBlock>
-                                    <Border Style="{StaticResource T3.Callout.Success}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE73E;" Style="{StaticResource T3.Callout.Icon}"
-                                                       Foreground="{StaticResource T3.Success.Text}"/>
-                                            <TextBlock Text="Transaction committed. Sync to central to publish the change."
-                                                       TextWrapping="Wrap" Style="{StaticResource T3.Body}"/>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
-                    </StackPanel>
-
-                </StackPanel>
-            </ScrollViewer>
-        </DockPanel>
+        </Grid>
     </Border>
 </Window>

@@ -95,9 +95,9 @@ def apply(path, body, check):
     else:
         if check:
             return "thiếu block"
-        m = re.search(r"[ \t]*<Window\.Resources>[ \t]*\n[ \t]*<ResourceDictionary>[ \t]*\n", s)
+        m = re.search(r"[ \t]*<([A-Za-z]+)\.Resources>[ \t]*\n[ \t]*<ResourceDictionary>[ \t]*\n", s)
         if not m:
-            return "KHÔNG THẤY <Window.Resources><ResourceDictionary>"
+            return "KHÔNG THẤY <*.Resources><ResourceDictionary>"
         s = s[:m.end()] + want + "\n" + s[m.end():]
 
     # sys: namespace bắt buộc — stylesheet khai <sys:Double> cho các size token

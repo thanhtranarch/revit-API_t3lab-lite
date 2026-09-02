@@ -1050,9 +1050,29 @@ class TagCheckerWindow(object):
         self.lbFarTags.MouseDoubleClick += self._on_far_dblclick
         self.lbQuestionTags.MouseDoubleClick += self._on_question_dblclick
 
+        # Window chrome & footer buttons
+        btn_close = self.window.FindName("btn_close")
+        if btn_close:
+            btn_close.Click += lambda s, e: self.window.Close()
+        btn_min = self.window.FindName("btn_minimize")
+        if btn_min:
+            btn_min.Click += lambda s, e: setattr(self.window, "WindowState", WindowState.Minimized)
+        btn_max = self.window.FindName("btn_maximize")
+        if btn_max:
+            btn_max.Click += self._on_toggle_maximize
+        btn_footer_close = self.window.FindName("btn_footer_close")
+        if btn_footer_close:
+            btn_footer_close.Click += lambda s, e: self.window.Close()
+
         # Restore results if re-opening
         if TagCheckerWindow._shared_result:
             self._show_results()
+
+    def _on_toggle_maximize(self, sender, args):
+        if self.window.WindowState == WindowState.Maximized:
+            self.window.WindowState = WindowState.Normal
+        else:
+            self.window.WindowState = WindowState.Maximized
 
     # --- Checkbox management ---
     def _build_checkboxes(self, names):

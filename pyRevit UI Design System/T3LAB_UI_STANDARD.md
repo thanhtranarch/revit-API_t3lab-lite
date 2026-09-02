@@ -27,7 +27,7 @@ Không dùng size ngoài danh sách. Không dùng font khác Segoe UI / Consolas
 
 Spacing: chỉ 4 / 8 / 12 / 16 / 24 / 32. Mọi margin chia hết cho 4.
 Chiều cao: row 26 · control 28 · action button 30 · title bar 40 · footer 48.
-Bo góc: window 8 · control 4 · pill 2 · grid row 0.
+Bo góc: window 12 · control 6 · pill 4 · grid row 0.
 Kích thước cửa sổ: S 420×260–320 (NoResize) · M 560×420–560 · L 1000×620.
 
 ## Luật bố cục
@@ -81,6 +81,14 @@ tool: đó là override chỉ có hiệu lực trong đúng container chứa nó
 có cách nào khác. Style **có** `x:Key` thì không — nó là component mới, phải vào
 `T3Lab.Styles.xaml`.
 
+### Vị trí ScrollBar trong panel cuộn (`T3.Panel` chứa `ScrollViewer`)
+Khi một card panel (`T3.Panel`) cần cuộn nội dung form:
+- Thẻ bọc ngoài `<Border Style="{StaticResource T3.Panel}" Padding="0" ClipToBounds="True">`.
+- Thẻ `<ScrollViewer>` bên trong nhận `Padding="16,16,12,16"` (trái 16, trên 16, phải 12, dưới 16).
+- **Lý do:**
+  1. Thanh cuộn siêu mỏng 5px được ghim sát viền mép phải của panel (chuẩn như Properties Palette trong Revit), không bị trôi lơ lửng giữa khoảng trắng.
+  2. Nội dung form, separator và các khung callout có khoảng thở đệm 12px ngăn cách với thanh cuộn, không bao giờ bị đè hay chạm sát vào thumb thanh cuộn.
+
 ## Component data-dense (thêm 2026-08-28)
 
 Rút từ 5 mock chuẩn. Trước đó mỗi tool tự dựng bằng tay — đúng thứ Design System
@@ -96,9 +104,7 @@ có gì đang chạy · `T3.Cell.Muted` ô "— none —" / "n/a" ·
 
 ## File mẫu — copy từ đây
 
-`T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` render **cả 5 pattern**
-đúng như mock, dùng 96/106 key. Viết tool mới thì mở nó ra, tìm pattern của mình,
-copy khối đó. Nó nằm trong gate như mọi file khác nên không bao giờ lệch chuẩn.
+`T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` là **UI hoàn chỉnh chuẩn mẫu duy nhất**, tổng hợp toàn bộ 5 pattern (P1 form cấu hình thông số, P2 chọn phần tử & filter bar, P3 thanh tiến trình & log box, P4 bảng kết quả DataGrid & summary metrics, P5 callout cảnh báo & an toàn) vào một cửa sổ làm việc hoàn chỉnh duy nhất. Dùng 98/106 resource key, 0 vi phạm audit, 0 waiver. Viết tool mới thì mở nó ra để copy cấu trúc layout, control, hoặc toàn bộ khung.
 
 ## Checklist review (dán vào PR)
 Nhúng `T3Lab.Styles.xaml` bằng `dev/sync_t3_styles.py`, không tự định nghĩa brush · đúng một trong P1–P5 · size S/M/L

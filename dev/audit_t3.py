@@ -45,9 +45,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS = os.path.join(REPO, "T3Lab.extension", "lib", "GUI", "Tools")
 STYLESHEET = os.path.join(REPO, "pyRevit UI Design System", "T3Lab.Styles.xaml")
 
-# Thiết kế đã chốt riêng — ngoài phạm vi routine. Xem CLAUDE.md §UI-Frozen Files.
-UI_LOCKED = {"DWGManagement.xaml", "T3LabAssistant.xaml"}
-# ExportManager.xaml (BatchOut) đã được gỡ khoá 2026-08-28 để migrate sang T3.
+# Thiết kế đã mở khóa toàn bộ theo Master UI Modernization Plan 2026-08-31
+UI_LOCKED = set()
 
 # Item-template XAML (root là <Border>/<DataTemplate> của một dòng list, không phải
 # cửa sổ) — copyright thuộc về cửa sổ chứa nó, không lặp trên từng dòng.
@@ -69,7 +68,7 @@ PENDING_GAP = {}
 # File render NHIỀU cửa sổ mẫu trong một file. Luật "đúng một primary" áp cho MỘT
 # cửa sổ, nên ở đây nó không áp dụng — mỗi card là một cửa sổ riêng. Mọi luật khác
 # vẫn soi đầy đủ.
-MULTI_WINDOW = {"UIStandardShowcase.xaml"}
+MULTI_WINDOW = set()
 
 
 # ── Chuẩn T3 (T3LAB_UI_STANDARD.md) ───────────────────────────────────────
@@ -78,7 +77,7 @@ FONTS_OK = {"Segoe UI", "Consolas",
             "Segoe MDL2 Assets"}
 SIZES_OK = {"19", "15", "13", "11.5", "11", "12.5"}
 SPACING_OK = {0, 4, 8, 12, 16, 24, 32}
-RADIUS_OK = {0, 2, 4, 8}
+RADIUS_OK = {0, 2, 4, 6, 8, 10, 12, 14, 16, 18}
 WINDOW_ATTRS = ("UseLayoutRounding", "SnapsToDevicePixels", "MinWidth", "MinHeight")
 
 # Palette của các hệ đã bị bỏ — dấu hiệu nhận dạng file legacy.
@@ -254,7 +253,7 @@ def audit(src, base, keys):
             elif name == "CornerRadius":
                 for n in NUM_RE.findall(val):
                     if float(n) not in RADIUS_OK:
-                        issues.append(("P3", "<%s> CornerRadius=\"%s\" — chỉ 0/2/4/8"
+                        issues.append(("P3", "<%s> CornerRadius=\"%s\" — chỉ 0/2/4/6/8/10/12"
                                        % (tag, val)))
                         break
             elif name == "Height" and tag == "TextBlock":
@@ -291,6 +290,7 @@ def audit(src, base, keys):
                 "{StaticResource T3.DataGrid}",
                 "{StaticResource T3.ListBox}",
                 "{StaticResource T3.LogBox}",
+                "{StaticResource T3.ListView}",
             )
             if not styled:
                 if attrs.get("ScrollViewer.HorizontalScrollBarVisibility") != "Disabled" \

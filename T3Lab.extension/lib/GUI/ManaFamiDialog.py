@@ -491,6 +491,9 @@ class ManaFamiWindow(forms.WPFWindow):
         self._cleanup()
         self.Close()
 
+    def close_button_clicked(self, sender, e):
+        self._close_chrome(sender, e)
+
     def _on_key_down(self, sender, e):
         import System.Windows.Input as WI
         if e.Key == WI.Key.Escape:

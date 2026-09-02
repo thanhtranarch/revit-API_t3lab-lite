@@ -1394,7 +1394,7 @@ class LLMSettingWindow(forms.WPFWindow):
                 row.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
                 row.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
                 row.BorderThickness = Thickness(1)
-                row.CornerRadius = CornerRadius(8)
+                row.CornerRadius = CornerRadius(4)
                 row.Padding = Thickness(10, 6, 8, 6)
                 row.Margin = Thickness(0, 0, 0, 4)
 
@@ -1444,7 +1444,7 @@ class LLMSettingWindow(forms.WPFWindow):
                                  if st.get('exists') else u'')
                               + u"\n\nClick to open this folder")
                 tb.FontSize = 11.5
-                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.FontFamily = System.Windows.Media.FontFamily("Segoe UI")
                 tb.Foreground = SolidColorBrush(
                     Color.FromRgb(239, 68, 68) if missing
                     else Color.FromRgb(82, 82, 91))
@@ -2030,7 +2030,7 @@ class LLMSettingWindow(forms.WPFWindow):
                 row.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
                 row.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
                 row.BorderThickness = Thickness(1)
-                row.CornerRadius = CornerRadius(8)
+                row.CornerRadius = CornerRadius(4)
                 row.Padding = Thickness(10, 6, 8, 6)
                 row.Margin = Thickness(0, 0, 0, 4)
 
@@ -2046,7 +2046,7 @@ class LLMSettingWindow(forms.WPFWindow):
                 tb.Text = os.path.basename(path.rstrip(u'\\/')) or path
                 tb.ToolTip = path
                 tb.FontSize = 11.5
-                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.FontFamily = System.Windows.Media.FontFamily("Segoe UI")
                 tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
                 tb.VerticalAlignment = System.Windows.VerticalAlignment.Center
                 tb.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
@@ -2216,7 +2216,7 @@ class LLMSettingWindow(forms.WPFWindow):
                 tb.Text = u"No skills yet."
                 tb.FontSize = 11.5
                 tb.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
-                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.FontFamily = System.Windows.Media.FontFamily("Segoe UI")
                 panel.Children.Add(tb)
                 return
 
@@ -2232,7 +2232,7 @@ class LLMSettingWindow(forms.WPFWindow):
                 row.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
                 row.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
                 row.BorderThickness = Thickness(1)
-                row.CornerRadius = CornerRadius(8)
+                row.CornerRadius = CornerRadius(4)
                 row.Padding = Thickness(10, 6, 10, 6)
                 row.Margin = Thickness(0, 0, 0, 4)
                 row.ToolTip = meta.get('description', '')
@@ -2255,7 +2255,7 @@ class LLMSettingWindow(forms.WPFWindow):
                     label += u"   ·  built-in"
                 tb.Text = label
                 tb.FontSize = 11.5
-                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.FontFamily = System.Windows.Media.FontFamily("Segoe UI")
                 tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
                 tb.VerticalAlignment = System.Windows.VerticalAlignment.Center
                 tb.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis

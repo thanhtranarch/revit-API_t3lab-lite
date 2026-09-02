@@ -18,6 +18,20 @@ LIB_DIR = os.path.join(EXT_DIR, 'lib')
 if LIB_DIR not in sys.path:
     sys.path.append(LIB_DIR)
 
+try:
+    reload
+except NameError:
+    try:
+        from importlib import reload
+    except Exception:
+        reload = None
+
+if reload:
+    if 'GUI.ManaSheetsDialog' in sys.modules:
+        reload(sys.modules['GUI.ManaSheetsDialog'])
+    elif 'ManaSheetsDialog' in sys.modules:
+        reload(sys.modules['ManaSheetsDialog'])
+
 from GUI.ManaSheetsDialog import show_sheet_manager
 
 if __name__ == '__main__':

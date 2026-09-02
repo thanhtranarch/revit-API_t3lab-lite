@@ -2208,8 +2208,11 @@ class ExportManagerWindow(forms.WPFWindow):
 
             self.sheet_set_checklist.Children.Clear()
 
-            # Get the T3CheckBox style from the window resources
-            t3_cb_style = self.FindResource("T3CheckBox")
+            # Get the T3.CheckBox style from the window resources
+            try:
+                t3_cb_style = self.FindResource("T3.CheckBox")
+            except Exception:
+                t3_cb_style = None
 
             # "All Sheets/Views" checkbox — checked by default
             all_cb = CheckBox()
@@ -2669,14 +2672,17 @@ class ExportManagerWindow(forms.WPFWindow):
         e.Handled = True
 
     def on_listview_size_changed(self, sender, e):
-        """Resize Sheet Name and Custom Filename columns to fill available ListView width."""
+        """Resize Sheet Name and Custom Filename columns to fill available ListView width with ZERO gaps."""
         try:
-            fixed = 40 + 150 + 80 + 80 + 90 + 20  # checkbox + number + revision + size + orientation + scrollbar
+            # Fixed columns: checkbox (40) + number (150) + rev (70) + size (70) + orientation (90) + scrollbar/borders (8)
+            fixed = 40 + 150 + 70 + 70 + 90 + 8
             available = sender.ActualWidth - fixed
             if available <= 0:
                 return
-            self.col_name.Width = available * 0.35
-            self.col_custom_filename.Width = available * 0.65
+            col_name_width = int(available * 0.38)
+            self.col_name.Width = col_name_width
+            # The last column takes ALL remaining width so there is zero gap to the right edge
+            self.col_custom_filename.Width = max(100, int(available - col_name_width))
         except Exception:
             pass
 

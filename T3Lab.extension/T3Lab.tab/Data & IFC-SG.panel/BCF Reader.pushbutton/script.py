@@ -85,13 +85,13 @@ OUTPUT_DIR = r"C:\Temp\DQT_Purge"
 
 COLOR_HEADER_BG   = "#18181B"
 COLOR_HEADER_FG   = "#FFFFFF"
-COLOR_BG          = "#F8FAFC"
+COLOR_BG          = "#F4F4F6"
 COLOR_FOOTER_BG   = "#F4F4F6"
-COLOR_CARD_BORDER = "#E2E8F0"
+COLOR_CARD_BORDER = "#DCDCE0"
 COLOR_CARD_SEL    = "#18181B"
 COLOR_REMOVED     = "#D23B3B"
 COLOR_ADDED       = "#22A85C"
-COLOR_MODIFIED    = "#F39C12"
+COLOR_MODIFIED    = "#F5CE5A"
 COLOR_OTHER       = "#71717A"
 COLOR_TEXT        = "#27272A"
 COLOR_TEXT_MUTED  = "#71717A"
@@ -961,7 +961,7 @@ class BCFManagerWindow(WPFWindow):
         outer.Margin = Thickness(6)
         outer.BorderBrush = self._brush(COLOR_CARD_BORDER)
         outer.BorderThickness = Thickness(1)
-        outer.CornerRadius = CornerRadius(14)
+        outer.CornerRadius = CornerRadius(8)
         outer.Background = self._brush("#FFFFFF")
         outer.Cursor = Cursors.Hand
         outer.Tag = issue
@@ -975,7 +975,7 @@ class BCFManagerWindow(WPFWindow):
         accent = Border()
         accent_color = COLOR_ADDED if issue.resolved else LABEL_COLORS.get(issue.label, COLOR_OTHER)
         accent.Background = self._brush(accent_color)
-        accent.CornerRadius = CornerRadius(14, 0, 0, 14)
+        accent.CornerRadius = CornerRadius(8, 0, 0, 8)
         WPFGrid.SetColumn(accent, 0)
         outer_grid.Children.Add(accent)
 
@@ -994,7 +994,7 @@ class BCFManagerWindow(WPFWindow):
         thumb_border.Background = self._brush(COLOR_BG)
         thumb_border.BorderThickness = Thickness(0, 0, 0, 1)
         thumb_border.BorderBrush = self._brush(COLOR_CARD_BORDER)
-        thumb_border.CornerRadius = CornerRadius(0, 14, 0, 0)
+        thumb_border.CornerRadius = CornerRadius(0, 8, 0, 0)
         WPFGrid.SetRow(thumb_border, 0)
 
         thumb_grid = WPFGrid()
@@ -1018,7 +1018,7 @@ class BCFManagerWindow(WPFWindow):
         badge.Background = self._brush("#FFFFFF")
         badge.BorderBrush = self._brush(COLOR_CARD_BORDER)
         badge.BorderThickness = Thickness(1)
-        badge.CornerRadius = CornerRadius(10)
+        badge.CornerRadius = CornerRadius(2)
         badge.Padding = Thickness(7, 2, 8, 2)
         badge.Margin = Thickness(6)
         badge.HorizontalAlignment = HorizontalAlignment.Left
@@ -1239,7 +1239,7 @@ class BCFManagerWindow(WPFWindow):
         desc_border.Background = self._brush(COLOR_BG)
         desc_border.BorderBrush = self._brush(COLOR_CARD_BORDER)
         desc_border.BorderThickness = Thickness(1)
-        desc_border.CornerRadius = CornerRadius(3)
+        desc_border.CornerRadius = CornerRadius(4)
         desc_border.Padding = Thickness(10)
         desc_tb = TextBlock()
         desc_tb.Text = issue.description or "(no description)"
@@ -1352,7 +1352,7 @@ class BCFManagerWindow(WPFWindow):
         add_panel.Background = self._brush(COLOR_BG)
         add_panel.BorderBrush = self._brush(COLOR_CARD_BORDER)
         add_panel.BorderThickness = Thickness(1)
-        add_panel.CornerRadius = CornerRadius(3)
+        add_panel.CornerRadius = CornerRadius(4)
         add_panel.Padding = Thickness(8)
         add_panel.Margin = Thickness(0, 8, 0, 0)
 
@@ -1421,7 +1421,7 @@ class BCFManagerWindow(WPFWindow):
         b.Background = self._brush("#FFFFFF")
         b.BorderBrush = self._brush(COLOR_CARD_BORDER)
         b.BorderThickness = Thickness(1)
-        b.CornerRadius = CornerRadius(3)
+        b.CornerRadius = CornerRadius(4)
         b.Padding = Thickness(8)
         b.Margin = Thickness(0, 0, 0, 6)
 

@@ -288,7 +288,7 @@ class CopyAnnotationsWindow(Window):
         hdr = Border()
         hdr.Background = _b(CLR_HEADER)
         hdr.Padding = Thickness(20, 14, 20, 14)
-        hdr.CornerRadius = CornerRadius(0, 0, 5, 5)
+        hdr.CornerRadius = CornerRadius(0, 0, 4, 4)
         hp = StackPanel()
         t1 = TextBlock()
         t1.Text = "Copy Annotations Between Models"
@@ -394,7 +394,7 @@ class CopyAnnotationsWindow(Window):
         cb_border = Border()
         cb_border.BorderBrush = _b(CLR_BORDER)
         cb_border.BorderThickness = Thickness(1)
-        cb_border.CornerRadius = CornerRadius(5)
+        cb_border.CornerRadius = CornerRadius(4)
         cb_border.Background = _b(CLR_WHITE)
         cb_border.Padding = Thickness(10, 8, 10, 8)
 
@@ -501,7 +501,7 @@ class CopyAnnotationsWindow(Window):
         vb = Border()
         vb.BorderBrush = _b(CLR_BORDER)
         vb.BorderThickness = Thickness(1)
-        vb.CornerRadius = CornerRadius(5)
+        vb.CornerRadius = CornerRadius(4)
         vb.Background = _b(CLR_WHITE)
         vb.MinHeight = 100
         vb.MaxHeight = 250

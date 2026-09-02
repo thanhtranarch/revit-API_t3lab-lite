@@ -68,13 +68,13 @@
   <sys:Double x:Key="T3.H.Row">26</sys:Double>
   <sys:Double x:Key="T3.H.Control">28</sys:Double>
   <sys:Double x:Key="T3.H.Action">30</sys:Double>
-  <sys:Double x:Key="T3.H.TitleBar">40</sys:Double>
+  <sys:Double x:Key="T3.H.TitleBar">48</sys:Double>
   <sys:Double x:Key="T3.H.Footer">48</sys:Double>
   <Thickness x:Key="T3.Pad.Panel">16</Thickness>
   <Thickness x:Key="T3.Pad.Field">8,0</Thickness>
-  <CornerRadius x:Key="T3.R.Window">8</CornerRadius>
-  <CornerRadius x:Key="T3.R.Control">4</CornerRadius>
-  <CornerRadius x:Key="T3.R.Pill">2</CornerRadius>
+  <CornerRadius x:Key="T3.R.Window">12</CornerRadius>
+  <CornerRadius x:Key="T3.R.Control">6</CornerRadius>
+  <CornerRadius x:Key="T3.R.Pill">4</CornerRadius>
 
   <!-- ══════════════════ 4 · TEXT STYLES ══════════════════ -->
   <Style x:Key="T3.Display" TargetType="TextBlock">
@@ -90,6 +90,14 @@
     <Setter Property="FontSize"   Value="{StaticResource T3.Size.Title}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
+  </Style>
+
+  <Style x:Key="T3.Subtitle" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+    <Setter Property="FontSize"   Value="{StaticResource T3.Size.Caption}"/>
+    <Setter Property="Foreground" Value="{StaticResource T3.TextMuted}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
   </Style>
 
   <Style x:Key="T3.Body" TargetType="TextBlock">
@@ -435,45 +443,9 @@
     <Setter Property="FontSize"   Value="{StaticResource T3.Size.Body}"/>
     <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
     <Setter Property="VerticalContentAlignment" Value="Center"/>
-    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Padding"    Value="8,0,0,0"/>
+    <Setter Property="Cursor"     Value="Hand"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
-    <Setter Property="Template">
-      <Setter.Value>
-        <ControlTemplate TargetType="CheckBox">
-          <Grid Background="Transparent">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto"/>
-              <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Border x:Name="box" Grid.Column="0" Width="15" Height="15" Margin="0,0,8,0"
-                    Background="{StaticResource T3.Surface}"
-                    BorderBrush="#D4D4DA" BorderThickness="1.5"
-                    CornerRadius="3" VerticalAlignment="Center">
-              <Path x:Name="mark" Data="M4,9 L8,13 L14,5"
-                    Stroke="White" StrokeThickness="2"
-                    StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                    Visibility="Collapsed"/>
-            </Border>
-            <ContentPresenter Grid.Column="1" VerticalAlignment="Center" RecognizesAccessKey="True"/>
-          </Grid>
-          <ControlTemplate.Triggers>
-            <Trigger Property="IsChecked" Value="True">
-              <Setter TargetName="box"  Property="Background"  Value="{StaticResource T3.Ink}"/>
-              <Setter TargetName="box"  Property="BorderBrush" Value="{StaticResource T3.Ink}"/>
-              <Setter TargetName="mark" Property="Visibility"  Value="Visible"/>
-            </Trigger>
-            <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="box" Property="BorderBrush" Value="{StaticResource T3.Ink}"/>
-            </Trigger>
-            <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="box" Property="Background"  Value="{StaticResource T3.SurfaceSunken}"/>
-              <Setter TargetName="box" Property="BorderBrush" Value="{StaticResource T3.Border}"/>
-              <Setter Property="Foreground" Value="{StaticResource T3.TextDisabled}"/>
-            </Trigger>
-          </ControlTemplate.Triggers>
-        </ControlTemplate>
-      </Setter.Value>
-    </Setter>
   </Style>
 
   <Style x:Key="T3.RadioButton" TargetType="RadioButton">
@@ -619,21 +591,55 @@
   <Style x:Key="T3.DataGridRow" TargetType="DataGridRow">
     <Setter Property="Height" Value="{StaticResource T3.H.Row}"/>
     <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
-    <Style.Triggers>
-      <Trigger Property="AlternationIndex" Value="1">
-        <Setter Property="Background" Value="{StaticResource T3.RowAlt}"/>
-      </Trigger>
-      <Trigger Property="IsMouseOver" Value="True">
-        <Setter Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
-      </Trigger>
-      <Trigger Property="IsSelected" Value="True">
-        <Setter Property="Background"  Value="{StaticResource T3.Canvas}"/>
-        <Setter Property="Foreground"  Value="{StaticResource T3.Text}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource T3.Ink}"/>
-        <Setter Property="BorderThickness" Value="3,0,0,0"/>
-      </Trigger>
-    </Style.Triggers>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="DataGridRow">
+          <Border x:Name="DGBorder"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  SnapsToDevicePixels="True">
+            <Grid>
+              <Rectangle x:Name="Indicator" Width="3" HorizontalAlignment="Left"
+                         Fill="Transparent" SnapsToDevicePixels="True" Panel.ZIndex="1"/>
+              <SelectiveScrollingGrid>
+                <SelectiveScrollingGrid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                </SelectiveScrollingGrid.ColumnDefinitions>
+                <SelectiveScrollingGrid.RowDefinitions>
+                  <RowDefinition Height="*"/>
+                  <RowDefinition Height="Auto"/>
+                </SelectiveScrollingGrid.RowDefinitions>
+                <DataGridCellsPresenter ItemsPanel="{TemplateBinding ItemsPanel}"
+                                         SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                <DataGridDetailsPresenter Grid.Row="1"
+                                          SelectiveScrollingGrid.SelectiveScrollingOrientation="{Binding AreRowDetailsFrozen, ConverterParameter={x:Static SelectiveScrollingOrientation.Vertical}, Converter={x:Static DataGrid.RowDetailsScrollingConverter}, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                          Visibility="{TemplateBinding DetailsVisibility}"/>
+                <DataGridRowHeader Grid.RowSpan="2"
+                                   SelectiveScrollingGrid.SelectiveScrollingOrientation="Vertical"
+                                   Visibility="{Binding HeadersVisibility, ConverterParameter={x:Static DataGridHeadersVisibility.Row}, Converter={x:Static DataGrid.HeadersVisibilityConverter}, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+              </SelectiveScrollingGrid>
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="AlternationIndex" Value="1">
+              <Setter Property="Background" Value="{StaticResource T3.RowAlt}"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter Property="Background"  Value="{StaticResource T3.Canvas}"/>
+              <Setter Property="Foreground"  Value="{StaticResource T3.Text}"/>
+              <Setter TargetName="Indicator" Property="Fill" Value="{StaticResource T3.Ink}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
   <Style x:Key="T3.DataGridCell" TargetType="DataGridCell">
@@ -676,10 +682,110 @@
     <Setter Property="CellStyle"         Value="{StaticResource T3.DataGridCell}"/>
   </Style>
 
+  <!-- ══════════════════ GRIDVIEW & LISTVIEW STYLES ══════════════════
+       Chuẩn hóa bảng dựng bằng ListView + GridView để có diện mạo
+       đồng nhất 100% với T3.DataGrid (header phẳng, hover xám nhạt,
+       không bị vệt xanh Windows XP/7). ══════════════════ -->
+  <Style x:Key="T3.GridViewColumnHeader" TargetType="GridViewColumnHeader">
+    <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+    <Setter Property="FontSize"   Value="{StaticResource T3.Size.Label}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{StaticResource T3.TextDisabled}"/>
+    <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
+    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    <Setter Property="Height"  Value="{StaticResource T3.H.Row}"/>
+    <Setter Property="Padding" Value="8,0"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="VerticalContentAlignment"   Value="Center"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="GridViewColumnHeader">
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  Padding="{TemplateBinding Padding}"
+                  SnapsToDevicePixels="True">
+            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              RecognizesAccessKey="True"
+                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="T3.ListViewItem" TargetType="ListViewItem">
+    <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+    <Setter Property="FontSize"   Value="{StaticResource T3.Size.Body}"/>
+    <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
+    <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource T3.RowRule}"/>
+    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    <Setter Property="MinHeight" Value="{StaticResource T3.H.Row}"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="Margin" Value="2,0,2,0"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListViewItem">
+          <Border x:Name="Bd"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  Padding="{TemplateBinding Padding}"
+                  SnapsToDevicePixels="True">
+            <Grid>
+              <Rectangle x:Name="Indicator" Width="3" HorizontalAlignment="Left"
+                         Fill="Transparent" SnapsToDevicePixels="True"/>
+              <GridViewRowPresenter VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.Canvas}"/>
+              <Setter TargetName="Indicator" Property="Fill" Value="{StaticResource T3.Ink}"/>
+              <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
+            </Trigger>
+            <MultiTrigger>
+              <MultiTrigger.Conditions>
+                <Condition Property="IsSelected" Value="True"/>
+                <Condition Property="IsMouseOver" Value="True"/>
+              </MultiTrigger.Conditions>
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.Canvas}"/>
+            </MultiTrigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="T3.ListView" TargetType="ListView">
+    <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+    <Setter Property="FontSize" Value="{StaticResource T3.Size.Body}"/>
+    <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="ItemContainerStyle" Value="{StaticResource T3.ListViewItem}"/>
+  </Style>
+
+  <Style TargetType="GridViewColumnHeader" BasedOn="{StaticResource T3.GridViewColumnHeader}"/>
+  <Style TargetType="ListViewItem" BasedOn="{StaticResource T3.ListViewItem}"/>
+
   <!-- Status pill: nền tint + dot + CHỮ. Không bao giờ chỉ dùng màu.
        Row VM cần 2 property: StatusText (string) và Severity ("Success"/"Warning"/"Danger"). -->
   <DataTemplate x:Key="T3.StatusPill">
-    <Border x:Name="pill" CornerRadius="2" Padding="7,2"
+    <Border x:Name="pill" CornerRadius="{StaticResource T3.R.Pill}" Padding="7,2"
             HorizontalAlignment="Left" VerticalAlignment="Center">
       <StackPanel Orientation="Horizontal">
         <Ellipse x:Name="dot" Width="6" Height="6" Margin="0,0,6,0" VerticalAlignment="Center"/>
@@ -834,7 +940,7 @@
       <Setter Property="Template">
           <Setter.Value>
               <ControlTemplate TargetType="Button">
-                  <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8">
+                  <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="{StaticResource T3.R.Control}">
                       <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   </Border>
               </ControlTemplate>
@@ -872,7 +978,7 @@
       <Setter Property="Template">
           <Setter.Value>
               <ControlTemplate TargetType="ToggleButton">
-                  <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="13">
+                  <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="{StaticResource T3.R.Window}">
                       <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   </Border>
                   <ControlTemplate.Triggers>
@@ -908,7 +1014,7 @@
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Padding" Value="8,0,8,0"/>
       <Setter Property="FontSize" Value="13"/>
-      <Setter Property="FontFamily" Value="Hanken Grotesk"/>
+      <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
       <Setter Property="Height" Value="32"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="Template">
@@ -918,7 +1024,7 @@
                           Background="{TemplateBinding Background}"
                           BorderBrush="{TemplateBinding BorderBrush}"
                           BorderThickness="{TemplateBinding BorderThickness}"
-                          CornerRadius="8">
+                          CornerRadius="{StaticResource T3.R.Control}">
                       <Grid>
                           <Grid.ColumnDefinitions>
                               <ColumnDefinition Width="*"/>
@@ -962,7 +1068,7 @@
       <Setter Property="Template">
           <Setter.Value>
               <ControlTemplate TargetType="{x:Type Thumb}">
-                  <Border x:Name="thumbBorder" Background="{StaticResource T3.BorderStrong}" CornerRadius="2" Margin="0"/>
+                  <Border x:Name="thumbBorder" Background="{StaticResource T3.BorderStrong}" CornerRadius="{StaticResource T3.R.Pill}" Margin="0"/>
                   <ControlTemplate.Triggers>
                       <Trigger Property="IsMouseOver" Value="true">
                           <Setter TargetName="thumbBorder" Property="Background" Value="{StaticResource T3.TextMuted}"/>
@@ -976,12 +1082,84 @@
       </Setter>
   </Style>
 
-  <!-- Rail tile 42×42 — ô logo/biểu tượng ở sidebar rail. Bo góc 13 là giá trị
-       riêng của component này; file tool KHÔNG bao giờ tự viết 13. -->
+  <Style x:Key="T3.ScrollBar.PageButton" TargetType="{x:Type RepeatButton}">
+      <Setter Property="OverridesDefaultStyle" Value="true"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Focusable" Value="false"/>
+      <Setter Property="IsTabStop" Value="false"/>
+      <Setter Property="Template">
+          <Setter.Value>
+              <ControlTemplate TargetType="{x:Type RepeatButton}">
+                  <Rectangle Fill="{TemplateBinding Background}" Height="{TemplateBinding Height}" Width="{TemplateBinding Width}"/>
+              </ControlTemplate>
+          </Setter.Value>
+      </Setter>
+  </Style>
+
+  <!-- ScrollBar: siêu mỏng (5px), trong suốt, không nút mũi tên — chuẩn Revit -->
+  <Style TargetType="{x:Type ScrollBar}">
+      <Setter Property="OverridesDefaultStyle" Value="true"/>
+      <Setter Property="SnapsToDevicePixels" Value="true"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Style.Triggers>
+          <Trigger Property="Orientation" Value="Vertical">
+              <Setter Property="Width" Value="5"/>
+              <Setter Property="MinWidth" Value="5"/>
+              <Setter Property="Template">
+                  <Setter.Value>
+                      <ControlTemplate TargetType="{x:Type ScrollBar}">
+                          <Grid Background="Transparent">
+                              <Track x:Name="PART_Track" IsDirectionReversed="true" Margin="0,4">
+                                  <Track.DecreaseRepeatButton>
+                                      <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}"
+                                                    Style="{StaticResource T3.ScrollBar.PageButton}"/>
+                                  </Track.DecreaseRepeatButton>
+                                  <Track.Thumb>
+                                      <Thumb Style="{StaticResource T3.ScrollBar.Thumb}" Width="5"/>
+                                  </Track.Thumb>
+                                  <Track.IncreaseRepeatButton>
+                                      <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}"
+                                                    Style="{StaticResource T3.ScrollBar.PageButton}"/>
+                                  </Track.IncreaseRepeatButton>
+                              </Track>
+                          </Grid>
+                      </ControlTemplate>
+                  </Setter.Value>
+              </Setter>
+          </Trigger>
+          <Trigger Property="Orientation" Value="Horizontal">
+              <Setter Property="Height" Value="5"/>
+              <Setter Property="MinHeight" Value="5"/>
+              <Setter Property="Template">
+                  <Setter.Value>
+                      <ControlTemplate TargetType="{x:Type ScrollBar}">
+                          <Grid Background="Transparent">
+                              <Track x:Name="PART_Track" IsDirectionReversed="false" Margin="4,0">
+                                  <Track.DecreaseRepeatButton>
+                                      <RepeatButton Command="{x:Static ScrollBar.PageLeftCommand}"
+                                                    Style="{StaticResource T3.ScrollBar.PageButton}"/>
+                                  </Track.DecreaseRepeatButton>
+                                  <Track.Thumb>
+                                      <Thumb Style="{StaticResource T3.ScrollBar.Thumb}" Height="5"/>
+                                  </Track.Thumb>
+                                  <Track.IncreaseRepeatButton>
+                                      <RepeatButton Command="{x:Static ScrollBar.PageRightCommand}"
+                                                    Style="{StaticResource T3.ScrollBar.PageButton}"/>
+                                  </Track.IncreaseRepeatButton>
+                              </Track>
+                          </Grid>
+                      </ControlTemplate>
+                  </Setter.Value>
+              </Setter>
+          </Trigger>
+      </Style.Triggers>
+  </Style>
+
+  <!-- Rail tile 42×42 — ô logo/biểu tượng ở sidebar rail. -->
   <Style x:Key="T3.Rail.Logo" TargetType="Border">
     <Setter Property="Width"  Value="42"/>
     <Setter Property="Height" Value="42"/>
-    <Setter Property="CornerRadius" Value="13"/>
+    <Setter Property="CornerRadius" Value="{StaticResource T3.R.Window}"/>
     <Setter Property="Background"   Value="{StaticResource T3.Ink}"/>
   </Style>
 

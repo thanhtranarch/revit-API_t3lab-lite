@@ -78,8 +78,10 @@ class ManaSelectWindow(forms.WPFWindow):
             self.grid_quick_select.Children.Add(quick_select_grid)
 
             # Collapse sub-tool header and footer to unify status bar
-            quick_select_grid.RowDefinitions[0].Height = System.Windows.GridLength(0)
-            quick_select_grid.RowDefinitions[4].Height = System.Windows.GridLength(0)
+            if quick_select_grid.RowDefinitions.Count > 0:
+                quick_select_grid.RowDefinitions[0].Height = System.Windows.GridLength(0)
+            if quick_select_grid.RowDefinitions.Count > 2:
+                quick_select_grid.RowDefinitions[quick_select_grid.RowDefinitions.Count - 1].Height = System.Windows.GridLength(0)
 
             # Re-wire close
             self._quick_select_win.Close = self.Close

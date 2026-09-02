@@ -9,6 +9,20 @@ _lib = os.path.normpath(os.path.join(os.path.dirname(__file__), '../../../../lib
 if _lib not in sys.path:
     sys.path.insert(0, _lib)
 
+try:
+    reload
+except NameError:
+    try:
+        from importlib import reload
+    except Exception:
+        reload = None
+
+if reload:
+    if 'GUI.SplitElementsDialog' in sys.modules:
+        reload(sys.modules['GUI.SplitElementsDialog'])
+    elif 'SplitElementsDialog' in sys.modules:
+        reload(sys.modules['SplitElementsDialog'])
+
 from GUI.SplitElementsDialog import show_split_elements
 
 if __name__ == '__main__':

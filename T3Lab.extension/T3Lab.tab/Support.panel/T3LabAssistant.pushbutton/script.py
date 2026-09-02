@@ -2040,6 +2040,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         else:
             self.WindowState = WindowState.Maximized
 
+    def close_clicked(self, sender, e):
+        self.Close()
+
     def undo_clicked(self, sender, e):
         """Undo the last Revit transaction.
 
@@ -2930,7 +2933,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 _bind_bg(chip, 'SelectedBg')
                 _bind_border(chip, 'CardBorder')
                 chip.BorderThickness = Thickness(1)
-                chip.CornerRadius = CornerRadius(9)
+                chip.CornerRadius = CornerRadius(4)
                 chip.Padding = Thickness(8, 2, 8, 3)
                 chip.Margin = Thickness(0, 0, 4, 0)
                 # MDL2 glyph run + label run, rather than a ⚡ emoji baked
@@ -2938,7 +2941,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 # was the one bit of the chip that ignored the theme.
                 tb = TextBlock()
                 tb.FontSize = 10
-                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.FontFamily = System.Windows.Media.FontFamily("Segoe UI")
                 _bind_fg(tb, 'Muted')
                 from System.Windows.Documents import Run as _WpfRun
                 _gr = _WpfRun()
@@ -2987,14 +2990,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 chip.Background = SolidColorBrush(_bg)
                 _bind_border(chip, 'AccentSoft')
                 chip.BorderThickness = Thickness(1)
-                chip.CornerRadius = CornerRadius(12)
+                chip.CornerRadius = CornerRadius(4)
                 chip.Padding = Thickness(11, 4, 11, 5)
                 chip.Margin = Thickness(0, 0, 6, 0)
                 chip.Cursor = Cursors.Hand
                 tb = TextBlock()
                 tb.Text = label
                 tb.FontSize = 11.5
-                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.FontFamily = System.Windows.Media.FontFamily("Segoe UI")
                 tb.FontWeight = System.Windows.FontWeights.SemiBold
                 _bind_fg(tb, 'Accent')
                 chip.Child = tb
@@ -3446,7 +3449,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _bind_bg(row, 'SelectedBg')
             _bind_border(row, 'CardBorder')
             row.BorderThickness = Thickness(1)
-            row.CornerRadius = CornerRadius(10)
+            row.CornerRadius = CornerRadius(4)
             row.Padding = Thickness(10, 4, 10, 5)
             row.Margin = Thickness(40, 0, 0, 8)
             row.HorizontalAlignment = System.Windows.HorizontalAlignment.Right
@@ -3457,7 +3460,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _short = raw if len(raw) <= 70 else raw[:70] + u"…"
             tb.Text = u"Queued: {}".format(_short)
             tb.FontSize = 11
-            tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+            tb.FontFamily = System.Windows.Media.FontFamily("Segoe UI")
             _bind_fg(tb, 'Muted')
             tb.TextTrimming = TextTrimming.CharacterEllipsis
             row.Child = tb
@@ -10357,7 +10360,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             outer = Border()
             outer.BorderBrush     = SolidColorBrush(_line)
             outer.BorderThickness = Thickness(1)
-            outer.CornerRadius    = CornerRadius(6)
+            outer.CornerRadius    = CornerRadius(4)
             outer.Margin          = Thickness(0, 6, 0, 6)
             outer.Child = g
             return outer
@@ -10387,7 +10390,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         _bind_bg(card, 'CodeBg')
         _bind_border(card, 'CardBorder')
         card.BorderThickness = Thickness(1)
-        card.CornerRadius    = CornerRadius(6)
+        card.CornerRadius    = CornerRadius(4)
         card.Padding         = Thickness(10, 8, 10, 8)
         card.Margin          = Thickness(0, 4, 0, 4)
         card.Child = sv

@@ -91,7 +91,7 @@ def _brush(r, g, b):
 
 def _font():
     from System.Windows.Media import FontFamily
-    return FontFamily("Hanken Grotesk")
+    return FontFamily("Segoe UI")
 
 
 def _mini_button(label, tooltip, fg=(82, 82, 91)):
@@ -133,7 +133,7 @@ def build_comment_report_card(report, on_run, on_note, on_skip, viet=False):
     card.Background = _brush(255, 255, 255)
     card.BorderBrush = _brush(230, 230, 234)
     card.BorderThickness = Thickness(1)
-    card.CornerRadius = CornerRadius(10)
+    card.CornerRadius = CornerRadius(8)
     card.Padding = Thickness(14, 10, 14, 12)
     card.Margin = Thickness(34, 0, 40, 10)
 
@@ -202,7 +202,7 @@ def _build_item_row(item, report, on_run, on_note, on_skip, viet=False):
     row.Background = _brush(250, 250, 251)
     row.BorderBrush = _brush(236, 236, 239)
     row.BorderThickness = Thickness(1)
-    row.CornerRadius = CornerRadius(8)
+    row.CornerRadius = CornerRadius(4)
     row.Padding = Thickness(10, 7, 10, 8)
     row.Margin = Thickness(0, 0, 0, 6)
 

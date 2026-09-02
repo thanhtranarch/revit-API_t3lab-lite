@@ -300,6 +300,9 @@ def show_column_mapping_dialog(excel_info, filepath):
 
     win.FindName("btnOK").Click += on_ok
     win.FindName("btnCancel").Click += on_cancel
+    top_cancel = win.FindName("btnCancelTop")
+    if top_cancel:
+        top_cancel.Click += on_cancel
     win.ShowDialog()
     return result
 
@@ -1319,7 +1322,7 @@ class IFCSGSuiteWindow(forms.WPFWindow, ProgressPauseMixin):
 
         badge = WPFBorder()
         badge.Background = bc.ConvertFromString("#E2E8F0")
-        badge.CornerRadius = System.Windows.CornerRadius(8)
+        badge.CornerRadius = System.Windows.CornerRadius(4)
         badge.Padding = WPFThickness(6, 1, 6, 1)
         badge.Margin = WPFThickness(4, 0, 0, 0)
         DockPanel.SetDock(badge, System.Windows.Controls.Dock.Right)
@@ -1995,7 +1998,7 @@ class IFCSGSuiteWindow(forms.WPFWindow, ProgressPauseMixin):
                 disc_border.Margin = Thickness(0, 8, 0, 2)
                 disc_border.Padding = Thickness(8, 4, 8, 4)
                 disc_border.Background = bc.ConvertFromString("#0F172A")
-                disc_border.CornerRadius = System.Windows.CornerRadius(3)
+                disc_border.CornerRadius = System.Windows.CornerRadius(4)
                 
                 disc_txt = TextBlock()
                 disc_txt.Text = r.discipline
@@ -2020,7 +2023,7 @@ class IFCSGSuiteWindow(forms.WPFWindow, ProgressPauseMixin):
                 cat_border = Border()
                 cat_border.Margin = Thickness(0, 4, 0, 2)
                 cat_border.Padding = Thickness(4, 3, 4, 3)
-                cat_border.CornerRadius = System.Windows.CornerRadius(3)
+                cat_border.CornerRadius = System.Windows.CornerRadius(4)
                 cat_border.Background = bc.ConvertFromString("#F9F6EE")
                 cat_border.BorderBrush = bc.ConvertFromString("#E8E0D0")
                 cat_border.BorderThickness = Thickness(1)
@@ -2070,19 +2073,19 @@ class IFCSGSuiteWindow(forms.WPFWindow, ProgressPauseMixin):
                     
                     bar_border = Border()
                     bar_border.Height = 10
-                    bar_border.CornerRadius = System.Windows.CornerRadius(5)
+                    bar_border.CornerRadius = System.Windows.CornerRadius(2)
                     bar_border.Background = bc.ConvertFromString("#E0E0E0")
                     
                     bar_grid = Grid()
                     bar_bg = Border()
                     bar_bg.Height = 10
-                    bar_bg.CornerRadius = System.Windows.CornerRadius(5)
+                    bar_bg.CornerRadius = System.Windows.CornerRadius(2)
                     bar_bg.Background = bc.ConvertFromString("#E0E0E0")
                     bar_grid.Children.Add(bar_bg)
                     
                     bar_fill = Border()
                     bar_fill.Height = 10
-                    bar_fill.CornerRadius = System.Windows.CornerRadius(5)
+                    bar_fill.CornerRadius = System.Windows.CornerRadius(2)
                     bar_fill.HorizontalAlignment = System.Windows.HorizontalAlignment.Left
                     bar_fill.Width = max(1, pct * 1.8)
                     
@@ -2160,7 +2163,7 @@ class IFCSGSuiteWindow(forms.WPFWindow, ProgressPauseMixin):
             row_border = Border()
             row_border.Margin = Thickness(16, 1, 0, 1)
             row_border.Padding = Thickness(8, 3, 8, 3)
-            row_border.CornerRadius = System.Windows.CornerRadius(2)
+            row_border.CornerRadius = System.Windows.CornerRadius(4)
             row_border.Background = bc.ConvertFromString(status_bg.get(r.status, "#FAFAFA"))
             
             row_grid = Grid()

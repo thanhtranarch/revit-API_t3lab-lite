@@ -18,6 +18,20 @@ LIB_DIR = os.path.join(EXT_DIR, 'lib')
 if LIB_DIR not in sys.path:
     sys.path.append(LIB_DIR)
 
+try:
+    reload
+except NameError:
+    try:
+        from importlib import reload
+    except Exception:
+        reload = None
+
+if reload:
+    if 'GUI.ManaViewsDialog' in sys.modules:
+        reload(sys.modules['GUI.ManaViewsDialog'])
+    elif 'ManaViewsDialog' in sys.modules:
+        reload(sys.modules['ManaViewsDialog'])
+
 from GUI.ManaViewsDialog import show_view_manager
 
 if __name__ == '__main__':

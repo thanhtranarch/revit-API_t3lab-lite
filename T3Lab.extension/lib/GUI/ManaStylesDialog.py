@@ -1709,7 +1709,7 @@ class ManaStylesWindow(forms.WPFWindow):
             row.Margin = Thickness(0, 0, 0, 4)
             row.Padding = Thickness(10, 8, 10, 8)
             row.Background = SolidColorBrush(Color.FromRgb(r, g, b))
-            row.CornerRadius = CornerRadius(8)
+            row.CornerRadius = CornerRadius(4)
             
             gr = Grid()
             col_text = ColumnDefinition()

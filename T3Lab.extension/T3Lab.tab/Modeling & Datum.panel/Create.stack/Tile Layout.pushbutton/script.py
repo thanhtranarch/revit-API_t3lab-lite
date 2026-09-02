@@ -777,7 +777,7 @@ class ReportGenerator(object):
         outer = WC.Border()
         outer.BorderBrush = brush_chosen if is_chosen else brush_border
         outer.BorderThickness = SW.Thickness(2)
-        outer.CornerRadius = SW.CornerRadius(6)
+        outer.CornerRadius = SW.CornerRadius(8)
         outer.Margin = SW.Thickness(6)
         outer.Padding = SW.Thickness(10)
         outer.Background = SolidColorBrush(WColor.FromRgb(255, 255, 255))
@@ -1266,7 +1266,7 @@ class TileLayoutWindow(forms.WPFWindow, ProgressPauseMixin):
         outer = WC.Border()
         outer.BorderBrush = brush_border
         outer.BorderThickness = SW.Thickness(2)
-        outer.CornerRadius = SW.CornerRadius(6)
+        outer.CornerRadius = SW.CornerRadius(8)
         outer.Margin = SW.Thickness(6)
         outer.Padding = SW.Thickness(10)
         outer.Background = SolidColorBrush(WColor.FromRgb(255, 255, 255))

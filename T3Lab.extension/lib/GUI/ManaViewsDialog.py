@@ -65,6 +65,14 @@ doc = revit.doc
 GUI_DIR = os.path.dirname(__file__)
 XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'ManaViews.xaml')
 
+try:
+    from GUI import RevitTheme as _theme
+except Exception:
+    try:
+        import RevitTheme as _theme
+    except Exception:
+        _theme = None
+
 from GUI.ProgressPauseMixin import ProgressPauseMixin
 
 
@@ -186,6 +194,9 @@ class ViewManagerWindow(forms.WPFWindow, ProgressPauseMixin):
         forms.WPFWindow.__init__(self, XAML_FILE)
         self.doc = revit.doc
         self.uidoc = revit.uidoc
+
+        self._adopt_host_font()
+        self._apply_theme()
         
         # Data collections
         self.all_views = []
@@ -260,6 +271,26 @@ class ViewManagerWindow(forms.WPFWindow, ProgressPauseMixin):
         # True when the XAML was parsed, so its Checked event fired before this
         # handler was wired above and tab_control.SelectedIndex was never set.
         self.tab_control.SelectedIndex = 0
+
+    def _adopt_host_font(self):
+        if _theme is None:
+            return
+        family, size = _theme.host_font()
+        if family:
+            try:
+                self.FontFamily = family
+                if size and size > 0:
+                    self.FontSize = size
+            except Exception:
+                pass
+
+    def _apply_theme(self, theme=None):
+        if _theme is None:
+            return
+        try:
+            _theme.apply(self, theme)
+        except Exception:
+            pass
 
     # ── Chrome Event Handlers ────────────────────────────────────
     def _minimize(self, sender, e):

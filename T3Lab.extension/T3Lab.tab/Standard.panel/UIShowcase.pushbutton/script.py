@@ -9,8 +9,19 @@ tab_dir = os.path.dirname(panel_dir)
 extension_dir = os.path.dirname(tab_dir)
 lib_dir = os.path.join(extension_dir, 'lib')
 
-if lib_dir not in sys.path:
-    sys.path.append(lib_dir)
+try:
+    reload
+except NameError:
+    try:
+        from importlib import reload
+    except Exception:
+        reload = None
+
+if reload:
+    if 'GUI.UIShowcaseDialog' in sys.modules:
+        reload(sys.modules['GUI.UIShowcaseDialog'])
+    elif 'UIShowcaseDialog' in sys.modules:
+        reload(sys.modules['UIShowcaseDialog'])
 
 from GUI.UIShowcaseDialog import show_ui_standard_showcase
 

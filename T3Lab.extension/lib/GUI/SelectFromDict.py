@@ -53,7 +53,7 @@ class SelectFromDict(my_WPF):
         wpf.LoadComponent(self, path_xaml_file)
 
         self.main_title.Text     = title
-        self.text_label.Content  = label
+        self.text_label.Text     = label
         self.button_main.Content = button_name
         self.footer_version.Text = version
 

@@ -15,6 +15,7 @@ __title__   = "Forms"
 from WPF_Base import my_WPF
 from FindReplace import FindReplace
 from SelectFromDict import select_from_dict
+from T3Dialog import T3Dialog, show_info, show_warning, show_error, confirm
 
 
 class ListItem:

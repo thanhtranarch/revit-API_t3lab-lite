@@ -5,7 +5,8 @@ __doc__    = "FamiGen — Create Revit families from CAD blocks, JSON schema, or
 
 import os, sys
 
-_lib = os.path.normpath(os.path.join(os.path.dirname(__file__), '../../../../lib'))
+_ext_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_lib = os.path.join(_ext_dir, 'lib')
 if _lib not in sys.path:
     sys.path.insert(0, _lib)
 

@@ -13,13 +13,14 @@
 
 ## P2 — MEDIUM
 
-### Q2 · Cycle 1: audit sâu 6 tool đầu tiên
+### Q2 · Cycle 1: migrate từng tool sang T3
 
-Chưa tool nào có điểm. Chọn theo `01-scan.md` §4 — vì chưa có lịch sử, dùng tiêu chí 5
-(xoay vòng) và bắt đầu bằng nhóm tool đơn giản để hiệu chỉnh rubric:
-
-`SplitElements` (1170 dòng, nhỏ nhất) · `RibbonNames` · `Feedback` · `SelectFromDict`
-· `ManaTabs` · `SubtypeDefinerColMap`
+- [x] **Tool 1: `SplitElements`** — Đã hoàn thành migrate sang T3 (100/100 điểm, 0 vi phạm).
+- [ ] **Tool 2: `RibbonNames`** (`Tools/RibbonNames.xaml`) — Đang chờ tiếp theo.
+- [ ] **Tool 3: `Feedback`** (`Tools/Feedback.xaml`)
+- [ ] **Tool 4: `SelectFromDict`** (`Tools/SelectFromDict.xaml`)
+- [ ] **Tool 5: `ManaTabs`** (`Tools/ManaTabs.xaml`)
+- [ ] **Tool 6: `SubtypeDefinerColMap`** (`Tools/SubtypeDefinerColMap.xaml`)
 
 Lý do bắt đầu từ file nhỏ: hiệu chỉnh rubric trên file dễ trước, tránh chấm sai hàng
 loạt trên file 2000 dòng rồi phải chấm lại.

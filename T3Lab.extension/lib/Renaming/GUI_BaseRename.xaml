@@ -333,6 +333,7 @@
                                           MaxHeight="{TemplateBinding MaxDropDownHeight}">
 
                                         <Border x:Name="DropDownBorder"
+                                                CornerRadius="4"
                                                 Background="{StaticResource header_background}"
                                                 BorderThickness="1"
                                                 BorderBrush="{StaticResource border_blue}"/>
@@ -359,7 +360,7 @@
                                 </Trigger>
 
                                 <Trigger SourceName="Popup" Property="Popup.AllowsTransparency" Value="true">
-                                    <Setter TargetName="DropDownBorder" Property="CornerRadius" Value="0"/>
+                                    <Setter TargetName="DropDownBorder" Property="CornerRadius" Value="4"/>
                                     <Setter TargetName="DropDownBorder" Property="Margin" Value="0,2,0,0"/>
                                 </Trigger>
 
@@ -413,7 +414,7 @@
 
                 <Style.Resources>
                     <Style TargetType="Border">
-                        <Setter Property="CornerRadius" Value="10"/>
+                        <Setter Property="CornerRadius" Value="4"/>
                     </Style>
                 </Style.Resources>
             </Style>
@@ -437,7 +438,7 @@
                                                     Background      = "{TemplateBinding Background}"
 
                                                     Grid.Row        = "1"
-                                                    CornerRadius="10"/>
+                                                    CornerRadius="2"/>
 
                                 <Track x:Name="PART_Track"
                                                    IsDirectionReversed="true"
@@ -519,7 +520,7 @@
                            Foreground="{StaticResource text_magenta}"/>
                     <Border  Height="110"
                           BorderBrush="{DynamicResource border_magenta}"
-                         BorderThickness="1,1,1,1" CornerRadius="10" HorizontalAlignment="Stretch" Width="Auto">
+                         BorderThickness="1,1,1,1" CornerRadius="4" HorizontalAlignment="Stretch" Width="Auto">
 
 
 

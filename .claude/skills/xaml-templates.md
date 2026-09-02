@@ -1,8 +1,8 @@
 # XAML snippets — chuẩn T3
 
-> **Cần một pattern hoàn chỉnh chứ không phải snippet lẻ?** Mở
-> `T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` — nó render cả 5 pattern
-> (P1–P5) đúng như mock chuẩn, và nằm trong gate nên không bao giờ lệch.
+> **Cần tham khảo một UI hoàn chỉnh thay vì snippet lẻ?** Mở
+> `T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` — nó là UI chuẩn mẫu
+> tổng hợp cả 5 pattern vào một cửa sổ thực tế chuẩn mực, và nằm trong gate kiểm tra nên không bao giờ lệch.
 
 Mọi snippet dưới đây dùng key có thật trong `pyRevit UI Design System/T3Lab.Styles.xaml`.
 Luật đầy đủ: `pyRevit UI Design System/T3LAB_UI_STANDARD.md` ·

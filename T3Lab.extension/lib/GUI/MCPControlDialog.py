@@ -42,18 +42,18 @@ def apply_server_status(status, indicator, label, btn, resources):
     All widget args may be None (skipped gracefully).
     """
     if status.get('error'):
-        color, text = '#EF4444', 'Error: {}'.format(status['error'])
-        btn_content, btn_style_key = 'Start Server', 'PrimaryButton'
+        color, text = '#D23B3B', 'Error: {}'.format(status['error'])
+        btn_content, btn_style_key = 'Start Server', 'T3.Button.Primary'
         enabled = True
     elif status['running']:
-        color       = '#10B981'
+        color       = '#157038'
         text        = 'Connected — port {}'.format(status['port'])
         btn_content = 'Stop Server'
-        btn_style_key = 'DangerButton'
+        btn_style_key = 'T3.Button.Danger'
         enabled     = True
     else:
-        color, text = '#EF4444', 'Disconnected'
-        btn_content, btn_style_key = 'Start Server', 'SuccessButton'
+        color, text = '#71717A', 'Disconnected'
+        btn_content, btn_style_key = 'Start Server', 'T3.Button.Primary'
         enabled = True
 
     if indicator: indicator.Background = _brush(color)
@@ -71,19 +71,19 @@ def apply_watcher_status(status, indicator, label, btn, resources):
     """
     if not HAS_SERVICE or status.get('error'):
         err = status.get('error', 'Service unavailable') if status else 'Service unavailable'
-        if indicator: indicator.Background = _brush('#94A3B8')
+        if indicator: indicator.Background = _brush('#9A9AA2')
         if label:     label.Text           = err
         if btn:       btn.IsEnabled        = False
         return
 
     if status['running']:
-        color = '#10B981'
+        color = '#157038'
         text  = 'File watcher active — monitoring task.json'
-        btn_content, btn_style_key = 'Stop Watcher', 'DangerButton'
+        btn_content, btn_style_key = 'Stop Watcher', 'T3.Button.Danger'
     else:
-        color = '#EF4444'
+        color = '#71717A'
         text  = 'File watcher stopped'
-        btn_content, btn_style_key = 'Start Watcher', 'SuccessButton'
+        btn_content, btn_style_key = 'Start Watcher', 'T3.Button.Secondary'
 
     if indicator: indicator.Background = _brush(color)
     if label:     label.Text           = text

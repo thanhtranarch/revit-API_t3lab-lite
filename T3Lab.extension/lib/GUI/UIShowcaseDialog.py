@@ -1,15 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 T3Lab UI Standard Showcase Dialog
-GUI classes for reviewing standard UI components and styling.
-
-The showcase is the reference implementation of the **Revit-native** tool
-window: Segoe UI 12, square hairline chrome, and every colour resolved from
-``GUI.RevitTheme`` rather than typed into the XAML. That means this class has
-one job beyond loading the file — call ``RevitTheme.apply()`` so the
-``{DynamicResource T3Theme*}`` keys the XAML binds to actually exist. Without
-it the window falls back to the literal light-theme brushes declared at the
-top of ``Window.Resources`` and never follows Revit into dark mode.
+Reference implementation of the unified T3Lab UI Standard.
 """
 
 import os
@@ -23,49 +15,37 @@ clr.AddReference('WindowsBase')
 import System
 from System.Windows import (Thickness, GridLength, GridUnitType,
                             HorizontalAlignment, VerticalAlignment, FontWeights,
-                            MessageBox, MessageBoxButton, MessageBoxImage, MessageBoxResult, WindowState)
+                            MessageBox, MessageBoxButton, MessageBoxImage, MessageBoxResult,
+                            WindowState, Visibility, Clipboard)
 from System.Windows.Controls import (RowDefinition, ColumnDefinition, Border,
                                       StackPanel, TextBlock, TextBox, Button,
                                       ComboBox, ComboBoxItem, DataGrid, Orientation,
                                       DataGridTextColumn, DataGridCheckBoxColumn,
-                                      ScrollViewer, TabControl, TabItem, CheckBox)
+                                      ScrollViewer, TabControl, TabItem, CheckBox, ListBoxItem)
 from System.Windows.Media import SolidColorBrush, BrushConverter
 from System.Windows.Data import Binding
 from System.Collections.ObjectModel import ObservableCollection
 
 from pyrevit import revit, DB, forms
 
-# Revit's own light/dark palette. Guarded: the showcase must still open (in
-# light values) on a host where the theme bridge cannot import, rather than
-# taking the whole window down over a colour lookup.
+# Revit light/dark palette bridge
 try:
     from GUI import RevitTheme as _theme
 except Exception:
     try:
-        import RevitTheme as _theme          # flat sys.path (deployed extension)
+        import RevitTheme as _theme
     except Exception:
         _theme = None
 
-# XAML Path
-# Single copy, in the extension — so this works when the extension is deployed
-# on its own (e.g. %APPDATA%\pyRevit\Extensions) without the repo checkout.
-# The repo-side duplicate under .claude/standard/ was removed on 2026-08-28
-# together with the retired Lumina standard it demonstrated; the UI standard is
-# now `pyRevit UI Design System/`, not this showcase.
 GUI_DIR = os.path.dirname(__file__)  # [repo]/T3Lab.extension/lib/GUI
 XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'UIStandardShowcase.xaml')
 
 
 class ShowcaseItem(object):
-    """Một hàng của bảng P4 trong showcase.
-
-    `T3.StatusPill` cần đúng 2 property: StatusText (chữ) và Severity
-    ("Success" / "Warning" / "Danger"). Trạng thái KHÔNG BAO GIỜ chỉ bằng màu —
-    chấm màu luôn đi kèm chữ.
-    """
+    """Row item representing an element in the unified audit & selection table."""
 
     def __init__(self, item_id, name, category, template, status_text,
-                 severity, issues):
+                 severity, issues, is_selected=False):
         self._id = item_id
         self._name = name
         self._category = category
@@ -73,6 +53,7 @@ class ShowcaseItem(object):
         self._status_text = status_text
         self._severity = severity
         self._issues = issues
+        self._is_selected = is_selected
 
     @property
     def id(self):
@@ -94,7 +75,6 @@ class ShowcaseItem(object):
     def issues(self):
         return self._issues
 
-    # T3.StatusPill bind vào 2 tên này
     @property
     def StatusText(self):
         return self._status_text
@@ -103,49 +83,103 @@ class ShowcaseItem(object):
     def Severity(self):
         return self._severity
 
-    # Giữ lại cho code cũ còn đọc .status
     @property
     def status(self):
         return self._status_text
 
+    @property
+    def is_selected(self):
+        return self._is_selected
+
+    @is_selected.setter
+    def is_selected(self, val):
+        self._is_selected = bool(val)
+
 
 class UIShowcaseWindow(forms.WPFWindow):
-    """Window class for T3Lab UI Standard Showcase.
-
-    The window has no caption of its own: the XAML declares
-    ``WindowStyle="SingleBorderWindow"`` and lets Windows draw the title
-    bar, the way ``Autodesk.UI.Windows.ChildWindow`` does for Revit's own
-    dialogs. There are therefore no minimise/maximise/close handlers here
-    — the OS owns those buttons. ``close_button_clicked`` stays, for the
-    OK and Cancel buttons.
-    """
+    """Window class for the unified T3Lab UI Standard Showcase."""
 
     def __init__(self):
         forms.WPFWindow.__init__(self, XAML_FILE)
         self._skin = None
-        self._pinned = False        # True while previewing the non-host skin
+        self._pinned = False
+        self._all_items = []
+        self._filtered_items = []
         self._adopt_host_font()
         self._apply_theme()
         self._load_sample_data()
-        # Revit 2024+ raises UIApplication.ThemeChanged, but that event does not
-        # exist on 2023 and needs a UIApplication we do not hold here. Re-syncing
-        # when the window is activated covers the same case with no version
-        # dependency: flip Revit's theme, click back into the tool, it follows.
+        self._setup_event_handlers()
+        self._update_selection_summary()
+
         try:
             self.Activated += self._window_activated
         except Exception:
             pass
 
+    def _setup_event_handlers(self):
+        """Wire interactive event handlers programmatically for maximum reliability."""
+        try:
+            if hasattr(self, 'btn_copy_log') and self.btn_copy_log:
+                self.btn_copy_log.Click += self.copy_log_clicked
+            if hasattr(self, 'btn_export_csv') and self.btn_export_csv:
+                self.btn_export_csv.Click += self.export_csv_clicked
+            if hasattr(self, 'btn_execute') and self.btn_execute:
+                self.btn_execute.Click += self.execute_clicked
+            if hasattr(self, 'btn_select_all') and self.btn_select_all:
+                self.btn_select_all.Click += self.select_all_clicked
+            if hasattr(self, 'btn_select_none') and self.btn_select_none:
+                self.btn_select_none.Click += self.select_none_clicked
+            if hasattr(self, 'cb_scope') and self.cb_scope:
+                self.cb_scope.SelectionChanged += self.scope_changed
+            if hasattr(self, 'tb_search') and self.tb_search:
+                self.tb_search.TextChanged += self.search_text_changed
+            if hasattr(self, 'cb_category') and self.cb_category:
+                self.cb_category.SelectionChanged += self.category_filter_changed
+            if hasattr(self, 'sample_grid') and self.sample_grid:
+                self.sample_grid.SelectionChanged += self.grid_selection_changed
+            for chip_name in ['chip_all', 'chip_compliant', 'chip_review', 'chip_failed']:
+                if hasattr(self, chip_name):
+                    chip = getattr(self, chip_name)
+                    if chip:
+                        chip.Checked += self.chip_filter_changed
+            for nav_name in ['nav_toggle_params', 'nav_toggle_elements', 'nav_toggle_monitor', 'nav_toggle_settings']:
+                if hasattr(self, nav_name):
+                    btn = getattr(self, nav_name)
+                    if btn:
+                        btn.Click += self.nav_toggle_clicked
+        except Exception as ex:
+            print("Warning in _setup_event_handlers: {}".format(ex))
+
+    def nav_toggle_clicked(self, sender, e):
+        """Handle sidebar rail navigation tile selection."""
+        nav_buttons = [
+            getattr(self, 'nav_toggle_params', None),
+            getattr(self, 'nav_toggle_elements', None),
+            getattr(self, 'nav_toggle_monitor', None),
+            getattr(self, 'nav_toggle_settings', None)
+        ]
+        for btn in nav_buttons:
+            if btn and btn != sender:
+                btn.IsChecked = False
+        if sender:
+            sender.IsChecked = True
+            try:
+                tip = sender.ToolTip
+                self.status_text.Text = "Active view: {}".format(tip or "Overview")
+            except Exception:
+                pass
+            if hasattr(self, 'main_view_tabs') and self.main_view_tabs:
+                try:
+                    idx = nav_buttons.index(sender)
+                    if 0 <= idx < self.main_view_tabs.Items.Count:
+                        self.main_view_tabs.SelectedIndex = idx
+                except Exception:
+                    pass
+
     # ── Theme ────────────────────────────────────────────────────────────────
 
     def _adopt_host_font(self):
-        """Take the OS message font instead of the hardcoded Segoe UI 12.
-
-        The XAML declares Segoe UI 12 so it still renders standalone, but that
-        is only correct on a default Windows. Revit's dialogs use the shell's
-        message font, which changes with the user's text-scaling setting and
-        with some locales — so read it and let the whole window inherit.
-        """
+        """Take the OS message font when available."""
         if _theme is None:
             return
         family, size = _theme.host_font()
@@ -159,67 +193,16 @@ class UIShowcaseWindow(forms.WPFWindow):
             pass
 
     def _apply_theme(self, theme=None):
-        """Write the T3Theme* brushes into Window.Resources.
-
-        Every colour in the XAML is a DynamicResource against these keys, so a
-        second call with a different theme re-skins the live window — no
-        rebuild, no reload of the XAML. Where Revit exposes its own brush for a
-        token, that is what lands here; see the host bridge in RevitTheme.
-        """
+        """Write the T3Theme* brushes into Window.Resources."""
         if _theme is None:
             return
         try:
             self._skin = _theme.apply(self, theme)
         except Exception as ex:
             print("Warning: theme not applied: {}".format(ex))
-            return
-        try:
-            self.chk_dark_preview.IsChecked = (self._skin == 'dark')
-        except Exception:
-            pass
-        self._report_palette_source()
-
-    def _report_palette_source(self):
-        """Show how much of the window is Revit's own palette, not our copy.
-
-        The whole point of the host bridge is that these colours are the host's,
-        so the count belongs where it can be checked at a glance rather than in
-        a log nobody opens. On a version that exposes nothing it reads 0/N,
-        which is the honest answer, not a failure.
-        """
-        try:
-            report = _theme.host_report(self._skin)
-        except Exception:
-            return
-        live = sum(1 for _v, src in report.values() if src == 'revit')
-        state = "Previewing {}".format(self._skin) if self._pinned else "Ready"
-
-        if live:
-            text = "{} · palette {}/{} live from Revit".format(
-                state, live, len(report))
-        else:
-            # Not a failure. The curated values ARE Revit's, decoded from
-            # UIFramework.dll, so this is the same palette by a different route.
-            # What matters is that it is not a MIXTURE: a few live values among
-            # many copied ones is what produces a colour that does not belong.
-            try:
-                usable, resolved, total = _theme.host_coverage(self._skin)
-                why = _theme.host_error()
-            except Exception:
-                usable, resolved, total, why = True, 0, 0, None
-            text = "{} · palette from T3Lab copy of Revit".format(state)
-            if total and not usable:
-                text += " (host answered {}/{}, below threshold)".format(
-                    resolved, total)
-            elif why:
-                text += " ({})".format(why[:90])
-        try:
-            self.status_text.Text = text
-        except Exception:
-            pass
 
     def _window_activated(self, sender, e):
-        """Follow Revit if its theme changed while the tool was in the back."""
+        """Follow Revit if theme changed while tool was inactive."""
         if _theme is None or self._pinned:
             return
         try:
@@ -228,69 +211,7 @@ class UIShowcaseWindow(forms.WPFWindow):
         except Exception:
             pass
 
-    def theme_preview_clicked(self, sender, e):
-        """Preview the other skin without restarting Revit.
-
-        Revit stays the real source of truth (``UIThemeManager.CurrentTheme``);
-        this pins the palette so both skins can be reviewed side by side while
-        designing a tool, and unpins as soon as the choice lands back on the
-        host's own theme. It is an ordinary check box in an ordinary group box —
-        it used to be a glyph button in a custom caption bar, which is not a
-        control Revit has anywhere.
-        """
-        if _theme is None:
-            return
-        try:
-            other = 'dark' if bool(self.chk_dark_preview.IsChecked) else 'light'
-        except Exception:
-            return
-        # Unpin BEFORE asking, or current_theme() hands back the pin we set on
-        # the previous click instead of what Revit is actually running.
-        try:
-            _theme.force_theme(None)
-            host = _theme.current_theme()
-        except Exception:
-            host = None
-        self._pinned = (other != host)
-        try:
-            _theme.force_theme(other if self._pinned else None)
-        except Exception:
-            pass
-        self._apply_theme(other)
-
-    def setup_icon(self):
-        """No icon. Revit dialogs do not put one in the caption.
-
-        pyRevit's own setup_icon() assigns the pushbutton PNG to Window.Icon,
-        which is where the T3Lab logo in the corner came from. Revit's
-        ChildWindow strips the caption icon instead (RemoveWindowIcon /
-        WS_EX_DLGMODALFRAME), so overriding this to do nothing — together
-        with WindowStyle="ToolWindow" in the XAML — is what matches it.
-        """
-        return
-
-    def _unused_setup_icon(self):
-        """Kept for reference: the previous icon-loading behaviour."""
-        try:
-            # Resolve the pushbutton's icon.png path relative to this file
-            current_dir = os.path.dirname(__file__)  # lib/GUI
-            extension_dir = os.path.dirname(os.path.dirname(current_dir))  # T3Lab.extension
-            icon_path = os.path.join(extension_dir, "T3Lab.tab", "Standard.panel", "UIStandard.pushbutton", "icon.png")
-            if os.path.exists(icon_path):
-                self.set_icon(icon_path)
-            else:
-                # Fallback to default pyRevit icon
-                super(UIShowcaseWindow, self).setup_icon()
-        except Exception as e:
-            # Silence icon loading errors to prevent window initialization crash
-            print("Warning: Failed to load window icon: {}".format(e))
-
-    # ── Window chrome ────────────────────────────────────────────────────────
-    # The caption is ours again. Not by preference — a Revit dialog uses the
-    # native one — but because the native caption follows the WINDOWS theme, so
-    # Revit-dark on a light Windows renders a white title bar above a dark
-    # window. Painting it ourselves is the only pure-WPF way to make it follow
-    # Revit. See docs/revit-native-ui.md.
+    # ── Chrome & Navigation ──────────────────────────────────────────────────
 
     def minimize_button_clicked(self, sender, e):
         self.WindowState = WindowState.Minimized
@@ -298,40 +219,201 @@ class UIShowcaseWindow(forms.WPFWindow):
     def maximize_button_clicked(self, sender, e):
         if self.WindowState == WindowState.Maximized:
             self.WindowState = WindowState.Normal
-            self.btn_maximize.ToolTip = "Maximize"
+            try:
+                self.btn_maximize.ToolTip = "Maximize"
+            except Exception:
+                pass
         else:
             self.WindowState = WindowState.Maximized
-            self.btn_maximize.ToolTip = "Restore"
+            try:
+                self.btn_maximize.ToolTip = "Restore"
+            except Exception:
+                pass
 
     def close_button_clicked(self, sender, e):
-        """Caption close, and the OK / Cancel buttons."""
         self.Close()
 
+    # ── Data & Filtering ─────────────────────────────────────────────────────
+
     def _load_sample_data(self):
-        """Dữ liệu mẫu cho bảng P4. Chữ hiển thị phải là TIẾNG ANH (luật 12)."""
-        items = [
+        """Load comprehensive production-grade sample elements."""
+        self._all_items = [
             ShowcaseItem("104231", "01_Plan_Column setting-out", "Floor Plan",
-                         "ARC_Plan_1-100", "Compliant", "Success", "0"),
+                         "ARC_Plan_1-100", "Compliant", "Success", "0", True),
             ShowcaseItem("104232", "02_Plan_Column dimensions", "Floor Plan",
-                         "ARC_Plan_1-100", "Compliant", "Success", "0"),
+                         "ARC_Plan_1-100", "Compliant", "Success", "0", True),
             ShowcaseItem("104235", "Detail_Column rebar splice", "Detail View",
-                         "\u2014 none \u2014", "Template missing", "Danger", "1"),
+                         "-- none --", "Template missing", "Danger", "1", False),
             ShowcaseItem("104240", "3D_Overall perspective", "3D View",
-                         "\u2014 none \u2014", "Naming standard", "Danger", "2"),
+                         "-- none --", "Naming standard", "Danger", "2", False),
             ShowcaseItem("104245", "Section_Longitudinal section", "Section",
-                         "ARC_Sect_1-50", "Needs review", "Warning", "1"),
+                         "ARC_Sect_1-50", "Needs review", "Warning", "1", True),
             ShowcaseItem("104250", "Elevation_Grid A-D", "Elevation",
-                         "ARC_Elev_1-100", "Compliant", "Success", "0"),
+                         "ARC_Elev_1-100", "Compliant", "Success", "0", False),
             ShowcaseItem("104255", "Schedule_Beam rebar take-off", "Schedule",
-                         "n/a", "Compliant", "Success", "0"),
+                         "n/a", "Compliant", "Success", "0", True),
             ShowcaseItem("104261", "Detail_Pad footing M1", "Detail View",
-                         "STR_Det_1-25", "Naming standard", "Danger", "1"),
-            ShowcaseItem("104266", "Plan_Services ceiling", "Ceiling Plan",
-                         "ARC_Plan_1-100", "Compliant", "Success", "0"),
+                         "STR_Det_1-25", "Naming standard", "Danger", "1", False),
+            ShowcaseItem("104266", "Plan_Services ceiling", "Floor Plan",
+                         "ARC_Plan_1-100", "Compliant", "Success", "0", False),
             ShowcaseItem("104270", "Elevation_Grid 1-9", "Elevation",
-                         "ARC_Elev_1-100", "Needs review", "Warning", "3"),
+                         "ARC_Elev_1-100", "Needs review", "Warning", "3", False),
         ]
-        self.sample_grid.ItemsSource = ObservableCollection[object](items)
+        self._apply_filter()
+
+    def _apply_filter(self):
+        """Apply active chip, search query, and category filters."""
+        if not hasattr(self, '_all_items') or not self._all_items:
+            return
+
+        chip_mode = "all"
+        try:
+            if hasattr(self, 'chip_compliant') and self.chip_compliant.IsChecked:
+                chip_mode = "compliant"
+            elif hasattr(self, 'chip_review') and self.chip_review.IsChecked:
+                chip_mode = "review"
+            elif hasattr(self, 'chip_failed') and self.chip_failed.IsChecked:
+                chip_mode = "failed"
+        except Exception:
+            pass
+
+        query = ""
+        try:
+            if hasattr(self, 'tb_search') and self.tb_search.Text:
+                query = self.tb_search.Text.strip().lower()
+        except Exception:
+            pass
+
+        category = "all"
+        try:
+            if hasattr(self, 'cb_category') and self.cb_category.SelectedItem:
+                selected_content = str(self.cb_category.SelectedItem.Content)
+                if selected_content != "All categories":
+                    category = selected_content.lower()
+        except Exception:
+            pass
+
+        filtered = []
+        for item in self._all_items:
+            # Chip severity filter
+            if chip_mode == "compliant" and item.Severity != "Success":
+                continue
+            if chip_mode == "review" and item.Severity != "Warning":
+                continue
+            if chip_mode == "failed" and item.Severity != "Danger":
+                continue
+
+            # Category filter
+            if category != "all" and item.category.lower() != category:
+                continue
+
+            # Search query filter (name or ID)
+            if query and (query not in item.name.lower() and query not in item.id.lower()):
+                continue
+
+            filtered.append(item)
+
+        self._filtered_items = filtered
+        try:
+            self.sample_grid.ItemsSource = ObservableCollection[object](self._filtered_items)
+            if len(self._filtered_items) == 0:
+                self.grid_empty.Visibility = Visibility.Visible
+            else:
+                self.grid_empty.Visibility = Visibility.Collapsed
+        except Exception:
+            pass
+
+        self._update_selection_summary()
+
+    def chip_filter_changed(self, sender, e):
+        self._apply_filter()
+
+    def search_text_changed(self, sender, e):
+        self._apply_filter()
+
+    def category_filter_changed(self, sender, e):
+        self._apply_filter()
+
+    def scope_changed(self, sender, e):
+        try:
+            scope_text = str(self.cb_scope.SelectedItem.Content)
+            self.status_text.Text = "Scope updated: {}".format(scope_text)
+        except Exception:
+            pass
+
+    # ── Selection Handlers ───────────────────────────────────────────────────
+
+    def select_all_clicked(self, sender, e):
+        for item in self._filtered_items:
+            item.is_selected = True
+        try:
+            self.sample_grid.Items.Refresh()
+        except Exception:
+            pass
+        self._update_selection_summary()
+
+    def select_none_clicked(self, sender, e):
+        for item in self._filtered_items:
+            item.is_selected = False
+        try:
+            self.sample_grid.Items.Refresh()
+        except Exception:
+            pass
+        self._update_selection_summary()
+
+    def grid_selection_changed(self, sender, e):
+        self._update_selection_summary()
+
+    def _update_selection_summary(self):
+        selected_count = sum(1 for item in self._all_items if item.is_selected)
+        total_count = len(self._all_items)
+
+        try:
+            self.lbl_selection_count.Text = "{} of {} selected".format(
+                selected_count, len(self._filtered_items))
+        except Exception:
+            pass
+
+        try:
+            self.btn_execute.Content = "Execute Batch ({})".format(selected_count)
+        except Exception:
+            pass
+
+        try:
+            self.status_text.Text = "Ready · {} sheets in scope · {} selected".format(
+                total_count, selected_count)
+        except Exception:
+            pass
+
+    # ── Actions ──────────────────────────────────────────────────────────────
+
+    def copy_log_clicked(self, sender, e):
+        log_text = (
+            "12:04:31 Transaction opened\n"
+            "12:04:31 Collected 245 sheets in active scope\n"
+            "12:04:32 A-1001 -> A-101   ok\n"
+            "12:04:33 A-1003   skipped, already matches pattern\n"
+            "12:04:34 A-1005   failed, sheet is checked out by TCB\n"
+        )
+        try:
+            Clipboard.SetText(log_text)
+            self.status_text.Text = "Log copied to clipboard (5 lines)"
+        except Exception:
+            pass
+
+    def export_csv_clicked(self, sender, e):
+        try:
+            self.status_text.Text = "CSV report exported to project logs folder"
+        except Exception:
+            pass
+
+    def execute_clicked(self, sender, e):
+        try:
+            selected_count = sum(1 for item in self._all_items if item.is_selected)
+            self.status_text.Text = "Batch complete · {} elements processed successfully".format(selected_count)
+            self.exec_progress.Value = self.exec_progress.Maximum
+        except Exception:
+            pass
 
 
 def show_ui_standard_showcase():
@@ -343,7 +425,7 @@ def show_ui_standard_showcase():
         print("\nFATAL ERROR: {}".format(str(e)))
         import traceback
         traceback.print_exc()
-        
+
         MessageBox.Show(
             "Error starting UI Standard Showcase:\n\n{}".format(str(e)),
             "Error",

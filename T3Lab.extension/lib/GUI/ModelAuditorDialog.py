@@ -907,9 +907,8 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
         self.btn_special_materials_reload.Click += self.on_materials_reload
         self.btn_special_materials_export.Click += self.on_materials_export
 
-        # Run initial diagnostics
-        self.on_health_run(None, None)
-        self.on_warning_reload(None, None)
+        # Ready state - diagnostics run on user action via Re-Analyze button
+        self.status_text.Text = "Ready. Click 'Re-Analyze' to start model diagnostics."
 
     # ========================================================================
     # WINDOW CONTROL ACTIONS
@@ -927,6 +926,9 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
 
     def _close_chrome(self, sender, e):
         self.Close()
+
+    def close_button_clicked(self, sender, e):
+        self._close_chrome(sender, e)
 
     _NAV_STATUS = [
         "Model Health Dashboard — Health score and summary metrics",

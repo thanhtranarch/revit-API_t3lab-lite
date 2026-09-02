@@ -76,7 +76,7 @@ class ParameterItem:
         )
 
 
-class ParameterSelectorDialog(Window):
+class ParameterSelectorDialog(forms.WPFWindow):
     """Dialog for selecting parameters to build custom filenames."""
 
     def __init__(self, doc, element_type='sheet'):
@@ -86,58 +86,39 @@ class ParameterSelectorDialog(Window):
             doc: Revit document
             element_type: 'sheet' or 'view' - determines which parameters to load
         """
-        # CRITICAL: Initialize the base Window class FIRST
-        Window.__init__(self)
+        xaml_file = os.path.join(os.path.dirname(__file__), 'Tools', 'ParameterSelector.xaml')
+        forms.WPFWindow.__init__(self, xaml_file)
 
         self.doc = doc
         self.element_type = element_type
         self.selected_result = None
         self.field_separator = '-'
 
-        # Set up window properties first
-        self.Title = "Edit Filename Pattern"
-        self.Width = 700
-        self.Height = 550
-        self.WindowStartupLocation = WindowStartupLocation.CenterScreen
-        self.WindowStyle = getattr(WindowStyle, 'None')
-        self.AllowsTransparency = True
-        self.Background = System.Windows.Media.SolidColorBrush(
-            System.Windows.Media.Color.FromArgb(0, 0, 0, 0))
-
-        # Load XAML
-        xaml_file = os.path.join(os.path.dirname(__file__), 'Tools', 'ParameterSelector.xaml')
-        try:
-            with codecs.open(xaml_file, 'r', 'utf-8') as f:
-                xaml_content = f.read()
-            self.ui = XamlReader.Parse(xaml_content)
-            # Set the parsed content directly
-            self.Content = self.ui
-        except Exception as e:
-            forms.alert("Error loading XAML: {}".format(str(e)))
-            return
-
-        # Get controls
-        self.list_available = self.ui.FindName('list_available')
-        self.list_selected = self.ui.FindName('list_selected')
-        self.txt_field_separator = self.ui.FindName('txt_field_separator')
-        self.chk_field_separator = self.ui.FindName('chk_field_separator')
-        self.chk_include_project_params = self.ui.FindName('chk_include_project_params')
-        self.txt_custom_field = self.ui.FindName('txt_custom_field')
-        self.txt_custom_separator = self.ui.FindName('txt_custom_separator')
-        self.txt_preview = self.ui.FindName('txt_preview')
-
         # Set up event handlers
-        self.ui.FindName('button_close').Click += self.button_close
-        self.ui.FindName('button_add_parameter').Click += self.button_add_parameter
-        self.ui.FindName('button_remove_parameter').Click += self.button_remove_parameter
-        self.ui.FindName('button_move_up').Click += self.button_move_up
-        self.ui.FindName('button_move_down').Click += self.button_move_down
-        self.ui.FindName('button_move_top').Click += self.button_move_top
-        self.ui.FindName('button_move_bottom').Click += self.button_move_bottom
-        self.ui.FindName('button_refresh').Click += self.button_refresh
-        self.ui.FindName('button_add_custom_field').Click += self.button_add_custom_field
-        self.ui.FindName('button_add_custom_separator').Click += self.button_add_custom_separator
-        self.ui.FindName('button_ok').Click += self.button_ok
+        if hasattr(self, 'button_close') and self.button_close:
+            self.button_close.Click += self._on_close
+        if hasattr(self, 'button_cancel') and self.button_cancel:
+            self.button_cancel.Click += self._on_close
+        if hasattr(self, 'button_add_parameter') and self.button_add_parameter:
+            self.button_add_parameter.Click += self._on_add_parameter
+        if hasattr(self, 'button_remove_parameter') and self.button_remove_parameter:
+            self.button_remove_parameter.Click += self._on_remove_parameter
+        if hasattr(self, 'button_move_up') and self.button_move_up:
+            self.button_move_up.Click += self._on_move_up
+        if hasattr(self, 'button_move_down') and self.button_move_down:
+            self.button_move_down.Click += self._on_move_down
+        if hasattr(self, 'button_move_top') and self.button_move_top:
+            self.button_move_top.Click += self._on_move_top
+        if hasattr(self, 'button_move_bottom') and self.button_move_bottom:
+            self.button_move_bottom.Click += self._on_move_bottom
+        if hasattr(self, 'button_refresh') and self.button_refresh:
+            self.button_refresh.Click += self._on_refresh
+        if hasattr(self, 'button_add_custom_field') and self.button_add_custom_field:
+            self.button_add_custom_field.Click += self._on_add_custom_field
+        if hasattr(self, 'button_add_custom_separator') and self.button_add_custom_separator:
+            self.button_add_custom_separator.Click += self._on_add_custom_separator
+        if hasattr(self, 'button_ok') and self.button_ok:
+            self.button_ok.Click += self._on_ok
 
         # Set up checkbox event handlers
         self.chk_include_project_params.Checked += self.toggle_project_params
@@ -146,8 +127,8 @@ class ParameterSelectorDialog(Window):
         self.chk_field_separator.Unchecked += self.update_preview
         self.txt_field_separator.TextChanged += self.update_preview
 
-        # Set up drag handler for header
-        self.ui.MouseDown += self.header_drag
+        # Set up drag handler if window chrome allows or mouse drag
+        self.MouseDown += self.header_drag
 
         # Initialize parameter collections
         # Use ObservableCollection[object] instead of ObservableCollection[ParameterItem]
@@ -288,7 +269,7 @@ class ParameterSelectorDialog(Window):
         """Toggle inclusion of project information parameters."""
         self.load_parameters()
 
-    def button_add_parameter(self, sender, e):
+    def _on_add_parameter(self, sender, e):
         """Add selected parameters from available to selected list."""
         selected_items = list(self.list_available.SelectedItems)
         for item in selected_items:
@@ -296,7 +277,7 @@ class ParameterSelectorDialog(Window):
             self.available_params.Remove(item)
         self.update_preview(sender, e)
 
-    def button_remove_parameter(self, sender, e):
+    def _on_remove_parameter(self, sender, e):
         """Remove selected parameters from selected list back to available."""
         selected_items = list(self.list_selected.SelectedItems)
         for item in selected_items:
@@ -304,7 +285,7 @@ class ParameterSelectorDialog(Window):
             self.selected_params.Remove(item)
         self.update_preview(sender, e)
 
-    def button_move_up(self, sender, e):
+    def _on_move_up(self, sender, e):
         """Move selected parameter up in the list."""
         if self.list_selected.SelectedIndex > 0:
             index = self.list_selected.SelectedIndex
@@ -314,7 +295,7 @@ class ParameterSelectorDialog(Window):
             self.list_selected.SelectedIndex = index - 1
         self.update_preview(sender, e)
 
-    def button_move_down(self, sender, e):
+    def _on_move_down(self, sender, e):
         """Move selected parameter down in the list."""
         if self.list_selected.SelectedIndex < len(self.selected_params) - 1:
             index = self.list_selected.SelectedIndex
@@ -324,7 +305,7 @@ class ParameterSelectorDialog(Window):
             self.list_selected.SelectedIndex = index + 1
         self.update_preview(sender, e)
 
-    def button_move_top(self, sender, e):
+    def _on_move_top(self, sender, e):
         """Move selected parameter to the top of the list."""
         if self.list_selected.SelectedIndex > 0:
             index = self.list_selected.SelectedIndex
@@ -334,7 +315,7 @@ class ParameterSelectorDialog(Window):
             self.list_selected.SelectedIndex = 0
         self.update_preview(sender, e)
 
-    def button_move_bottom(self, sender, e):
+    def _on_move_bottom(self, sender, e):
         """Move selected parameter to the bottom of the list."""
         if self.list_selected.SelectedIndex < len(self.selected_params) - 1:
             index = self.list_selected.SelectedIndex
@@ -359,7 +340,7 @@ class ParameterSelectorDialog(Window):
                     self.selected_params.Add(available_param)
                     break
 
-    def button_refresh(self, sender, e):
+    def _on_refresh(self, sender, e):
         """Refresh: reload parameters from the model and reset the selection
         back to the default filename pattern."""
         self.selected_params.Clear()
@@ -367,7 +348,7 @@ class ParameterSelectorDialog(Window):
         self._select_default_params()
         self.update_preview(sender, e)
 
-    def button_add_custom_field(self, sender, e):
+    def _on_add_custom_field(self, sender, e):
         """Add a custom field to the selected parameters."""
         custom_field = self.txt_custom_field.Text.strip()
         if custom_field:
@@ -380,7 +361,7 @@ class ParameterSelectorDialog(Window):
             self.txt_custom_field.Text = ''
         self.update_preview(sender, e)
 
-    def button_add_custom_separator(self, sender, e):
+    def _on_add_custom_separator(self, sender, e):
         """Add a custom separator to the selected parameters."""
         custom_sep = self.txt_custom_separator.Text.strip()
         if custom_sep:
@@ -401,7 +382,7 @@ class ParameterSelectorDialog(Window):
         else:
             self.txt_preview.Text = "Preview: (select parameters)"
 
-    def button_ok(self, sender, e):
+    def _on_ok(self, sender, e):
         """OK button - build pattern and close dialog."""
         self.field_separator = self.txt_field_separator.Text if self.chk_field_separator.IsChecked else ''
         self.selected_result = self.build_pattern()
@@ -410,7 +391,7 @@ class ParameterSelectorDialog(Window):
         self.DialogResult = True
         self.Close()
 
-    def button_close(self, sender, e):
+    def _on_close(self, sender, e):
         """Close button - same as cancel."""
         self.selected_result = None
         self.DialogResult = False

@@ -1,4 +1,6 @@
 {
+  "b": 255, 
+  "live_apply": false, 
   "custom_presets": [
     {
       "name": "#FFFFFF", 
@@ -36,18 +38,18 @@
       114
     ]
   ], 
-  "g": 255, 
+  "r": 255, 
   "gradient": {
     "all_views": false, 
-    "horizon": [
-      150, 
-      155, 
-      164
-    ], 
     "ground": [
       44, 
       46, 
       52
+    ], 
+    "horizon": [
+      150, 
+      155, 
+      164
     ], 
     "sky": [
       68, 
@@ -55,7 +57,5 @@
       82
     ]
   }, 
-  "r": 255, 
-  "live_apply": false, 
-  "b": 255
+  "g": 255
 }

@@ -507,20 +507,24 @@ class BackgroundThemeWindow(forms.WPFWindow):
 
     def _make_chip(self, name, rgb, click_handler, tag):
         btn = Button()
-        btn.Style = self.Resources["TertiaryButton"]
-        btn.Margin = Thickness(3)
+        if "T3.Button.Secondary" in self.Resources:
+            btn.Style = self.Resources["T3.Button.Secondary"]
+        btn.Height = 24
+        btn.Padding = Thickness(8, 0, 8, 0)
+        btn.Margin = Thickness(0, 0, 4, 4)
         sp = StackPanel()
         sp.Orientation = Orientation.Horizontal
         dot = Ellipse()
-        dot.Width = 10
-        dot.Height = 10
+        dot.Width = 8
+        dot.Height = 8
         dot.Fill = solid(rgb)
-        dot.Stroke = brush("#D4D4DA")
+        dot.Stroke = brush("#DCDCE0")
         dot.StrokeThickness = 1
-        dot.Margin = Thickness(0, 0, 6, 0)
+        dot.Margin = Thickness(0, 0, 4, 0)
         dot.VerticalAlignment = VerticalAlignment.Center
         txt = TextBlock()
         txt.Text = name
+        txt.FontSize = 11.5
         txt.VerticalAlignment = VerticalAlignment.Center
         sp.Children.Add(dot)
         sp.Children.Add(txt)
@@ -612,7 +616,7 @@ class BackgroundThemeWindow(forms.WPFWindow):
             sw = Border()
             sw.Width = 24
             sw.Height = 24
-            sw.CornerRadius = CornerRadius(7)
+            sw.CornerRadius = CornerRadius(4)
             sw.Margin = Thickness(0, 0, 6, 6)
             sw.Background = solid(rgb)
             sw.BorderBrush = brush("#D4D4DA")
@@ -684,23 +688,27 @@ class BackgroundThemeWindow(forms.WPFWindow):
         for idx, item in enumerate(GRADIENT_PRESETS):
             name = item[0]
             btn = Button()
-            btn.Style = self.Resources["TertiaryButton"]
-            btn.Margin = Thickness(0, 0, 6, 6)
+            if "T3.Button.Secondary" in self.Resources:
+                btn.Style = self.Resources["T3.Button.Secondary"]
+            btn.Height = 24
+            btn.Padding = Thickness(8, 0, 8, 0)
+            btn.Margin = Thickness(0, 0, 4, 4)
             sp = StackPanel()
             sp.Orientation = Orientation.Horizontal
             for rgb in item[1:]:
                 dot = Ellipse()
-                dot.Width = 9
-                dot.Height = 9
+                dot.Width = 8
+                dot.Height = 8
                 dot.Fill = solid(rgb)
-                dot.Stroke = brush("#D4D4DA")
+                dot.Stroke = brush("#DCDCE0")
                 dot.StrokeThickness = 1
-                dot.Margin = Thickness(0, 0, 3, 0)
+                dot.Margin = Thickness(0, 0, 4, 0)
                 dot.VerticalAlignment = VerticalAlignment.Center
                 sp.Children.Add(dot)
             txt = TextBlock()
             txt.Text = name
-            txt.Margin = Thickness(3, 0, 0, 0)
+            txt.FontSize = 11.5
+            txt.Margin = Thickness(4, 0, 0, 0)
             txt.VerticalAlignment = VerticalAlignment.Center
             sp.Children.Add(txt)
             btn.Content = sp
@@ -781,8 +789,9 @@ class BackgroundThemeWindow(forms.WPFWindow):
             btn.Content = name
             btn.Width = 110
             btn.Margin = Thickness(0, 0, 8, 0)
-            style_key = "PrimaryButton" if name == current else "SecondaryButton"
-            btn.Style = self.Resources[style_key]
+            style_key = "T3.Button.Primary" if name == current else "T3.Button.Secondary"
+            if style_key in self.Resources:
+                btn.Style = self.Resources[style_key]
             btn.Tag = name
             btn.Click += self._on_theme_click
             self.ThemeBtnPanel.Children.Add(btn)
@@ -796,9 +805,10 @@ class BackgroundThemeWindow(forms.WPFWindow):
                 btn.Content = name
                 btn.Width = 110
                 btn.Margin = Thickness(0, 0, 8, 0)
-                style_key = ("PrimaryButton" if name == canvas_current
-                             else "SecondaryButton")
-                btn.Style = self.Resources[style_key]
+                style_key = ("T3.Button.Primary" if name == canvas_current
+                             else "T3.Button.Secondary")
+                if style_key in self.Resources:
+                    btn.Style = self.Resources[style_key]
                 btn.Tag = name
                 btn.Click += self._on_canvas_theme_click
                 self.CanvasBtnPanel.Children.Add(btn)

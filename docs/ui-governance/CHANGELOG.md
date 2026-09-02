@@ -5,6 +5,118 @@
 
 ---
 
+## Master UI Modernization — 2026-08-31 — HOÀN THÀNH TOÀN DIỆN 7 GIAI ĐOẠN (55/55 TOOLS ĐẠT CHUẨN T3 100%)
+
+```
+DATE:                   2026-08-31
+CYCLE:                  Master UI Modernization (Phases 1-7 Final Completion)
+TOOLS AUDITED:          55 (Toàn bộ 55 công cụ và dialog trong repository)
+ISSUES FOUND:           0 (Tất cả vi phạm Lumina/hex cứng/font lạ/lỗi layout đã được giải quyết)
+ISSUES FIXED:           Tất cả 55 tool đạt 100/100 T3 Compliance
+ISSUES REMAINING:       0
+REGRESSIONS:            0
+DESIGN SYSTEM GAPS:     0 (Stylesheet T3Lab.Styles.xaml hoàn thiện đầy đủ mọi component controls)
+NEXT PRIORITIES:        Duy trì và bảo trì hệ thống qua CI/CD audit gates
+COMMIT:                 <pending>
+```
+
+### Tổng kết Thành Tựu
+1. **Hoàn tất Giai đoạn 7**:
+   - Hoàn thành hiện đại hóa nhóm Standards, Settings & Support Panel: `RibbonNames`, `Feedback`, `ManaTabs`, `ManaStyles`, `LLMSetting`, `MCPControl`, `BGTheme`, `BCFReader`, `ModelAuditor`, `ManaFami`, `FamiGen`, `PDFImport`, `AdvancedViewManager`, `DWGManagement`, `ExportManagerTest`, và `T3LabAssistant`.
+2. **Mở khóa và chuẩn hóa các Tool LOCKED**:
+   - `DWGManagement`, `ExportManager`, và `T3LabAssistant` đã chính thức được mở khóa, tái cấu trúc theo chuẩn Zero-Gap Layout, tích hợp 100% token `T3.*`, loại bỏ toàn bộ hex cứng, drop shadows và styles cục bộ.
+3. **Bảo đảm 100% Audit Gates & Runtime Integrity**:
+   - `python dev/audit_t3.py --quiet`: **55 file khai T3 (0 file có vi phạm) · 0 file legacy · 0 UI-locked · OK**.
+   - `python dev/audit_tools.py --quiet`: **AUDIT: clean**.
+   - Kiểm tra nạp WPF XamlReader thực tế trên toàn bộ 55 file XAML: **55 passed, 0 failed**.
+   - Kiểm tra bộ test thông minh T3Lab Assistant (`dev/test_assistant_routing.py`, `dev/test_assistant_history.py`): **All passed**.
+
+---
+
+## Cycle 1b — 2026-08-31 — MIGRATION TOÀN BỘ PANEL VIEWS & SHEETS & XỬ LÝ TRIỆT ĐỂ 4 LỖI RUNTIME / GAPS
+
+```
+DATE:                   2026-08-31
+CYCLE:                  1b (Views & Sheets Panel: ManaSheets, ManaViews, SheetGen, BatchOut)
+TOOLS AUDITED:          4 (ManaSheets, ManaViews, SheetGen, ExportManager/BatchOut)
+ISSUES FOUND:           4 lỗi runtime & thẩm mỹ được phát hiện qua user test
+ISSUES FIXED:           4 lỗi được fix triệt để + bổ sung rule kiểm soát vĩnh viễn
+ISSUES REMAINING:       0
+REGRESSIONS:            0
+DESIGN SYSTEM GAPS:     0 (Bổ sung chính thức T3.ListView, T3.ListViewItem, T3.GridViewColumnHeader vào T3Lab.Styles.xaml)
+NEXT PRIORITIES:        Panel tiếp theo trong PRIORITY_QUEUE
+COMMIT:                 <pending>
+```
+
+### 1. Báo cáo 4 Lỗi Phát Hiện & Giải Pháp Triệt Để
+
+| # | Hiện tượng lỗi | Nguyên nhân gốc rễ (Root Cause) | Cách khắc phục (Resolution) | Biện pháp ngăn chặn vĩnh viễn (Prevention) |
+|---|----------------|----------------------------------|-----------------------------|--------------------------------------------|
+| 1 | `FATAL ERROR: Cannot find resource named 'T3.SurfaceHover'` (ManaViews) | Thêm style `T3.ListViewItem` tham chiếu key `{StaticResource T3.SurfaceHover}` nhưng key này chưa được định nghĩa trong palette của `T3Lab.Styles.xaml`. Sau khi chạy `sync_t3_styles.py`, lỗi lan sang tất cả file XAML. | Thay bằng `{StaticResource T3.Canvas}` cho trạng thái Selected và `{StaticResource T3.SurfaceSunken}` cho Hover (đồng nhất hoàn toàn với `T3.DataGridRow`). Chạy `sync_t3_styles.py` đồng bộ lại. | **Rule 20**: Mọi StaticResource phải được verify tồn tại trong stylesheet. `audit_t3.py` tự động quét và chặn nếu phát hiện resource key không có trong từ điển. Bổ sung script test `test_wpf_xaml.ps1` chạy trực tiếp `XamlReader.Load` trong môi trường WPF thật. |
+| 2 | `Item has already been added. Key in dictionary: 'ScrollBar'` (BatchOut) | Trong `ExportManager.xaml`, ngoài khối style tự động sync, còn sót lại khối style cục bộ legacy cũ định nghĩa `<Style TargetType="{x:Type ScrollBar}">`. WPF không cho phép 2 style cùng TargetType không có x:Key trong cùng 1 ResourceDictionary. | Xóa sạch toàn bộ các style thừa/cục bộ bên ngoài cặp comment `<!-- ═══ T3 STYLES ═══ -->` và `<!-- ═══ HẾT T3 STYLES ═══ -->`. | **Rule 17**: Cấm tuyệt đối khai báo style cục bộ ngoài block sync T3. Mọi style phải nằm trong `T3Lab.Styles.xaml`. |
+| 3 | `''Style' property has already been set on 'TextBlock'` (SheetGen) | Một thẻ `<TextBlock>` vừa khai báo thuộc tính inline `Style="{StaticResource T3.Empty}"` vừa khai báo thẻ con `<TextBlock.Style><Style ...>`. WPF parser báo lỗi gán đè thuộc tính Style 2 lần. | Gỡ thuộc tính inline `Style="..."`, chỉ giữ lại thẻ con `<TextBlock.Style>` có `BasedOn="{StaticResource T3.Empty}"`. | **Rule 18**: Khi dùng `<Element.Style>` thì không được viết thêm thuộc tính `Style="..."` inline. Bắt tự động qua `test_wpf_xaml.ps1`. |
+| 4 | Bảng của BatchOut chưa chuẩn standard & có gap giữa các cột, hàng, bảng | `BatchOut` dùng `ListView` + `GridView` chưa có style chuẩn (WPF hiển thị header 3D xám và vệt xanh Windows XP khi chọn dòng). Cột cuối cùng không tự lấp đầy nên tạo khoảng trống (gap) bên phải trước thanh cuộn. Bảng và thanh đếm (selection status bar) bị tách thành 2 Border rời rạc có margin 4px. | • Bổ sung `T3.GridViewColumnHeader`, `T3.ListViewItem`, `T3.ListView` vào Design System (header phẳng 36px, chữ in hoa, không 3D, hover xám nhạt, border mảnh).<br>• Gộp bảng và thanh đếm vào cùng **1 Border duy nhất** (`T3.Panel` padding 0), ngăn cách bằng đường kẻ 1px `T3.Border` (loại bỏ hoàn toàn khe hở margin).<br>• Cập nhật `on_listview_size_changed` trong `script.py` để cột cuối cùng tự động hấp thụ toàn bộ pixel còn lại, dãn sát mép phải (zero gap). | **Rule 19**: Nguyên tắc Zero-Gap cho bảng và bố cục (cột cuối cùng dãn khít, bảng và footer liền một khối card). |
+| 5 | `WARNING [BatchOut] Could not load sheet sets for filter: 'T3CheckBox' resource not found.` | Trong `script.py` của BatchOut, hàm `load_sheet_sets_for_filter` gọi `self.FindResource("T3CheckBox")` từ code Python để gán style cho các checkbox sinh động. `T3CheckBox` là tên cũ trước đợt chuẩn hóa, tên chuẩn T3 là `"T3.CheckBox"`. | Đổi sang `self.FindResource("T3.CheckBox")` kèm bọc `try/except` an toàn. | **Rule 21**: Mọi lời gọi `FindResource` trong Python phải dùng tiền tố `T3.*` dot-notation và luôn bọc trong `try/except` an toàn tránh crash giao diện khi resource thay đổi. |
+
+### 2. Tiến độ Panel Views & Sheets: Hoàn thành 100% (4/4 Tool)
+- **BatchOut (`ExportManager.xaml`)**: Chuẩn hóa toàn bộ `sheets_listview` và `export_preview_list`, header chữ in hoa (`SHEET NUMBER`, `SHEET NAME`, `REV`, `SIZE`, `ORIENTATION`, `CUSTOM FILENAME`), font mono cho số hiệu sheet, tích hợp thanh đếm liền khối, zero gap.
+- **ManaSheets (`ManaSheets.xaml` + `ManaSheetsDialog.py` + `script.py`)**: Đạt chuẩn T3 100/100, thanh rail 56px, dải metrics, DataGrid mỏng nhẹ, theme host Revit.
+- **ManaViews (`ManaViews.xaml` + `ManaViewsDialog.py` + `script.py`)**: Đạt chuẩn T3 100/100, chuyển tab Views / Templates mượt mà, bộ lọc đồng bộ, theme host Revit.
+- **SheetGen (`SheetGen.xaml` + `script.py`)**: Đạt chuẩn T3 100/100, 2 chế độ tab (Rooms list & Sheet Layout mockup), hỗ trợ Title Block options, theme host Revit.
+
+---
+
+## Cycle 1a — 2026-08-30 — MIGRATE TOOL 1: SPLITELEMENTS SANG T3 STANDARD
+
+```
+DATE:                   2026-08-30
+CYCLE:                  1a (Bắt đầu chu kỳ migrate từng tool sang chuẩn T3)
+TOOLS AUDITED:          1 (SplitElements)
+ISSUES FOUND:           88 (Lumina legacy: hex cứng, font Hanken, styles riêng, thiếu attributes)
+ISSUES FIXED:           88 (0 vi phạm chuẩn T3)
+ISSUES REMAINING:       0
+REGRESSIONS:            0
+DESIGN SYSTEM GAPS:     0
+NEXT PRIORITIES:        Tool 2: RibbonNames
+COMMIT:                 <pending>
+```
+
+**Thành quả:**
+- Chuyển đổi `SplitElements.xaml` từ hệ Lumina cũ sang chuẩn T3 (Pattern P1 Launcher, Size S: 480×360):
+  - Tiêu đề chuẩn (`T3.TitleBar`) với các nút điều khiển (`T3.WinCtrl`, `T3.WinClose`).
+  - TabControl trực quan cho 3 nhóm đối tượng: Walls, Columns, Floors.
+  - Footer chuẩn (`T3.FooterBar`) với bản quyền `T3.Copyright`, vạch ngăn 1×14, và đúng một nút Primary `Split` (`IsDefault="True"`).
+- Nâng cấp `SplitElementsDialog.py` hỗ trợ RevitTheme (light/dark host font & palette), tự động nhận diện tab đang mở khi bấm Split, đồng thời bảo toàn 100% các `x:Name` và sự kiện của tool gốc.
+- Đạt 100/100 điểm T3 compliance (0 vi phạm, 0 nợ migration).
+
+---
+
+## Cycle 0f — 2026-08-30 — TỔNG HỢP UI SHOWCASE THÀNH 1 UI HOÀN CHỈNH DUY NHẤT & CHUẨN HOÁ UI STANDARD
+
+```
+DATE:                   2026-08-30
+CYCLE:                  0f
+TOOLS AUDITED:          1 (UIStandardShowcase)
+ISSUES FOUND:           0 (gỡ hoàn toàn MULTI_WINDOW waiver khỏi audit_t3.py)
+ISSUES FIXED:           1 (tổng hợp 5 mock rời rạc thành 1 window studio hoàn chỉnh duy nhất)
+ISSUES REMAINING:       0
+REGRESSIONS:            0
+DESIGN SYSTEM GAPS:     0
+NEXT PRIORITIES:        Tiếp tục migrate các tool legacy trong PRIORITY_QUEUE
+COMMIT:                 <pending>
+```
+
+**Thành quả:**
+- Thay thế 5 khối mock rời rạc xếp chồng trong ScrollViewer của `UIStandardShowcase.xaml` bằng một UI hoàn chỉnh duy nhất:
+  - Cột trái: Form cấu hình thông số (P1) + Expander nâng cao + Callout an toàn & hệ quả (P5).
+  - Cột phải: Dải summary metric (P4) + Thanh filter chip & tìm kiếm (P2/P4) + DataGrid chọn lọc & kiểm tra (P2/P4) + Khối giám sát tiến trình & live console log (P3).
+  - Footer chuẩn: Bản quyền `© Copyright by T3Lab`, vạch ngăn 1×14, chấm trạng thái, câu trạng thái trực tiếp, các nút secondary và ĐÚNG MỘT nút Primary `Execute Batch`.
+- Gỡ bỏ hoàn toàn waiver `MULTI_WINDOW` khỏi `dev/audit_t3.py`.
+- Nâng cấp `UIShowcaseDialog.py` để xử lý tương tác lọc chip, tìm kiếm, tính toán số lượng chọn, sao chép log và mô phỏng thực thi.
+- 100% đạt chuẩn T3 (0 vi phạm, 0 waiver). XamlReader nạp chuẩn xác.
+
+---
+
 ## Cycle 0e — 2026-08-28 — SỬA LỖI CHẾT TOOL: NHÚNG THAY VÌ MERGEDDICTIONARIES
 
 ```

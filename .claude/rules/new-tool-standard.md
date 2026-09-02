@@ -7,9 +7,9 @@
 
 Gate: `python3 dev/audit_t3.py --quiet` phải xanh trước khi commit.
 
-**File mẫu:** `T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` render cả 5
-pattern đúng chuẩn. Mở nó, tìm pattern của tool mình, copy khối đó — nhanh hơn và
-an toàn hơn viết từ đầu.
+**File mẫu:** `T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` là UI hoàn chỉnh
+chuẩn mẫu duy nhất, tổng hợp cả 5 pattern vào một cửa sổ thực tế chuẩn mực. Mở nó,
+tham khảo bố cục hoặc copy khối control của tool mình — nhanh hơn và an toàn hơn viết từ đầu.
 
 ---
 
@@ -63,8 +63,13 @@ không hardcode màu, size, margin. Logic Revit dùng lại được thì đẩy
 | 11 | **Không bọc** `DataGrid`/`ListBox`/`ListView` trong `ScrollViewer` | **P0** |
 | 12 | Có empty state (`T3.Empty`) cho mọi list/grid | P2 |
 | 13 | **Copyright BẮT BUỘC**: đúng MỘT `<TextBlock Style="{StaticResource T3.Copyright}"/>` ở footer, sát trái, trước câu trạng thái | P2 |
-| 15 | Không `x:Key` trùng nhau — WPF crash ngay lúc parse | **P0** |
-| 14 | **Mọi chữ hiển thị phải là TIẾNG ANH** — `Text` · `Content` · `Header` · `ToolTip` · empty state · thông báo lỗi | P2 |
+| 15 | Không `x:Key` hoặc implicit `TargetType` trùng nhau — WPF crash ngay lúc parse (`Item has already been added`) | **P0** |
+| 16 | Panel cuộn (`T3.Panel` bọc `ScrollViewer`): Border đặt `Padding="0" ClipToBounds="True"`, ScrollViewer đặt `Padding="16,16,12,16"` để thanh cuộn 5px ghim sát mép phải panel và nội dung không bị chạm vào thanh cuộn | P3 |
+| 17 | **Không Style cục bộ ngoài block T3 Styles**: Toàn bộ `<Window.Resources>` chỉ chứa block T3 Styles được sync. Không tự viết `<Style TargetType="...">` bên ngoài để tránh xung đột trùng key với style toàn cục | **P0** |
+| 18 | **Không gán trùng thuộc tính Style**: Khi đã dùng `<Element.Style>` thì KHÔNG đặt thêm `Style="..."` inline trên element đó (WPF báo lỗi `'Style' property has already been set`) | **P0** |
+| 19 | **Bố cục liền mạch — Không có gap giữa các cột, hàng, bảng**: Bảng phải lấp đầy toàn bộ chiều rộng, cột cuối cùng phải tự động dãn khít mép phải (zero gap). Bảng và dải đếm/trạng thái dưới chân bảng phải nằm trong cùng một `<Border Style="{StaticResource T3.Panel}" Padding="0">`, ngăn cách bằng đường kẻ 1px `T3.Border`, tuyệt đối không tách 2 Border rời nhau gây khe hở margin lơ lửng | P2 |
+| 20 | **Resource Key phải tồn tại trong T3Lab.Styles.xaml**: Mọi `{StaticResource T3.*}` đều phải được định nghĩa trong stylesheet chuẩn. Không tự đặt key không có thực (như `T3.SurfaceHover`) gây lỗi `Cannot find resource named...` | **P0** |
+| 21 | **FindResource trong Python**: Khi code Python gọi `self.FindResource(...)`, bắt buộc dùng tên chuẩn `T3.*` dot-notation (ví dụ `T3.CheckBox`), cấm dùng tên cũ legacy (`T3CheckBox`), và luôn bọc trong `try/except` an toàn. | P1 |
 
 Thêm hai thứ `audit_t3.py` cũng bắt: `<Grid.RowDefinition/>` dot-notation (**P0**,
 crash `EMPTYPROPERTYELEMENT` lúc mở tool) và mọi `Effect` (P2).

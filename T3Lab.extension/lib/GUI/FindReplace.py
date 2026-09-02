@@ -41,7 +41,10 @@ class FindReplace(my_WPF):
         path_xaml_file = os.path.join(PATH_SCRIPT, 'Tools', 'FindReplace.xaml')
         wpf.LoadComponent(self, path_xaml_file)
 
-        self.UI_label.Content       = label
+        if hasattr(self.UI_label, "Text"):
+            self.UI_label.Text = label
+        elif hasattr(self.UI_label, "Content"):
+            self.UI_label.Content = label
         self.UI_main_button.Content = button_name
         self.main_title.Text        = title
 

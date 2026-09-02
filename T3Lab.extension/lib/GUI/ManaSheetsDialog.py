@@ -50,6 +50,14 @@ except Exception as e:
     # Print error in case imports fail
     print("Error importing services: {}".format(e))
 
+try:
+    from GUI import RevitTheme as _theme
+except Exception:
+    try:
+        import RevitTheme as _theme
+    except Exception:
+        _theme = None
+
 doc = revit.doc
 XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'ManaSheets.xaml')
 
@@ -119,6 +127,9 @@ class SheetManagerWindow(forms.WPFWindow, ProgressPauseMixin):
     def __init__(self):
         forms.WPFWindow.__init__(self, XAML_FILE)
         self.doc = revit.doc
+
+        self._adopt_host_font()
+        self._apply_theme()
         
         # Initialize Core Services
         self.revit_service = RevitService(self.doc)
@@ -199,6 +210,26 @@ class SheetManagerWindow(forms.WPFWindow, ProgressPauseMixin):
         # True when the XAML was parsed, so its Checked event fired before this
         # handler was wired above and tab_control.SelectedIndex was never set.
         self.tab_control.SelectedIndex = 0
+
+    def _adopt_host_font(self):
+        if _theme is None:
+            return
+        family, size = _theme.host_font()
+        if family:
+            try:
+                self.FontFamily = family
+                if size and size > 0:
+                    self.FontSize = size
+            except Exception:
+                pass
+
+    def _apply_theme(self, theme=None):
+        if _theme is None:
+            return
+        try:
+            _theme.apply(self, theme)
+        except Exception:
+            pass
 
     # ── Chrome Event Handlers ────────────────────────────────────
     def _minimize(self, sender, e):
