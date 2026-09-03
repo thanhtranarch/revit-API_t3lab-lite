@@ -50,9 +50,9 @@ __title__  = "Revit API Context Runner"
 import threading
 
 try:
+    import queue as _queue_mod          # CPython 3
+except ImportError:
     import Queue as _queue_mod          # IronPython 2.7
-except ImportError:                      # pragma: no cover - CPython 3 tests
-    import queue as _queue_mod
 
 
 # ── State ─────────────────────────────────────────────────────────────────────
@@ -135,6 +135,7 @@ try:
     from Autodesk.Revit.UI import IExternalEventHandler, ExternalEvent
 
     class _ApiContextHandler(IExternalEventHandler):
+        __namespace__ = "T3Lab.Services"
         """Drains the task queue inside Revit's API context."""
 
         def Execute(self, app):

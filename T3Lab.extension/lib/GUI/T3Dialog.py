@@ -8,6 +8,14 @@ import os
 from pyrevit import forms
 
 try:
+    from GUI.WPF_Base import T3WPFWindow as _WPFWindow
+except Exception:
+    try:
+        from WPF_Base import T3WPFWindow as _WPFWindow
+    except Exception:
+        _WPFWindow = getattr(forms, 'WPFWindow', object)
+
+try:
     from GUI import RevitTheme as _theme
 except Exception:
     try:
@@ -18,7 +26,7 @@ except Exception:
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'T3Dialog.xaml')
 
 
-class T3Dialog(forms.WPFWindow):
+class T3Dialog(_WPFWindow):
     """Universal T3 Modal Dialog for alerts, warnings, errors and confirmations."""
 
     MODE_INFO = "info"
@@ -28,7 +36,7 @@ class T3Dialog(forms.WPFWindow):
 
     def __init__(self, message, title="Notification", details=None,
                  mode="info", ok_text="OK", cancel_text="Cancel", danger=False, owner=None):
-        forms.WPFWindow.__init__(self, _XAML)
+        _WPFWindow.__init__(self, _XAML)
         self.result = False
         self._mode = mode
         self._danger = danger

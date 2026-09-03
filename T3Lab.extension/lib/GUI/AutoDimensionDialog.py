@@ -58,6 +58,7 @@ from Autodesk.Revit.DB import (
 from Autodesk.Revit.DB.Structure import StructuralType
 from Autodesk.Revit.UI import TaskDialog
 from pyrevit import revit, forms, script
+from GUI.WPF_Base import T3WPFWindow
 
 # PATH SETUP
 # ==================================================
@@ -73,8 +74,19 @@ if LIB_DIR not in sys.path:
 # DEFINE VARIABLES
 # ==================================================
 logger = script.get_logger()
-doc    = revit.doc
-uidoc  = revit.uidoc
+
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active — pyrevit/revit/__init__.py __getattr__. At module scope
+# that killed the whole import before show_dialog() could report anything, so
+# resolve defensively here; show_dialog() does the real check and explains.
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
+try:
+    uidoc = revit.uidoc
+except Exception:
+    uidoc = None
 
 # CONSTANTS
 # ==================================================
@@ -642,14 +654,14 @@ def _create_chain_dim(doc_ref, view, ref_pos_list, axis, perp, margin, dim_type,
 # WINDOW CLASS
 # ==================================================
 
-class AutoDimensionWindow(forms.WPFWindow):
+class AutoDimensionWindow(T3WPFWindow):
     """
     WPF window for the Auto Dimension tool.
     Inherits from pyrevit forms.WPFWindow which handles XAML loading.
     """
 
     def __init__(self, uidoc_ref, doc_ref):
-        forms.WPFWindow.__init__(self, XAML_FILE)
+        T3WPFWindow.__init__(self, XAML_FILE)
         self.uidoc = uidoc_ref
         self.doc   = doc_ref
         self._dim_types = []  # list of DimensionType elements
@@ -1999,11 +2011,26 @@ class AutoDimensionWindow(forms.WPFWindow):
 # MAIN SCRIPT
 # ==================================================
 def show_dialog():
-    if not revit.doc:
-        forms.alert("Please open a Revit document first.", exitscript=True)
+    # NOTE: `pyrevit.forms.<anything>` raises PyRevitCPythonNotSupported under the
+    # CPython engine — its __getattr__ refuses every attribute. GUI.T3Dialog is the
+    # T3 replacement and works on both engines.
+    from GUI.T3Dialog import show_warning
+    from Snippets._host import resolve_doc, host_uiapp
 
-    uidoc_inst = __revit__.ActiveUIDocument  # noqa: F821
-    doc_inst   = uidoc_inst.Document
+    doc_inst, doc_error = resolve_doc()
+    if doc_inst is None:
+        show_warning(doc_error or "Please open a Revit document first.",
+                     title="Auto Dimension")
+        return
+
+    uiapp = host_uiapp()
+    uidoc_inst = getattr(uiapp, 'ActiveUIDocument', None) if uiapp else None
+    if uidoc_inst is None:
+        show_warning("No active view to dimension in. Open a plan or section "
+                     "view in your model, then run Auto Dimension again.",
+                     title="Auto Dimension")
+        return
+    doc_inst = uidoc_inst.Document
 
     window = AutoDimensionWindow(uidoc_inst, doc_inst)
     # Modal (ShowDialog) is required: Run starts a Transaction directly in the

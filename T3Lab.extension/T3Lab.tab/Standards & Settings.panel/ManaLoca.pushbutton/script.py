@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 Location Manager (Modeless)
@@ -20,6 +21,39 @@ __version__ = "1.4.0"
 
 import os
 import sys
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
 import json
 import clr
 
@@ -54,6 +88,7 @@ from Autodesk.Revit.UI import IExternalEventHandler, ExternalEvent
 from Autodesk.Revit.UI.Selection import ObjectType
 
 from pyrevit import forms
+from GUI.WPF_Base import T3WPFWindow
 
 # ==================================================
 # PATH SETUP
@@ -260,6 +295,12 @@ _T = _TypeCache()
 # ==================================================
 
 class LocationManagerHandler(IExternalEventHandler):
+    # IronPython only: __namespace__ pins the generated CLR type
+    # name, so re-running this script.py on the next click raises
+    # "Duplicate type name within an assembly". pythonnet
+    # auto-uniquifies when it is absent, which is what we want.
+    if sys.version_info[0] < 3:
+        __namespace__ = "T3Lab.ManaLoca"
     """All Revit API work happens here — runs on the Revit execution thread."""
 
     def __init__(self, window):
@@ -590,7 +631,7 @@ class LocationManagerHandler(IExternalEventHandler):
 # UI WINDOW
 # ==================================================
 
-class LocationManagerWindow(forms.WPFWindow):
+class LocationManagerWindow(T3WPFWindow):
     def __init__(self, xaml_file_path):
         self.all_elements    = []
         self._category_items = []
@@ -598,7 +639,7 @@ class LocationManagerWindow(forms.WPFWindow):
         self._ready          = False
 
         try:
-            forms.WPFWindow.__init__(self, xaml_file_path)
+            T3WPFWindow.__init__(self, xaml_file_path)
         except Exception as ex:
             import traceback
             msg = str(ex) + "\n\n"

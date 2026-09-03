@@ -21,12 +21,14 @@ from System.Windows.Controls import (RowDefinition, ColumnDefinition, Border,
                                       DataGridTextColumn, ScrollViewer)
 from System.Windows.Media import SolidColorBrush
 from System.Collections.ObjectModel import ObservableCollection
+from System import Object
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 # CRITICAL: Import WPF Grid BEFORE Revit wildcard import
 from System.Windows.Controls import Grid as WPFGrid
 
 from pyrevit import revit, DB, forms
+from GUI.WPF_Base import T3WPFWindow
 from Autodesk.Revit.DB import FilteredElementCollector, ViewSheet, Transaction
 
 from Snippets._compat import eid_value
@@ -40,12 +42,12 @@ if SERVICES_DIR not in sys.path:
 
 # Import Sheet Manager services
 try:
-    from sheet_core.revit_service import RevitService
-    from sheet_core.data_models import ChangeTracker, SheetModel
-    from excel_service import ExcelService
-    from viewsheet_sets_service import ViewSheetSetsService
-    from place_views_service import PlaceViewsService
-    from custom_parameters_service import CustomParametersService
+    from Services.SheetManager.sheet_core.revit_service import RevitService
+    from Services.SheetManager.sheet_core.data_models import ChangeTracker, SheetModel
+    from Services.SheetManager.excel_service import ExcelService
+    from Services.SheetManager.viewsheet_sets_service import ViewSheetSetsService
+    from Services.SheetManager.place_views_service import PlaceViewsService
+    from Services.SheetManager.custom_parameters_service import CustomParametersService
 except Exception as e:
     # Print error in case imports fail
     print("Error importing services: {}".format(e))
@@ -58,7 +60,14 @@ except Exception:
     except Exception:
         _theme = None
 
-doc = revit.doc
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
 XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'ManaSheets.xaml')
 
 from GUI.ProgressPauseMixin import ProgressPauseMixin
@@ -112,7 +121,7 @@ class RenumberItem(INotifyPropertyChanged):
 # MAIN WINDOW CONTROLLER
 # =====================================================
 
-class SheetManagerWindow(forms.WPFWindow, ProgressPauseMixin):
+class SheetManagerWindow(T3WPFWindow, ProgressPauseMixin):
 
     # ProgressPauseMixin — ManaSheets.xaml status-bar progress panel
     PP_PANEL      = "ms_progress_panel"
@@ -125,7 +134,7 @@ class SheetManagerWindow(forms.WPFWindow, ProgressPauseMixin):
     PP_STOP_MSG   = u"Stopping… finishing current sheet"
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, XAML_FILE)
+        T3WPFWindow.__init__(self, XAML_FILE)
         self.doc = revit.doc
 
         self._adopt_host_font()
@@ -157,8 +166,8 @@ class SheetManagerWindow(forms.WPFWindow, ProgressPauseMixin):
 
         # Data collection
         self.all_sheets = []
-        self.filtered_sheets = ObservableCollection[object]()
-        self.renumber_items = ObservableCollection[object]()
+        self.filtered_sheets = ObservableCollection[Object]()
+        self.renumber_items = ObservableCollection[Object]()
         
         # Chrome controls
         self.btn_minimize.Click += self._minimize
@@ -389,7 +398,7 @@ class SheetManagerWindow(forms.WPFWindow, ProgressPauseMixin):
     def _on_sheets_sets(self, sender, args):
         if self.sheet_sets_service:
             try:
-                from viewsheet_sets_dialog import ViewSheetSetsDialog
+                from Services.SheetManager.viewsheet_sets_dialog import ViewSheetSetsDialog
                 dialog = ViewSheetSetsDialog(self.doc, self.sheet_sets_service)
                 dialog.ShowDialog()
                 self._load_sheets_data()
@@ -400,7 +409,7 @@ class SheetManagerWindow(forms.WPFWindow, ProgressPauseMixin):
     def _on_sheets_place_views(self, sender, args):
         if self.place_views_service:
             try:
-                from place_views_dialog import PlaceViewsDialog
+                from Services.SheetManager.place_views_dialog import PlaceViewsDialog
                 dialog = PlaceViewsDialog(self.doc, self.place_views_service)
                 dialog.ShowDialog()
                 self._load_sheets_data()
@@ -411,7 +420,7 @@ class SheetManagerWindow(forms.WPFWindow, ProgressPauseMixin):
     def _on_sheets_custom_params(self, sender, args):
         if self.params_service:
             try:
-                from custom_parameters_dialog import CustomParametersDialog
+                from Services.SheetManager.custom_parameters_dialog import CustomParametersDialog
                 dialog = CustomParametersDialog(self.doc, self.params_service)
                 dialog.ShowDialog()
                 self._load_sheets_data()
@@ -682,7 +691,10 @@ def show_sheet_manager():
     except Exception as e:
         print("\nFATAL ERROR: {}".format(str(e)))
         import traceback
-        traceback.print_exc()
+        try:                     # ScriptIO has no write() under CPython
+            traceback.print_exc()
+        except Exception:
+            pass
         MessageBox.Show(
             "Error starting Sheet Manager:\n\n{}".format(str(e)),
             "Error", MessageBoxButton.OK, MessageBoxImage.Error

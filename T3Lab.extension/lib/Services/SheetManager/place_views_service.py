@@ -78,7 +78,10 @@ class PlaceViewsService(object):
         except Exception as e:
             print("Error placing view on sheet: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
             return None
     
     def auto_arrange_views_on_sheet(self, sheet, views, rows=2, cols=2):

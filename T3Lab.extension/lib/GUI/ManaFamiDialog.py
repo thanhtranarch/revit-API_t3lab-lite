@@ -14,10 +14,10 @@ import datetime
 import threading
 import tempfile
 try:
-    from urllib2 import urlopen, Request, URLError, HTTPError
-except ImportError:
     from urllib.request import urlopen, Request
     from urllib.error import URLError, HTTPError
+except ImportError:
+    from urllib2 import urlopen, Request, URLError, HTTPError
 
 # .NET Imports
 clr.AddReference("System")
@@ -38,6 +38,7 @@ from System.Windows.Threading import Dispatcher
 
 # pyRevit Imports
 from pyrevit import revit, DB, forms, script
+from GUI.WPF_Base import T3WPFWindow
 from Snippets._compat import eid_value, elem_name
 
 from Autodesk.Revit.DB import (
@@ -48,8 +49,18 @@ from Autodesk.Revit.DB import (
 
 # Global logging variables
 logger = script.get_logger()
-doc = revit.doc
-uidoc = revit.uidoc
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
+try:
+    uidoc = revit.uidoc
+except Exception:
+    uidoc = None
 
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'ManaFami.xaml')
 
@@ -292,9 +303,9 @@ class FamilyLoadOptions(DB.IFamilyLoadOptions):
 
 # MAIN CENTRAL WINDOW
 # ==============================================================================
-class ManaFamiWindow(forms.WPFWindow):
+class ManaFamiWindow(T3WPFWindow):
     def __init__(self, script_dir, revit):
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
         self._script_dir = script_dir
         self._revit = revit
         

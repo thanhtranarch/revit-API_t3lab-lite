@@ -53,6 +53,7 @@ from Autodesk.Revit.DB import (
 )
 
 from pyrevit import revit, forms, script
+from GUI.WPF_Base import T3WPFWindow
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -2475,7 +2476,7 @@ class _CADtoFloorWindow(ProgressPauseMixin):
 # BEAM WINDOW
 # ===========================================================================
 
-class _CADtoBeamWindow(forms.WPFWindow, ProgressPauseMixin):
+class _CADtoBeamWindow(T3WPFWindow, ProgressPauseMixin):
     """Full Beam creation window — loads CADtoBeam.xaml via forms.WPFWindow."""
 
     # ProgressPauseMixin — CADtoBeam.xaml status-bar progress panel
@@ -2491,7 +2492,7 @@ class _CADtoBeamWindow(forms.WPFWindow, ProgressPauseMixin):
     def __init__(self, doc, uidoc):
         self.doc = doc
         self.uidoc = uidoc
-        forms.WPFWindow.__init__(self, _XAML_BEAM)
+        T3WPFWindow.__init__(self, _XAML_BEAM)
         self._populate_initial_data()
 
     def _populate_initial_data(self):
@@ -2690,7 +2691,7 @@ class _CADtoBeamWindow(forms.WPFWindow, ProgressPauseMixin):
 # HUB WINDOW
 # ===========================================================================
 
-class CADToElementsWindow(forms.WPFWindow):
+class CADToElementsWindow(T3WPFWindow):
     """
     Unified CAD to Elements window with sidebar navigation.
 
@@ -2705,7 +2706,7 @@ class CADToElementsWindow(forms.WPFWindow):
     # ------------------------------------------------------------------
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, _XAML_HUB)
+        T3WPFWindow.__init__(self, _XAML_HUB)
         self._doc = revit.doc
         self._uidoc = revit.uidoc
 

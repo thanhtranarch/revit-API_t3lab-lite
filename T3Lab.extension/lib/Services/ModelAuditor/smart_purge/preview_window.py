@@ -24,8 +24,9 @@ from System.Windows.Controls import (
 )
 from System.Windows.Media import SolidColorBrush, Color
 from System.Collections.ObjectModel import ObservableCollection
+from System import Object
 
-from config import Colors
+from .config import Colors
 
 
 class PreviewWindow(Window):
@@ -183,7 +184,7 @@ class PreviewWindow(Window):
             grid.Columns.Add(col_id)
             
             # Populate data for this category
-            collection = ObservableCollection[object]()
+            collection = ObservableCollection[Object]()
             for item in items_in_cat:
                 # Handle both dictionary and PurgeCategoryItem object formats
                 if isinstance(item, dict):

@@ -109,6 +109,7 @@ try:
     from Autodesk.Revit.UI import IExternalEventHandler, ExternalEvent
 
     class MCPExternalEventHandler(IExternalEventHandler):
+        __namespace__ = "T3Lab.Server"
         def __init__(self, server):
             self.server = server
             self.tasks = _queue_mod.Queue()
@@ -7223,9 +7224,9 @@ class T3LabAIServer(object):
             # face. Captured text is returned as part of the tool result.
             import sys as _sys
             try:
-                from StringIO import StringIO as _StringIO      # IronPython 2.7
+                from io import StringIO as _StringIO            # CPython 3
             except ImportError:
-                from io import StringIO as _StringIO            # CPython (tests)
+                from StringIO import StringIO as _StringIO      # IronPython 2.7
             _old_stdout = _sys.stdout
             _buf = _StringIO()
             try:

@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 Wall Profile Cut from Linked Elements v4
@@ -10,6 +11,41 @@ __title__ = "Wall Profile\nCut from Link"
 __author__ = "Dang Quoc Truong (DQT)"
 __doc__ = "Cut wall profiles or create openings based on linked element intersections"
 
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+import sys
+
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
 import clr
 import os
 import traceback
@@ -31,9 +67,24 @@ from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 
 from pyrevit import forms, revit, script
 
-doc = __revit__.ActiveUIDocument.Document
-uidoc = __revit__.ActiveUIDocument
-output = script.get_output()
+# `__revit__` members are unavailable when no UIDocument is active, and at
+# module scope that kills the import outright. Resolve defensively; the entry
+# point reports the real problem (see Snippets._host.resolve_doc()).
+try:
+    doc = __revit__.ActiveUIDocument.Document
+except Exception:
+    doc = None
+try:
+    uidoc = __revit__.ActiveUIDocument
+except Exception:
+    uidoc = None
+# CPython has no ScriptOutput.GetDefault; safe_output()
+# returns a no-op window instead of killing the tool.
+try:
+    from _cpython_bootstrap import safe_output
+    output = safe_output()
+except Exception:
+    output = script.get_output()
 
 LOG_PATH = r"C:\Temp\DQT_WallProfileCut_log.txt"
 
@@ -91,6 +142,12 @@ CATEGORIES = {
 # ==============================================================================
 
 class LinkFilter(ISelectionFilter):
+    # IronPython only: __namespace__ pins the generated CLR type
+    # name, so re-running this script.py on the next click raises
+    # "Duplicate type name within an assembly". pythonnet
+    # auto-uniquifies when it is absent, which is what we want.
+    if sys.version_info[0] < 3:
+        __namespace__ = "T3Lab.WallCutProfile"
     def AllowElement(self, elem):
         try:
             return isinstance(elem, RevitLinkInstance)
@@ -102,6 +159,12 @@ class LinkFilter(ISelectionFilter):
 
 
 class WallFilter(ISelectionFilter):
+    # IronPython only: __namespace__ pins the generated CLR type
+    # name, so re-running this script.py on the next click raises
+    # "Duplicate type name within an assembly". pythonnet
+    # auto-uniquifies when it is absent, which is what we want.
+    if sys.version_info[0] < 3:
+        __namespace__ = "T3Lab.WallCutProfile"
     def AllowElement(self, elem):
         try:
             if not isinstance(elem, Wall):

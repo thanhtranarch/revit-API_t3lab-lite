@@ -26,6 +26,7 @@ from System.Windows import Visibility, WindowState
 from System.Windows.Media import SolidColorBrush, Color
 
 from pyrevit import forms, script
+from GUI.WPF_Base import T3WPFWindow
 
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'LLMSetting.xaml')
 
@@ -100,7 +101,7 @@ _RED    = _brush(239, 68, 68)
 _GLYPH_CANCEL = u""
 
 
-class LLMSettingWindow(forms.WPFWindow):
+class LLMSettingWindow(T3WPFWindow):
     """Standalone dialog for LLM provider / model / API key / connection setup."""
 
     _BRAND_COLORS = _SHARED_PROVIDER_COLORS
@@ -167,7 +168,7 @@ class LLMSettingWindow(forms.WPFWindow):
         self._host_dirty = False
         self._chrome_provider = None   # provider the fields currently show
 
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
         self._models_cache = {}
         self._probing = False
         self._probe_pending = None   # at most one queued switch (last wins)

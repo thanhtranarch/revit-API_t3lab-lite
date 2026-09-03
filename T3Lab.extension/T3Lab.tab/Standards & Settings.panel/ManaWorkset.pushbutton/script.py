@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 Workset Manager
@@ -14,6 +15,39 @@ __version__ = "1.0.0"
 
 import os
 import sys
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
 import clr
 
 clr.AddReference('System')
@@ -38,6 +72,7 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.UI import TaskDialog, TaskDialogCommonButtons, TaskDialogResult
 from pyrevit import revit, forms, script
+from GUI.WPF_Base import T3WPFWindow
 
 from Snippets._compat import eid_value
 
@@ -51,7 +86,13 @@ if lib_dir not in sys.path:
 # DEFINE VARIABLES
 # ==================================================
 logger = script.get_logger()
-output = script.get_output()
+# CPython has no ScriptOutput.GetDefault; safe_output()
+# returns a no-op window instead of killing the tool.
+try:
+    from _cpython_bootstrap import safe_output
+    output = safe_output()
+except Exception:
+    output = script.get_output()
 # Read from the Application, not the document: `revit.doc` is None when this
 # tool is launched from the Assistant pane or with no project open, and the
 # old `int(revit.doc.Application.VersionNumber)` raised at IMPORT time
@@ -59,8 +100,18 @@ output = script.get_output()
 from Snippets._host import get_revit_version
 REVIT_VERSION = get_revit_version()
 
-doc = revit.doc
-uidoc = revit.uidoc
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
+try:
+    uidoc = revit.uidoc
+except Exception:
+    uidoc = None
 
 XAML_FILE = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'ManaWorkset.xaml')
 WORKSET_LIST_FILE = os.path.join(SCRIPT_DIR, "workset_list.txt")
@@ -335,10 +386,10 @@ def _confirm(message, title="Confirm"):
 # WPF WINDOW
 # ==================================================
 
-class WorksetManagerWindow(forms.WPFWindow):
+class WorksetManagerWindow(T3WPFWindow):
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, XAML_FILE)
+        T3WPFWindow.__init__(self, XAML_FILE)
         try:
             fname = os.path.basename(doc.PathName) if doc.PathName else "Unsaved Document"
             self.doc_name.Text = "  ·  {}".format(fname)

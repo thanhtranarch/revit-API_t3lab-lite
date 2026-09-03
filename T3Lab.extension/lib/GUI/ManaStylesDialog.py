@@ -32,6 +32,7 @@ from Autodesk.Revit.DB import (
 )
 
 from pyrevit import forms, revit
+from GUI.WPF_Base import T3WPFWindow
 from System.Windows import WindowState, Thickness, CornerRadius, GridLength, GridUnitType, MessageBox, MessageBoxButton, MessageBoxImage, MessageBoxResult, Rect, Point
 from System.Windows.Media import SolidColorBrush, Color, DoubleCollection, DrawingBrush, GeometryDrawing, GeometryGroup, LineGeometry, Pen, TileMode, BrushMappingMode
 from System.Windows.Controls import (
@@ -46,6 +47,7 @@ from System.Windows.Controls import (
     TextBox
 )
 from System.Collections.ObjectModel import ObservableCollection
+from System import Object
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 # Global references
@@ -941,9 +943,9 @@ def generate_random(n):
 
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'ManaStyles.xaml')
 
-class ManaStylesWindow(forms.WPFWindow):
+class ManaStylesWindow(T3WPFWindow):
     def __init__(self, script_dir, revit):
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
         self._script_dir = script_dir
         self._revit = revit
         
@@ -955,9 +957,9 @@ class ManaStylesWindow(forms.WPFWindow):
         self.fill_patterns = []
         self.line_styles = []
         self.line_patterns = []
-        self.filtered_fill_patterns = ObservableCollection[object]()
-        self.filtered_line_styles = ObservableCollection[object]()
-        self.filtered_line_patterns = ObservableCollection[object]()
+        self.filtered_fill_patterns = ObservableCollection[Object]()
+        self.filtered_line_styles = ObservableCollection[Object]()
+        self.filtered_line_patterns = ObservableCollection[Object]()
         
         # Color Splasher Caches
         self.categories = []

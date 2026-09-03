@@ -26,23 +26,20 @@ from System import Action
 from Autodesk.Revit.DB import Transaction
 
 # Local imports
-from config_advanced import Colors, Fonts, Icons, Messages, Settings
-from advanced_purge_group import (
+from .config_advanced import Colors, Fonts, Icons, Messages, Settings
+from .advanced_purge_group import (
     create_advanced_purge_groups, 
     get_group_by_id, 
     get_all_categories
 )
-from advanced_purge_executor import AdvancedPurgeExecutor
-from preview_window import PreviewWindow
+from .advanced_purge_executor import AdvancedPurgeExecutor
+from .preview_window import PreviewWindow
 
 # Scanner imports
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'scanners'))
-from unreferenced_views_scanner import UnreferencedViewsScanner
-from workset_scanner import WorksetScanner
-from model_deep_scanner import ModelDeepScanner
-from dangerous_ops_scanner import DangerousOpsScanner
+from .scanners.unreferenced_views_scanner import UnreferencedViewsScanner
+from .scanners.workset_scanner import WorksetScanner
+from .scanners.model_deep_scanner import ModelDeepScanner
+from .scanners.dangerous_ops_scanner import DangerousOpsScanner
 
 
 class AdvancedPurgeWindow(Window):

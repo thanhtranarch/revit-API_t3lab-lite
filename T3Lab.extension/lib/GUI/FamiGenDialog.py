@@ -23,6 +23,7 @@ from System.Windows.Controls import DataGridComboBoxColumn, DataGridLength
 from System.Windows.Data import Binding, BindingMode, UpdateSourceTrigger
 
 from pyrevit import forms
+from GUI.WPF_Base import T3WPFWindow
 import pyrevit.script as _pyrevit_script
 
 logger = _pyrevit_script.get_logger()
@@ -498,7 +499,7 @@ CATEGORY_TEMPLATES = _CATEGORY_TEMPLATES
 # COMBINED DIALOG
 # ==============================================================================
 
-class FamilyCreatorDialog(forms.WPFWindow, ProgressPauseMixin):
+class FamilyCreatorDialog(T3WPFWindow, ProgressPauseMixin):
 
     # ProgressPauseMixin element names — FamiGen.xaml uses export-suffixed names
     PP_BAR      = "pb_export"
@@ -507,7 +508,7 @@ class FamilyCreatorDialog(forms.WPFWindow, ProgressPauseMixin):
     PP_STOP_MSG = u"Stopping… finishing current block"
 
     def __init__(self, revit_doc, revit_app, initial_mode='cad'):
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
         self._doc = revit_doc
         self._app = revit_app
         self._block_items      = []
@@ -570,7 +571,10 @@ class FamilyCreatorDialog(forms.WPFWindow, ProgressPauseMixin):
                 mode_json.IsChecked = (mode == 'json')
         except Exception as ex:
             print("Error in _show_panel: {}".format(ex))
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
 
 
     # ── Status helpers ───────────────────────────────────────────────────────

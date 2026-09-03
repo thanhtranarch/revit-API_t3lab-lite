@@ -23,9 +23,21 @@ from Autodesk.Revit.DB import *
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
 #  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
 #==================================================
-uidoc   = __revit__.ActiveUIDocument
-app     = __revit__.Application
-doc     = __revit__.ActiveUIDocument.Document
+# `__revit__` members are unavailable when no UIDocument is active, and at
+# module scope that kills the import outright. Resolve defensively; the entry
+# point reports the real problem (see Snippets._host.resolve_doc()).
+try:
+    uidoc = __revit__.ActiveUIDocument
+except Exception:
+    uidoc = None
+try:
+    app = __revit__.Application
+except Exception:
+    app = None
+try:
+    doc = __revit__.ActiveUIDocument.Document
+except Exception:
+    doc = None
 
 active_view_id      = doc.ActiveView.Id
 active_view         = doc.GetElement(active_view_id)

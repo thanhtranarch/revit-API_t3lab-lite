@@ -964,6 +964,21 @@
               </Style.Triggers>
           </Style>
 
+          <!-- Zero-gap tab surface. WPF's stock TabControl carries Padding="2,2,2,2", a
+               light Background and a 1px border, which render as a white gutter around
+               every tab's content (rule 19 — bố cục liền mạch). Implicit so every tool
+               inherits it; a tool that sets these locally still wins. -->
+          <Style TargetType="TabControl">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <!-- NOTE: a content-only ControlTemplate here would also remove the stock
+                 HeaderPanel's Margin="2,2,2,0" (the last 2px strip above the content),
+                 but retemplating TabControl globally coincided with XAML load failures
+                 in Revit and was reverted 2026-09-03. Re-attempt only with a Revit test.
+                 Padding/BorderThickness/Background already remove the L/R/B gutter. -->
+          </Style>
+
           <Style x:Key="T3.TabItem.Hidden" TargetType="TabItem">
               <Setter Property="Visibility" Value="Collapsed"/>
           </Style>

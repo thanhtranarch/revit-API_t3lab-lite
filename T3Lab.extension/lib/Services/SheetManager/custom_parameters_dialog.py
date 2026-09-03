@@ -286,7 +286,10 @@ class CustomParametersDialog(Window):
             MessageBox.Show("Error: {}\n\nCheck console for details.".format(str(e)), "Error",
                           MessageBoxButton.OK, MessageBoxImage.Error)
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
     
     def apply_template(self, template_name):
         """Apply parameter template"""

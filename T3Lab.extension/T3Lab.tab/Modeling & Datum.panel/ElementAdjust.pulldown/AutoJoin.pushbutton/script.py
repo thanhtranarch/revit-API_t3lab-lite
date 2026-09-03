@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 Auto Join
@@ -20,6 +21,38 @@ __version__ = "1.1.0"
 # ==================================================
 import os
 import sys
+
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+# Path setup
+# AutoJoin.pushbutton lives 4 levels under the extension root:
+#   T3Lab.extension / T3Lab.tab / <panel> / ElementAdjust.pulldown / AutoJoin.pushbutton
+SCRIPT_DIR    = os.path.dirname(__file__)
+EXT_DIR       = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
+lib_dir       = os.path.join(EXT_DIR, 'lib')
+if lib_dir not in sys.path:
+    sys.path.insert(0, lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+
 import json
 import time
 
@@ -42,15 +75,7 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.UI import TaskDialog, TaskDialogCommonButtons, TaskDialogResult
 from pyrevit import revit, forms, script
-
-# Path setup
-# AutoJoin.pushbutton lives 4 levels under the extension root:
-#   T3Lab.extension / T3Lab.tab / <panel> / ElementAdjust.pulldown / AutoJoin.pushbutton
-SCRIPT_DIR    = os.path.dirname(__file__)
-EXT_DIR       = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
-lib_dir       = os.path.join(EXT_DIR, 'lib')
-if lib_dir not in sys.path:
-    sys.path.append(lib_dir)
+from GUI.WPF_Base import T3WPFWindow
 
 from Snippets._compat import eid_value
 from GUI.ProgressPauseMixin import ProgressPauseMixin
@@ -58,10 +83,26 @@ from GUI.ProgressPauseMixin import ProgressPauseMixin
 # DEFINE VARIABLES
 # ==================================================
 logger = script.get_logger()
-output = script.get_output()
+# CPython has no ScriptOutput.GetDefault; safe_output()
+# returns a no-op window instead of killing the tool.
+try:
+    from _cpython_bootstrap import safe_output
+    output = safe_output()
+except Exception:
+    output = script.get_output()
 
-doc   = revit.doc
-uidoc = revit.uidoc
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
+try:
+    uidoc = revit.uidoc
+except Exception:
+    uidoc = None
 
 XAML_FILE        = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'AutoJoin.xaml')
 RULES_FILE       = os.path.join(SCRIPT_DIR, "join_rules.json")
@@ -363,14 +404,14 @@ def load_rules_from_file(filepath=None):
 # WPF WINDOW
 # ==================================================
 
-class AutoJoinWindow(forms.WPFWindow, ProgressPauseMixin):
+class AutoJoinWindow(T3WPFWindow, ProgressPauseMixin):
 
     # ProgressPauseMixin — XAML element names match the mixin defaults
     # (progress_panel / pb_run / btn_pause / btn_stop / status_text)
     PP_STOP_MSG = u"Stopping… finishing current element"
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, XAML_FILE)
+        T3WPFWindow.__init__(self, XAML_FILE)
 
         self._rules = []
         self._cancel_requested = False

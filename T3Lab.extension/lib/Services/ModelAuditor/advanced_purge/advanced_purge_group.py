@@ -8,8 +8,8 @@ Copyright © 2025 Dang Quoc Truong (DQT)
 
 __author__ = "Dang Quoc Truong (DQT)"
 
-from config_advanced import Icons
-from advanced_purge_categories import (
+from .config_advanced import Icons
+from .advanced_purge_categories import (
     UNREFERENCED_VIEWS,
     WORKSET_CLEANUP,
     MODEL_DEEP_CLEANUP,
@@ -50,7 +50,7 @@ def create_advanced_purge_groups(doc=None):
     # Get dynamic workset categories if doc provided
     workset_categories = []
     if doc:
-        from advanced_purge_categories import get_workset_cleanup_categories
+        from .advanced_purge_categories import get_workset_cleanup_categories
         workset_categories = get_workset_cleanup_categories(doc)
     
     groups = [

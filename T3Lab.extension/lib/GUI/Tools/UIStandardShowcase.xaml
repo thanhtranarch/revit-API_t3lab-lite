@@ -967,6 +967,21 @@
               </Style.Triggers>
           </Style>
 
+          <!-- Zero-gap tab surface. WPF's stock TabControl carries Padding="2,2,2,2", a
+               light Background and a 1px border, which render as a white gutter around
+               every tab's content (rule 19 — bố cục liền mạch). Implicit so every tool
+               inherits it; a tool that sets these locally still wins. -->
+          <Style TargetType="TabControl">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <!-- NOTE: a content-only ControlTemplate here would also remove the stock
+                 HeaderPanel's Margin="2,2,2,0" (the last 2px strip above the content),
+                 but retemplating TabControl globally coincided with XAML load failures
+                 in Revit and was reverted 2026-09-03. Re-attempt only with a Revit test.
+                 Padding/BorderThickness/Background already remove the L/R/B gutter. -->
+          </Style>
+
           <Style x:Key="T3.TabItem.Hidden" TargetType="TabItem">
               <Setter Property="Visibility" Value="Collapsed"/>
           </Style>
@@ -1368,20 +1383,20 @@
             </Grid.RowDefinitions>
 
             <!-- ══════════════════ ROW 0: FULL-WIDTH TITLE BAR ══════════════════ -->
-            <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
+            <Border Grid.Row="0" x:Name="title_bar" Style="{StaticResource T3.TitleBar}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="16,0,0,0"
+                    <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="0,0,0,0"
                                 shell:WindowChrome.IsHitTestVisibleInChrome="True">
                         <TextBlock Text="UI Standard Showcase" Style="{StaticResource T3.Title}"/>
                         <TextBlock Text="Complete production reference implementation of T3 design system" Style="{StaticResource T3.Subtitle}"/>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,0"
                                 shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                        <Button Style="{StaticResource T3.WinCtrl}" ToolTip="Minimize"
+                        <Button x:Name="btn_minimize" Style="{StaticResource T3.WinCtrl}" ToolTip="Minimize"
                                 Click="minimize_button_clicked">
                             <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
                         </Button>
@@ -1389,7 +1404,7 @@
                                 ToolTip="Maximize" Click="maximize_button_clicked">
                             <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
                         </Button>
-                        <Button Style="{StaticResource T3.WinClose}" ToolTip="Close"
+                        <Button x:Name="btn_close" Style="{StaticResource T3.WinClose}" ToolTip="Close"
                                 IsCancel="True" Click="close_button_clicked">
                             <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
                         </Button>

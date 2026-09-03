@@ -28,7 +28,7 @@ from System.Windows import WindowState
 from System.Windows.Media.Imaging import BitmapImage
 import wpf
 
-from GUI.forms import my_WPF
+from GUI.WPF_Base import my_WPF
 
 PATH_SCRIPT = os.path.dirname(__file__)
 

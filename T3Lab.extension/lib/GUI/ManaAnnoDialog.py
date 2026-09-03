@@ -41,6 +41,7 @@ from Autodesk.Revit.DB import (
     BuiltInParameter,
 )
 from pyrevit import revit, forms, script
+from GUI.WPF_Base import T3WPFWindow
 
 # Path setup
 extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
@@ -50,17 +51,37 @@ if lib_dir not in sys.path:
 if os.path.dirname(__file__) not in sys.path:
     sys.path.append(os.path.dirname(__file__))
 
-import DimTextDialog
+try:
+    from GUI import DimTextDialog
+    from GUI import CopyAnnotationDialog
+except Exception:
+    import DimTextDialog
+    import CopyAnnotationDialog
 import Utils.UpperAll as UpperAll
 import Utils.RenumberAlongSpline as RenumberAlongSpline
-import CopyAnnotationDialog
 
 # DEFINE VARIABLES
 # ==================================================
 logger = script.get_logger()
-output = script.get_output()
-doc    = revit.doc
-uidoc  = revit.uidoc
+# CPython has no ScriptOutput.GetDefault; safe_output()
+# returns a no-op window instead of killing the tool.
+try:
+    from _cpython_bootstrap import safe_output
+    output = safe_output()
+except Exception:
+    output = script.get_output()
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
+try:
+    uidoc = revit.uidoc
+except Exception:
+    uidoc = None
 REVIT_VERSION = int(revit.doc.Application.VersionNumber)
 
 # ============================================================
@@ -263,11 +284,11 @@ _XAML_PATH = os.path.join(_GUI_DIR, 'Tools', 'ManaAnno.xaml')
 # ============================================================
 # WINDOW CLASS
 # ============================================================
-class AnnotationManagerWindow(forms.WPFWindow):
+class AnnotationManagerWindow(T3WPFWindow):
 
     def __init__(self):
         try:
-            forms.WPFWindow.__init__(self, _XAML_PATH)
+            T3WPFWindow.__init__(self, _XAML_PATH)
             self._dim_submode = "instances"  # "instances" | "types"
             self._txt_submode = "notes"      # "notes"     | "types"
 

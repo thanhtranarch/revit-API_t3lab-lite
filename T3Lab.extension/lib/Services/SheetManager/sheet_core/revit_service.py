@@ -17,7 +17,10 @@ class RevitService(object):
     
     def get_all_sheets(self):
         """Get all sheets in the document"""
-        from sheet_core.data_models import SheetModel
+        try:
+            from Services.SheetManager.sheet_core.data_models import SheetModel
+        except Exception:
+            from .data_models import SheetModel
         
         collector = FilteredElementCollector(self.doc).OfClass(ViewSheet)
         sheets = []
@@ -127,7 +130,10 @@ class RevitService(object):
         except Exception as e:
             print("Error duplicating sheet: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
             return None
             return None
     
@@ -185,5 +191,8 @@ class RevitService(object):
         except Exception as e:
             print("ERROR getting titleblocks: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
             return []

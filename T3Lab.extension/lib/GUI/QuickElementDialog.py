@@ -485,7 +485,10 @@ class QuickSelectWindow(Window):
             
         except Exception as e:
             print("Error loading data: {}".format(str(e)))
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
     
     def _build_category_list(self):
         """Build category list for filter"""
@@ -568,7 +571,8 @@ class QuickSelectWindow(Window):
             
             # Use System.Collections.ObjectModel.ObservableCollection for proper binding
             from System.Collections.ObjectModel import ObservableCollection
-            observable = ObservableCollection[object]()
+            from System import Object
+            observable = ObservableCollection[Object]()
             for item in self.filtered_items:
                 observable.Add(item)
             
@@ -840,7 +844,10 @@ def main():
         window.ShowDialog()
     except Exception as e:
         print("Error: {}".format(str(e)))
-        traceback.print_exc()
+        try:                     # ScriptIO has no write() under CPython
+            traceback.print_exc()
+        except Exception:
+            pass
         forms.alert("Error: {}".format(str(e)), title="Quick Select Error")
 
 def show_dialog():

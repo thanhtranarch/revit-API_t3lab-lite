@@ -8,8 +8,8 @@ import json
 import codecs
 import datetime
 import traceback
-import __builtin__
 import clr
+import builtins as __builtin__
 
 # Add required assemblies
 clr.AddReference("System")
@@ -42,6 +42,7 @@ from Autodesk.Revit.DB import (
     Transaction, ElementId, StorageType
 )
 from pyrevit import script, forms
+from GUI.WPF_Base import T3WPFWindow
 from GUI.ProgressPauseMixin import ProgressPauseMixin
 
 # Dynamically find the XAML layout
@@ -1001,7 +1002,7 @@ class ExcelReporter:
 # Unified IFC-SG Suite Window
 # ==============================================================================
 
-class IFCSGSuiteWindow(forms.WPFWindow, ProgressPauseMixin):
+class IFCSGSuiteWindow(T3WPFWindow, ProgressPauseMixin):
 
     # ProgressPauseMixin — IFCSG.xaml progress panel element names
     PP_PANEL      = "ifc_progress_panel"
@@ -1014,7 +1015,7 @@ class IFCSGSuiteWindow(forms.WPFWindow, ProgressPauseMixin):
     PP_STOP_MSG   = u"Stopping… finishing current check"
 
     def __init__(self, script_dir, revit):
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
         self._script_dir = script_dir
         self._revit = revit
         self.doc = doc
@@ -2276,7 +2277,13 @@ def show_ifcsg_suite(script_dir, revit):
     global doc, uidoc, output
     uidoc = revit.ActiveUIDocument
     doc = uidoc.Document
-    output = script.get_output()
+    # CPython has no ScriptOutput.GetDefault; safe_output()
+    # returns a no-op window instead of killing the tool.
+    try:
+        from _cpython_bootstrap import safe_output
+        output = safe_output()
+    except Exception:
+        output = script.get_output()
 
     try:
         win = IFCSGSuiteWindow(script_dir, revit)

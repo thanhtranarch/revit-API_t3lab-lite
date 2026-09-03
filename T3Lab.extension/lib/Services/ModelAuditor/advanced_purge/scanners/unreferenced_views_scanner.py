@@ -12,7 +12,7 @@ from Autodesk.Revit.DB import (
     FilteredElementCollector, ViewSheet, View, ViewType,
     ViewPlan, ViewSection, View3D
 )
-from base_scanner import BaseAdvancedScanner
+from .base_scanner import BaseAdvancedScanner
 
 
 class UnreferencedViewsScanner(BaseAdvancedScanner):

@@ -4,7 +4,7 @@
     "type": "extension",
     "rocket_mode_compatible": "True",
     "name": "T3Lab Tools",
-    "description": "IronPython Scripts for Autodesk Revit",
+    "description": "Python Tools for Autodesk Revit (CPython 3)",
     "author": "Tran Tien Thanh",
     "author_profile": "",
     "url": "",

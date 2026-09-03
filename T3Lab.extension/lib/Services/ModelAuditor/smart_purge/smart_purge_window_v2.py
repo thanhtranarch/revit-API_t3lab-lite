@@ -29,13 +29,12 @@ from System.Windows.Controls import (
 from System.Windows.Media import SolidColorBrush, Color
 from System import Action
 
-from config import Colors
-# from purge_history_manager import PurgeHistoryManager  # DISABLED - causing issues
-from purge_group import create_purge_groups, get_group_by_id
-from purge_categories_v2 import create_purge_categories
-from purge_scanner import create_scanner
-from purge_executor import PurgeExecutor
-from preview_window import PreviewWindow
+from .config import Colors
+from .purge_group import create_purge_groups, get_group_by_id
+from .purge_categories_v2 import create_purge_categories
+from .purge_scanner import create_scanner
+from .purge_executor import PurgeExecutor
+from .preview_window import PreviewWindow
 
 
 class SmartPurgeWindowV2(Window):
@@ -879,7 +878,10 @@ class SmartPurgeWindowV2(Window):
             MessageBox.Show("Scan error: {}".format(str(ex)), "Error",
                           MessageBoxButton.OK, MessageBoxImage.Error)
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
         finally:
             self.is_scanning = False
             self.btn_scan_sel.IsEnabled = True
@@ -920,7 +922,10 @@ class SmartPurgeWindowV2(Window):
             cat.is_scanned = True
             print("ERROR scanning {}: {}".format(cat.name, str(ex)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
     
     def get_selected_items(self):
         """Get all selected items"""

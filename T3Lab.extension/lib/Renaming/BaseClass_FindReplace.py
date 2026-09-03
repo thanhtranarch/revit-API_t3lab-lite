@@ -16,8 +16,8 @@ __title__   = "Base Class Find Replace"
 # ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
 # ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
 #====================================================================================================
-from abc import ABCMeta, abstractmethod, abstractproperty
 from pyrevit import forms
+from GUI.WPF_Base import T3WPFWindow
 
 # .NET IMPORTS
 from clr import AddReference
@@ -33,13 +33,13 @@ import os
 # ╚═╝╩ ╩╚═╝╚═╝  ╚═╝╩═╝╩ ╩╚═╝╚═╝ BASE CLASS
 #====================================================================================================
 
-class BaseRenaming(forms.WPFWindow):
+class BaseRenaming(T3WPFWindow):
     """GUI for [Views: Find and Replace]"""
     def start(self, title, version="Version: _"):
         xaml_dir_abs_path = os.path.abspath(os.path.dirname(__file__))
         xaml_file_name = os.path.join(xaml_dir_abs_path,"GUI_BaseRename.xaml")
 
-        self.form = forms.WPFWindow.__init__(self, xaml_file_name)
+        self.form = T3WPFWindow.__init__(self, xaml_file_name)
         self.main_title.Text     = title
         self.footer_version.Text = version
         self.selected_elements   = self.get_selected_elements()

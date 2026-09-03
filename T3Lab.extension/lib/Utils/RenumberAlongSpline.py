@@ -59,6 +59,7 @@ def _is_text_param(param):
 
 
 class CategorySelectionFilter(ISelectionFilter):
+    __namespace__ = "T3Lab.RenumberAlongSpline"
     def __init__(self, bic_int):
         self.bic_int = bic_int
     def AllowElement(self, elem):
@@ -70,6 +71,7 @@ class CategorySelectionFilter(ISelectionFilter):
 
 
 class LineSelectionFilter(ISelectionFilter):
+    __namespace__ = "T3Lab.RenumberAlongSpline"
     def AllowElement(self, elem):
         if elem and elem.Category:
             cat_id = _eid_int(elem.Category.Id)

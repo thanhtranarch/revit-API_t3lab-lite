@@ -28,6 +28,7 @@ from System.Diagnostics import Process, ProcessStartInfo
 from System.Windows import WindowState, Clipboard
 
 from pyrevit import revit, forms, script
+from GUI.WPF_Base import T3WPFWindow
 
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'Feedback.xaml')
 
@@ -111,11 +112,11 @@ def _open_mailto(to_addr, subject, body):
 
 # ─── Window ──────────────────────────────────────────────────────────────────
 
-class FeedbackWindow(forms.WPFWindow):
+class FeedbackWindow(T3WPFWindow):
     """Popup window to collect and send feedback by email."""
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
         self.doc = revit.doc
 
     # -------- chrome / title bar --------

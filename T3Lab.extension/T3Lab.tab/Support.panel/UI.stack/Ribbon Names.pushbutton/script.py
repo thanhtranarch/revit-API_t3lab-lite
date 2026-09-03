@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 DQT - Ribbon Name Manager
@@ -15,6 +16,7 @@ __version__   = "1.0.0"
 __copyright__ = "Copyright (c) 2026 by Dang Quoc Truong (DQT)"
 __doc__       = """DQT - Ribbon Name Manager
 
+
 Improved ribbon-name tool. Opens a themed window listing every ribbon tab with
 its current name and your short name. Double-click a short-name cell to edit it.
 Then:
@@ -28,12 +30,54 @@ Works on Revit 2024 / 2025 / 2026 / 2027.
 """
 
 import os
+import sys
+
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
+import os
 import json
 from pyrevit import forms
 from pyrevit.api import AdWindows
 
 # ------------------------------------------------------------------ GENERAL
-app = __revit__.Application
+# `__revit__` members are unavailable when no UIDocument is active, and at
+# module scope that kills the import outright. Resolve defensively; the entry
+# point reports the real problem (see Snippets._host.resolve_doc()).
+try:
+    app = __revit__.Application
+except Exception:
+    app = None
 
 PATH_SCRIPT  = os.path.dirname(__file__)
 MAP_PATH     = os.path.join(PATH_SCRIPT, "dqt_ribbon_map.json")

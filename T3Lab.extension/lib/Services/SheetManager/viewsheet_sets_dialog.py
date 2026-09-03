@@ -259,7 +259,10 @@ class ViewSheetSetsDialog(Window):
             MessageBox.Show("Error creating sheet set:\n\n{}".format(str(e)), "Error",
                           MessageBoxButton.OK, MessageBoxImage.Error)
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
     
     def on_rename_set_click(self, sender, args):
         """Rename selected set"""
@@ -375,7 +378,10 @@ class ViewSheetSetsDialog(Window):
             MessageBox.Show("Error renaming sheet set:\n\n{}".format(str(e)), "Error",
                           MessageBoxButton.OK, MessageBoxImage.Error)
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
     
     def on_delete_set_click(self, sender, args):
         """Delete selected set"""
@@ -410,7 +416,10 @@ class ViewSheetSetsDialog(Window):
             MessageBox.Show("Error: {}".format(str(e)), "Error",
                           MessageBoxButton.OK, MessageBoxImage.Error)
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
     
     def on_select_all_click(self, sender, args):
         """Select all sheets"""
@@ -462,4 +471,7 @@ class ViewSheetSetsDialog(Window):
             MessageBox.Show("Error: {}".format(str(e)), "Error",
                           MessageBoxButton.OK, MessageBoxImage.Error)
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass

@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 DQT BCF Reader (v2 - pyRevit WPFWindow modeless)
@@ -20,6 +21,41 @@ __author__ = "Dang Quoc Truong"
 # lifetime of the window.
 __persistentengine__ = True
 
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+import sys
+
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
 import os
 import re
 import clr
@@ -73,10 +109,21 @@ from Autodesk.Revit.UI import TaskDialog, IExternalEventHandler, ExternalEvent
 # pyRevit
 # ---------------------------------------------------------------------------
 from pyrevit import revit, script
+from GUI.WPF_Base import T3WPFWindow
 from pyrevit.forms import WPFWindow
 
-doc = revit.doc
-uidoc = revit.uidoc
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
+try:
+    uidoc = revit.uidoc
+except Exception:
+    uidoc = None
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -172,12 +219,24 @@ def _get_revit_author():
 
 
 class WarningSwallower(IFailuresPreprocessor):
+    # IronPython only: __namespace__ pins the generated CLR type
+    # name, so re-running this script.py on the next click raises
+    # "Duplicate type name within an assembly". pythonnet
+    # auto-uniquifies when it is absent, which is what we want.
+    if sys.version_info[0] < 3:
+        __namespace__ = "T3Lab.BCFReader"
     def PreprocessFailures(self, failuresAccessor):
         failuresAccessor.DeleteAllWarnings()
         return FailureProcessingResult.Continue
 
 
 class ActionHandler(IExternalEventHandler):
+    # IronPython only: __namespace__ pins the generated CLR type
+    # name, so re-running this script.py on the next click raises
+    # "Duplicate type name within an assembly". pythonnet
+    # auto-uniquifies when it is absent, which is what we want.
+    if sys.version_info[0] < 3:
+        __namespace__ = "T3Lab.BCFReader"
     """Queues a callable to run on Revit API thread. Required for modeless
     WPF windows since WPF event handlers are outside Revit API context."""
     def __init__(self):

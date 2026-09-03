@@ -3,6 +3,7 @@
 
 import os
 from pyrevit import forms
+from GUI.WPF_Base import T3WPFWindow
 import clr
 clr.AddReference("System.Data")
 from System import String as System_String
@@ -19,10 +20,10 @@ except NameError:
 # Absolute path to XAML
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'RibbonNames.xaml')
 
-class RibbonNameWindow(forms.WPFWindow):
+class RibbonNameWindow(T3WPFWindow):
     def __init__(self, live_tabs, short_map, originals, default_map, on_save_callback, on_state_callback, on_originals_callback):
-        # WPFWindow.__init__ loads XAML and registers named controls
-        forms.WPFWindow.__init__(self, _XAML)
+        # T3WPFWindow.__init__ loads XAML and registers named controls
+        T3WPFWindow.__init__(self, _XAML)
         
         self.live_tabs = live_tabs
         self.short_map = short_map

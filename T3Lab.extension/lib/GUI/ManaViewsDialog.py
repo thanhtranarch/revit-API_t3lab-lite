@@ -21,12 +21,14 @@ from System.Windows.Controls import (RowDefinition, ColumnDefinition, Border,
                                       DataGridTextColumn, ScrollViewer, ContextMenu, MenuItem)
 from System.Windows.Media import SolidColorBrush
 from System.Collections.ObjectModel import ObservableCollection
+from System import Object
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 # CRITICAL: Import WPF Grid BEFORE Revit wildcard import
 from System.Windows.Controls import Grid as WPFGrid
 
 from pyrevit import revit, DB, forms
+from GUI.WPF_Base import T3WPFWindow
 from Autodesk.Revit.DB import (
     FilteredElementCollector, View, ViewType, ElementId,
     BuiltInParameter, ViewDetailLevel, StorageType, Transaction
@@ -59,7 +61,14 @@ from core.view_template import (
 # Import Batch Rename dialog
 from GUI.AdvancedViewManagerDialog import BatchRenameDialog
 
-doc = revit.doc
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
 
 # XAML Path
 GUI_DIR = os.path.dirname(__file__)
@@ -178,7 +187,7 @@ class ViewTemplateItem(INotifyPropertyChanged):
 # VIEW MANAGER DIALOG CLASS
 # =====================================================
 
-class ViewManagerWindow(forms.WPFWindow, ProgressPauseMixin):
+class ViewManagerWindow(T3WPFWindow, ProgressPauseMixin):
 
     # ProgressPauseMixin — ManaViews.xaml status-bar progress panel
     PP_PANEL      = "mv_progress_panel"
@@ -191,7 +200,7 @@ class ViewManagerWindow(forms.WPFWindow, ProgressPauseMixin):
     PP_STOP_MSG   = u"Stopping… finishing current view"
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, XAML_FILE)
+        T3WPFWindow.__init__(self, XAML_FILE)
         self.doc = revit.doc
         self.uidoc = revit.uidoc
 
@@ -200,9 +209,9 @@ class ViewManagerWindow(forms.WPFWindow, ProgressPauseMixin):
         
         # Data collections
         self.all_views = []
-        self.filtered_views = ObservableCollection[object]()
+        self.filtered_views = ObservableCollection[Object]()
         self.all_templates_data = []
-        self.filtered_templates = ObservableCollection[object]()
+        self.filtered_templates = ObservableCollection[Object]()
         
         # Chrome controls
         self.btn_minimize.Click += self._minimize
@@ -765,7 +774,10 @@ def show_view_manager():
     except Exception as e:
         print("\nFATAL ERROR: {}".format(str(e)))
         import traceback
-        traceback.print_exc()
+        try:                     # ScriptIO has no write() under CPython
+            traceback.print_exc()
+        except Exception:
+            pass
         MessageBox.Show(
             "Error starting View Manager:\n\n{}".format(str(e)),
             "Error", MessageBoxButton.OK, MessageBoxImage.Error

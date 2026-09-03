@@ -18,7 +18,7 @@ from Autodesk.Revit.DB import (
 from Autodesk.Revit import DB
 
 try:
-    from purge_scanner import BasePurgeScanner
+    from .purge_scanner import BasePurgeScanner
 except:
     # Fallback for testing
     class BasePurgeScanner:
@@ -26,7 +26,7 @@ except:
             pass
 
 try:
-    from revit_utils import _eid_int
+    from .revit_utils import _eid_int
 except:
     # Fallback if revit_utils not available
     def _eid_int(element_id):
@@ -45,7 +45,7 @@ except:
             pass
         return -1
 
-from purge_categories_v2 import PurgeCategoryItem
+from .purge_categories_v2 import PurgeCategoryItem
 
 
 # Default type names to protect

@@ -3,7 +3,10 @@
 
 import os
 import pickle
-import __builtin__
+try:
+    import builtins as __builtin__
+except ImportError:
+    import __builtin__
 from tempfile import gettempdir
 from collections import namedtuple
 
@@ -175,7 +178,8 @@ class DatumManagerWindow(forms.WPFWindow):
         g = {'__name__': '__main__', '__file__': script_path,
              '__builtins__': __builtin__, '__revit__': self._revit}
         try:
-            execfile(script_path, g)
+            with open(script_path, 'r', encoding='utf-8') as fh:
+                exec(compile(fh.read(), script_path, 'exec'), g)
         except Exception as ex:
             forms.alert("Error launching tool:\n{}".format(ex))
 

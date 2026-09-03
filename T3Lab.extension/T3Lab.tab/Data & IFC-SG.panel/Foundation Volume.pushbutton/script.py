@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 Foundation Volume Writer v1.0 - DQT
@@ -17,6 +18,41 @@ __title__ = "Foundation\nVolume"
 __author__ = "Dang Quoc Truong (DQT)"
 __doc__ = "Write Revit computed volume into a selected shared parameter on Structural Foundation elements."
 
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+import sys
+
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
 import clr
 clr.AddReference('RevitAPI')
 clr.AddReference('RevitAPIUI')
@@ -47,8 +83,17 @@ try:
 except Exception:
     HAS_UNIT_TYPE_ID = False
 
-doc   = __revit__.ActiveUIDocument.Document
-uidoc = __revit__.ActiveUIDocument
+# `__revit__` members are unavailable when no UIDocument is active, and at
+# module scope that kills the import outright. Resolve defensively; the entry
+# point reports the real problem (see Snippets._host.resolve_doc()).
+try:
+    doc = __revit__.ActiveUIDocument.Document
+except Exception:
+    doc = None
+try:
+    uidoc = __revit__.ActiveUIDocument
+except Exception:
+    uidoc = None
 
 # ── Revit 2025+ compatibility ──────────────────────────────────────────────
 def _eid_int(eid):

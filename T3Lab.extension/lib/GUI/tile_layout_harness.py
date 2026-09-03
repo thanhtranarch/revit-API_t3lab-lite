@@ -20,10 +20,16 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import math
-from TileLayoutCore import (
-    MM_TO_FT, V2, TileGrid, NestingEngine, OptionGenerator, LayoutOption,
-    PATTERNS,
-)
+try:
+    from GUI.TileLayoutCore import (
+        MM_TO_FT, V2, TileGrid, NestingEngine, OptionGenerator, LayoutOption,
+        PATTERNS,
+    )
+except (ImportError, ValueError):
+    from TileLayoutCore import (
+        MM_TO_FT, V2, TileGrid, NestingEngine, OptionGenerator, LayoutOption,
+        PATTERNS,
+    )
 
 FAILURES = []
 

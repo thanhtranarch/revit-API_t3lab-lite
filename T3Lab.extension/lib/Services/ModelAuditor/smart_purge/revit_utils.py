@@ -56,7 +56,7 @@ def _eid_int(element_id):
     Shorthand alias for get_element_id_value
     
     Usage:
-        from revit_utils import _eid_int
+        from .revit_utils import _eid_int
         id_value = _eid_int(element.Id)
     """
     return get_element_id_value(element_id)

@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-T3Lab static tool audit (CPython 3, chạy ngoài Revit).
+T3Lab static tool audit (CPython 3).
 
 Kiểm tra tĩnh toàn bộ pushbutton script + GUI dialog + XAML:
-  1. Syntax chỉ có ở Python 3 (f-string, annotation, nonlocal) — IronPython 2.7 sẽ crash.
+  1. CPython 3 compliance:
+     - Pushbutton scripts phải có shebang '#! python3' ở dòng đầu.
+     - Cú pháp hợp lệ với Python 3 (ast.parse).
+     - Phát hiện cú pháp legacy Python 2 (xrange, bare __builtin__, bare execfile).
   2. Chuỗi launcher -> lib/GUI/*Dialog.py -> XAML: module, entry function, file XAML tồn tại.
   3. Event handler khai báo trong XAML (Click=..., SelectionChanged=...) phải có
-     method tương ứng trong file Python sở hữu XAML đó (hoặc lớp base WPF_Base).
-  4. Transaction hygiene: có Start() mà không có Commit().
+     method tương ứng trong file Python sở hữu XAML đó (hoặc lớp base WPF_Base / Mixin).
+  4. Transaction hygiene: có Start() mà không có Commit() / Assimilate().
   5. XAML mồ côi: không file Python nào tham chiếu.
 
 Usage:
-    python3 dev/audit_tools.py            # in báo cáo đầy đủ
-    python3 dev/audit_tools.py --quiet    # chỉ in vi phạm, exit 1 nếu có
+    python dev/audit_tools.py            # in báo cáo đầy đủ
+    python dev/audit_tools.py --quiet    # chỉ in vi phạm, exit 1 nếu có
 """
 import os
 import re
 import sys
+import ast
 import glob
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -59,30 +63,36 @@ def all_py_files():
     return out
 
 
-FSTRING = re.compile(r'''(?<![A-Za-z0-9_])[fF](["']).*?\{''')
-
 # Các XAML đã biết là legacy/mồ côi có chủ đích — thêm vào đây nếu chấp nhận giữ.
 KNOWN_ORPHAN_XAML = {
     # Wizard-nav reference example named in .claude/CLAUDE.md — kept in place on
-    # purpose, not wired to any pushbutton. See phase-1-cleanup-fixes.md Ngày 2.
+    # purpose, not wired to any pushbutton.
     "ExportManagerTest.xaml",
 }
 
-# File chạy bằng CPython 3 (ngoài Revit) — bỏ qua check syntax IronPython 2.7.
-CPYTHON_ONLY = {os.path.join("T3Lab.extension", "lib", "core", "bridge.py")}
 
+def check_python3_syntax_and_compat(path, src):
+    try:
+        ast.parse(src, filename=path)
+    except SyntaxError as ex:
+        report("%s:%d SyntaxError in Python 3: %s" % (path, ex.lineno or 1, ex.msg), True)
+        return
 
-def check_py3_syntax(path, src):
     for i, ln in enumerate(src.splitlines(), 1):
         s = ln.strip()
         if s.startswith("#"):
             continue
-        if FSTRING.search(ln):
-            report("%s:%d f-string (py3-only): %s" % (path, i, s[:70]), True)
-        if re.search(r'^\s*def\s+\w+\(.*\)\s*->', ln):
-            report("%s:%d return annotation (py3-only)" % (path, i), True)
-        if "nonlocal " in ln:
-            report("%s:%d nonlocal (py3-only)" % (path, i), True)
+        if re.search(r'\bxrange\s*\(', ln):
+            report("%s:%d xrange (legacy Python 2, use range): %s" % (path, i, s[:70]), True)
+        if re.search(r'^\s*import\s+__builtin__\b', ln):
+            report("%s:%d bare 'import __builtin__' (use builtins): %s" % (path, i, s[:70]), True)
+        if re.search(r'^\s*execfile\s*\(', ln):
+            report("%s:%d bare 'execfile()' (removed in Python 3): %s" % (path, i, s[:70]), True)
+
+
+def check_shebang(path, src):
+    if not src.startswith("#! python3"):
+        report("%s: missing '#! python3' shebang at line 1" % path, True)
 
 
 def main():
@@ -91,15 +101,18 @@ def main():
 
     py_files = all_py_files()
     py_src = {p: read(p) for p in py_files}
+    pushbutton_scripts = find_scripts()
 
-    # ── 1. Py3-only syntax trên toàn bộ script + lib ──
+    # ── 1. CPython 3 Shebang & Syntax check ──
     if not QUIET:
-        print("== 1. IronPython 2.7 syntax check ==")
+        print("== 1. CPython 3 shebang & syntax check ==")
+    for script in pushbutton_scripts:
+        rel = os.path.relpath(script, REPO)
+        check_shebang(rel, py_src[script])
+
     for p, s in sorted(py_src.items()):
         rel = os.path.relpath(p, REPO)
-        if rel in CPYTHON_ONLY:
-            continue
-        check_py3_syntax(rel, s)
+        check_python3_syntax_and_compat(rel, s)
 
     # ── 2. Chuỗi script -> XAML tồn tại ──
     if not QUIET:
@@ -153,7 +166,7 @@ def main():
     # ── 4. Transaction hygiene ──
     if not QUIET:
         print("== 4. Transaction hygiene ==")
-    for script in find_scripts():
+    for script in pushbutton_scripts:
         s = py_src[script]
         if "Transaction(" in s:
             starts = len(re.findall(r'\.Start\(\)', s))

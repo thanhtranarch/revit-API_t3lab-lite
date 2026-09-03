@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 Tile Layout
@@ -23,6 +24,39 @@ __version__ = "1.0.0"
 # ==============================================================================
 import os
 import sys
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
 import math
 import csv
 import traceback
@@ -51,6 +85,7 @@ from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 from System.Windows import WindowState
 
 from pyrevit import revit, forms, script
+from GUI.WPF_Base import T3WPFWindow
 
 SCRIPT_DIR = os.path.dirname(__file__)
 EXT_DIR    = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
@@ -67,12 +102,17 @@ from Snippets._compat import eid_value, elem_name
 # methods that the cached (stale) module doesn't have yet (symptom: options
 # silently stop generating with AttributeError). Force-refresh the engine.
 # Engine lives in lib/GUI/TileLayoutCore.py (beside TileLayout.xaml's folder).
-import TileLayoutCore
+from GUI import TileLayoutCore
 try:
-    reload(TileLayoutCore)
+    from importlib import reload as _reload
+    _reload(TileLayoutCore)
 except Exception:
-    pass
-from TileLayoutCore import (
+    try:
+        reload(TileLayoutCore)
+    except Exception:
+        pass
+
+from GUI.TileLayoutCore import (
     MM_TO_FT, FT_TO_MM, FT2_TO_M2, MIN_CUT_WIDTH_MM,
     PATTERNS, PATTERN_LABELS,
     V2, poly_area, poly_bbox, ensure_ccw,
@@ -86,9 +126,25 @@ from GUI.ProgressPauseMixin import ProgressPauseMixin
 # DEFINE VARIABLES
 # ==============================================================================
 logger        = script.get_logger()
-output        = script.get_output()
-doc           = revit.doc
-uidoc         = revit.uidoc
+# CPython has no ScriptOutput.GetDefault; safe_output()
+# returns a no-op window instead of killing the tool.
+try:
+    from _cpython_bootstrap import safe_output
+    output = safe_output()
+except Exception:
+    output = script.get_output()
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
+try:
+    uidoc = revit.uidoc
+except Exception:
+    uidoc = None
 # Read from the Application, not the document: `revit.doc` is None when this
 # tool is launched from the Assistant pane or with no project open, and the
 # old `int(revit.doc.Application.VersionNumber)` raised at IMPORT time
@@ -870,6 +926,12 @@ class ReportGenerator(object):
 # ═════════════════════════════════════════════════════════════════════════════
 
 class _FloorFilter(ISelectionFilter):
+    # IronPython only: __namespace__ pins the generated CLR type
+    # name, so re-running this script.py on the next click raises
+    # "Duplicate type name within an assembly". pythonnet
+    # auto-uniquifies when it is absent, which is what we want.
+    if sys.version_info[0] < 3:
+        __namespace__ = "T3Lab.TileLayout"
     def AllowElement(self, e):
         return (e.Category is not None and
                 eid_value(e.Category.Id) == int(BuiltInCategory.OST_Floors))
@@ -904,7 +966,7 @@ STEP_PATTERN    = 1
 STEP_CONCEPTS   = 2
 
 
-class TileLayoutWindow(forms.WPFWindow, ProgressPauseMixin):
+class TileLayoutWindow(T3WPFWindow, ProgressPauseMixin):
 
     # ProgressPauseMixin — TileLayout.xaml status-bar progress panel
     PP_PANEL      = "tl_progress_panel"
@@ -917,7 +979,7 @@ class TileLayoutWindow(forms.WPFWindow, ProgressPauseMixin):
     PP_STOP_MSG   = u"Stopping… finishing current floor"
 
     def __init__(self, preselected_floors=None):
-        forms.WPFWindow.__init__(self, XAML_FILE)
+        T3WPFWindow.__init__(self, XAML_FILE)
 
         # ── wizard state ──
         self._floors = []        # [FloorInfo]
@@ -1015,7 +1077,8 @@ class TileLayoutWindow(forms.WPFWindow, ProgressPauseMixin):
             total_area += fi.area_ft2
 
         from System.Collections.ObjectModel import ObservableCollection
-        coll = ObservableCollection[object]()
+        from System import Object
+        coll = ObservableCollection[Object]()
         for r in self._rows: coll.Add(r)
         self.floors_listview.ItemsSource = coll
 

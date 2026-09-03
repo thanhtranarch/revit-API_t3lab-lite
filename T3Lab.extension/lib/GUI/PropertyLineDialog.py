@@ -43,13 +43,6 @@ from System.Windows.Input import Key
 from System.Windows.Media import SolidColorBrush, Color
 from System.Windows.Threading import Dispatcher, DispatcherPriority
 
-# IronPython HTTP (urllib2 available in IronPython 2.x)
-try:
-    import urllib2
-    HAS_URLLIB2 = True
-except ImportError:
-    HAS_URLLIB2 = False
-
 # CPython / IronPython 3 HTTP
 try:
     import urllib.request as urllib_request
@@ -58,8 +51,15 @@ try:
 except ImportError:
     HAS_URLLIB3 = False
 
-# pyRevit
+# IronPython HTTP (urllib2 available in IronPython 2.x)
+try:
+    import urllib2
+    HAS_URLLIB2 = True
+except ImportError:
+    HAS_URLLIB2 = False
+
 from pyrevit import revit, DB, forms, script
+from GUI.WPF_Base import T3WPFWindow
 
 # Worldwide (keyless) boundary lookup — OpenStreetMap based
 try:
@@ -276,15 +276,15 @@ def _url_quote(text, safe=''):
     and CPython / IronPython 3.x (urllib.parse.quote).
     Falls back to a manual encoder if neither is available.
     """
-    if HAS_URLLIB2:
-        try:
-            if isinstance(text, unicode):          # IronPython 2 unicode type
-                text = text.encode('utf-8')
-        except NameError:
-            pass
-        return urllib2.quote(text, safe=safe)
     if HAS_URLLIB3:
         return urllib_parse.quote(text, safe=safe)
+    if HAS_URLLIB2:
+        try:
+            if isinstance(text, str):
+                text = text.encode('utf-8')
+        except Exception:
+            pass
+        return urllib2.quote(text, safe=safe)
     # Last-resort manual percent-encoding
     safe_set = set(safe)
     result = []
@@ -304,6 +304,20 @@ def http_get(url, headers=None):
     """
     headers = headers or {}
 
+    if HAS_URLLIB3:
+        req = urllib_request.Request(url, headers=headers)
+        try:
+            with urllib_request.urlopen(req, timeout=15) as resp:
+                return resp.status, resp.read()
+        except Exception as e:
+            if hasattr(e, 'code'):
+                try:
+                    body = e.read()
+                except Exception:
+                    body = b""
+                return e.code, body
+            raise
+
     if HAS_URLLIB2:
         req = urllib2.Request(url)
         for k, v in headers.items():
@@ -319,20 +333,6 @@ def http_get(url, headers=None):
                 body = b""
             return e.code, body
         except Exception as ex:
-            raise
-
-    if HAS_URLLIB3:
-        req = urllib_request.Request(url, headers=headers)
-        try:
-            with urllib_request.urlopen(req, timeout=15) as resp:
-                return resp.status, resp.read()
-        except Exception as e:
-            if hasattr(e, 'code'):
-                try:
-                    body = e.read()
-                except Exception:
-                    body = b""
-                return e.code, body
             raise
 
     raise RuntimeError("No HTTP library available (urllib2 / urllib.request)")
@@ -1469,7 +1469,7 @@ class ParcelItem(object):
                                      format_area(self.area_sqft_raw)))
 
 
-class PropertyLineDialog(forms.WPFWindow):
+class PropertyLineDialog(T3WPFWindow):
     """Main WPF dialog for Property Line Tool."""
 
     def __init__(self):
@@ -1477,7 +1477,7 @@ class PropertyLineDialog(forms.WPFWindow):
         # which script calls this class (avoids the IronPython absolute-URI bug
         # that occurs with Application.LoadComponent + file:// URIs)
         xaml_path = os.path.join(os.path.dirname(__file__), "Tools", "PropertyLine.xaml")
-        forms.WPFWindow.__init__(self, xaml_path)
+        T3WPFWindow.__init__(self, xaml_path)
 
         self._selected_parcel = None
         self._parcels = []

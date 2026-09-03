@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 Point Cloud to Model
@@ -22,6 +23,39 @@ __version__  = "1.0.0"
 # ==============================================================================
 import os
 import sys
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
 import clr
 import math
 
@@ -72,6 +106,7 @@ from Autodesk.Revit.UI import TaskDialog
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter, PickBoxStyle
 from Autodesk.Revit.Exceptions import OperationCanceledException
 from pyrevit import forms, script
+from GUI.WPF_Base import T3WPFWindow
 
 # Path setup
 # ==============================================================================
@@ -158,6 +193,12 @@ def mm_to_internal(value_mm):
 # ── Section 2: Point Cloud Extraction ─────────────────────────────────────────
 
 class PointCloudSelectionFilter(ISelectionFilter):
+    # IronPython only: __namespace__ pins the generated CLR type
+    # name, so re-running this script.py on the next click raises
+    # "Duplicate type name within an assembly". pythonnet
+    # auto-uniquifies when it is absent, which is what we want.
+    if sys.version_info[0] < 3:
+        __namespace__ = "T3Lab.PointCloud"
     def AllowElement(self, element):
         return isinstance(element, PointCloudInstance)
 
@@ -1793,13 +1834,13 @@ class ElementBuilder(object):
 
 # ── Section 7: WPF Wizard Window ──────────────────────────────────────────────
 
-class PointCloudModelWindow(forms.WPFWindow):
+class PointCloudModelWindow(T3WPFWindow):
     """Single-window UI for Point Cloud to Model analysis and element generation."""
 
     DENSITY_CAPS = [5000, 20000, 50000]
 
     def __init__(self, state=None):
-        forms.WPFWindow.__init__(self, XAML_FILE)
+        T3WPFWindow.__init__(self, XAML_FILE)
         state = state or {}
         self._pc_instance       = state.get('pc_instance')
         self._custom_min_pt     = state.get('min_pt')

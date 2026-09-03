@@ -84,6 +84,7 @@ except Exception:
 
 if HAS_REVIT_UI:
     class _FileTaskEventHandler(IExternalEventHandler):
+        __namespace__ = "T3Lab.Core"
         """
         Runs inside Revit's main thread (called by ExternalEvent.Raise()).
         Pops the pending task from the watcher, executes it, writes result.

@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 Batch Out
@@ -22,6 +23,44 @@ __persistentengine__ = True
 # ==================================================
 import os
 import sys
+
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+
+_script_dir = os.path.dirname(__file__)
+_ext_dir = os.path.dirname(os.path.dirname(os.path.dirname(_script_dir)))
+_lib_dir = os.path.join(_ext_dir, 'lib')
+if _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+
+try:
+    from importlib import reload as _reload
+    if 'GUI.WPF_Base' in sys.modules:
+        _reload(sys.modules['GUI.WPF_Base'])
+except Exception:
+    pass
+
+
 import clr
 import json
 import time
@@ -42,6 +81,7 @@ from System.Threading import Thread, ThreadStart
 from System.Windows.Threading import DispatcherPriority
 
 from pyrevit import revit, DB, UI, forms, script, EXEC_PARAMS
+from GUI.WPF_Base import T3WPFWindow
 from Autodesk.Revit.DB import (
     Transaction, FilteredElementCollector, BuiltInCategory,
     ViewSheet, ViewSet, ViewSheetSet, DWGExportOptions, DWFExportOptions,
@@ -90,7 +130,13 @@ except:
 # DEFINE VARIABLES
 # ==================================================
 logger = script.get_logger()
-output = script.get_output()
+# CPython has no ScriptOutput.GetDefault; safe_output()
+# returns a no-op window instead of killing the tool.
+try:
+    from _cpython_bootstrap import safe_output
+    output = safe_output()
+except Exception:
+    output = script.get_output()
 
 
 def _build_view_type_labels():
@@ -196,7 +242,13 @@ REVIT_VERSION = get_revit_version()
 
 # CLASS/FUNCTIONS
 # ==================================================
-class SheetItem(forms.Reactive):
+try:
+    _Reactive = getattr(forms, 'Reactive', object)
+except Exception:
+    _Reactive = object
+
+
+class SheetItem(_Reactive):
     """Represents a sheet item in the list - optimized for performance."""
     def __init__(self, sheet, is_selected=False, lazy=False):
         self.Sheet = sheet
@@ -253,7 +305,7 @@ class SheetItem(forms.Reactive):
         return "{} - {}".format(self.SheetNumber, self.SheetName)
 
 
-class ViewItem(forms.Reactive):
+class ViewItem(_Reactive):
     """Represents a view item in the list - optimized for performance."""
 
     _VIEW_TYPE_MAP = VIEW_TYPE_LABELS
@@ -437,6 +489,12 @@ class ExportProfile(object):
 
 
 class BatchOutEventHandler(IExternalEventHandler):
+    # IronPython only: __namespace__ pins the generated CLR type
+    # name, so re-running this script.py on the next click raises
+    # "Duplicate type name within an assembly". pythonnet
+    # auto-uniquifies when it is absent, which is what we want.
+    if sys.version_info[0] < 3:
+        __namespace__ = "T3Lab.BatchOut"
     """Runs queued window actions inside a valid Revit API context.
 
     Required because the window is modeless (Show, not ShowDialog): ALL Revit
@@ -488,7 +546,7 @@ class BatchOutEventHandler(IExternalEventHandler):
         return "T3Lab BatchOut Handler"
 
 
-class ExportManagerWindow(forms.WPFWindow):
+class ExportManagerWindow(T3WPFWindow):
     """Export Manager Window."""
 
     # Auto-saved "latest setup" — lives beside profiles but is not listed as one
@@ -499,7 +557,7 @@ class ExportManagerWindow(forms.WPFWindow):
             # Get absolute path to XAML file from lib/GUI folder
             extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
             xaml_file_path = os.path.join(extension_dir, 'lib', 'GUI', 'Tools', 'ExportManager.xaml')
-            forms.WPFWindow.__init__(self, xaml_file_path)
+            T3WPFWindow.__init__(self, xaml_file_path)
 
             self.doc = revit.doc
 
@@ -3195,8 +3253,11 @@ class ExportManagerWindow(forms.WPFWindow):
         """
         try:
             # Import the parameter selector dialog
-            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
-            from ParameterSelectorDialog import ParameterSelectorDialog
+            try:
+                from GUI.ParameterSelectorDialog import ParameterSelectorDialog
+            except ImportError:
+                sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
+                from ParameterSelectorDialog import ParameterSelectorDialog
 
             # Determine element type based on current selection mode
             element_type = 'sheet' if self.selection_mode == 'sheets' else 'view'
@@ -3239,10 +3300,13 @@ class ExportManagerWindow(forms.WPFWindow):
         """
         try:
             # Import the parameter selector dialog
-            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
-            if 'ParameterSelectorDialog' in sys.modules:
-                del sys.modules['ParameterSelectorDialog']
-            from ParameterSelectorDialog import ParameterSelectorDialog
+            try:
+                from GUI.ParameterSelectorDialog import ParameterSelectorDialog
+            except ImportError:
+                sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
+                if 'ParameterSelectorDialog' in sys.modules:
+                    del sys.modules['ParameterSelectorDialog']
+                from ParameterSelectorDialog import ParameterSelectorDialog
 
             # Determine element type based on current selection mode
             element_type = 'sheet' if self.selection_mode == 'sheets' else 'view'
@@ -3291,10 +3355,13 @@ class ExportManagerWindow(forms.WPFWindow):
         """
         try:
             # Import the parameter selector dialog
-            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
-            if 'ParameterSelectorDialog' in sys.modules:
-                del sys.modules['ParameterSelectorDialog']
-            from ParameterSelectorDialog import ParameterSelectorDialog
+            try:
+                from GUI.ParameterSelectorDialog import ParameterSelectorDialog
+            except ImportError:
+                sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
+                if 'ParameterSelectorDialog' in sys.modules:
+                    del sys.modules['ParameterSelectorDialog']
+                from ParameterSelectorDialog import ParameterSelectorDialog
 
             # Determine element type based on current selection mode
             element_type = 'sheet' if self.selection_mode == 'sheets' else 'view'

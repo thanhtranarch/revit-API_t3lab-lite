@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 T3Lab Extension Startup Script
@@ -20,12 +21,35 @@ from __future__ import unicode_literals
 import os
 import sys
 
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+
 # ─── Path bootstrap ────────────────────────────────────────────────────────────
 _STARTUP_DIR = os.path.dirname(__file__)   # T3Lab.extension/
 _LIB_DIR     = os.path.join(_STARTUP_DIR, 'lib')
 for _p in (_STARTUP_DIR, _LIB_DIR):
     if _p not in sys.path:
         sys.path.insert(0, _p)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
 
 # ─── Attempt DockablePane registration ─────────────────────────────────────────
 

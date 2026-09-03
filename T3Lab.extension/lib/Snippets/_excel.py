@@ -12,6 +12,8 @@ Linkedin: linkedin.com/in/sunarch7899/
 __author__  = "Tran Tien Thanh"
 __title__   = "Excel Snippets"
 
+import os
+
 class ExcelWriter:
     def __init__(self):
         self.wb = self.create_excel_workbook()

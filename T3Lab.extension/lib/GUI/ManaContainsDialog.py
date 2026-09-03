@@ -26,6 +26,7 @@ from System.Windows.Media import BrushConverter
 import System.Windows
 
 from pyrevit import revit, DB, forms
+from GUI.WPF_Base import T3WPFWindow
 from Autodesk.Revit.DB import FilteredElementCollector, BuiltInCategory, BuiltInParameter
 from Autodesk.Revit.DB import Transaction, StorageType, XYZ, SpatialElementBoundaryOptions, ElementId
 from Autodesk.Revit.DB import SpatialElementBoundaryLocation, CurveLoop, AreaVolumeSettings
@@ -35,8 +36,21 @@ from Autodesk.Revit.UI import TaskDialog
 GUI_DIR = os.path.dirname(os.path.abspath(__file__))
 XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'ManaContains.xaml')
 
-doc = revit.doc
-uidoc = __revit__.ActiveUIDocument
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
+# `__revit__` members are unavailable when no UIDocument is active, and at
+# module scope that kills the import outright. Resolve defensively; the entry
+# point reports the real problem (see Snippets._host.resolve_doc()).
+try:
+    uidoc = __revit__.ActiveUIDocument
+except Exception:
+    uidoc = None
 
 # ── Constants & Helpers ────────────────────────────────────────────────────────
 _conv = BrushConverter()
@@ -1246,9 +1260,9 @@ class Tab2CollectResult:
 
 
 # ═══ MAIN WINDOW CONTROLLER ═══
-class ManaContainsWindow(forms.WPFWindow):
+class ManaContainsWindow(T3WPFWindow):
     def __init__(self):
-        forms.WPFWindow.__init__(self, XAML_FILE)
+        T3WPFWindow.__init__(self, XAML_FILE)
         
         # Chrome controls
         self.btn_minimize.Click += self._minimize

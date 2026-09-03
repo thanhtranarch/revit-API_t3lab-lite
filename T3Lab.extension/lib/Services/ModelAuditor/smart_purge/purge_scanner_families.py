@@ -19,7 +19,7 @@ from Autodesk.Revit.DB import (
 from Autodesk.Revit import DB
 
 try:
-    from purge_scanner import BasePurgeScanner
+    from .purge_scanner import BasePurgeScanner
 except:
     # Fallback for testing
     class BasePurgeScanner:
@@ -27,7 +27,7 @@ except:
             self.doc = doc
 
 try:
-    from revit_utils import _eid_int
+    from .revit_utils import _eid_int
 except:
     # Fallback if revit_utils not available
     def _eid_int(element_id):
@@ -132,7 +132,10 @@ class DetailComponentsScanner(BasePurgeScanner):
         except Exception as e:
             print("ERROR scanning detail components: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
         
         return unused_items
 
@@ -237,7 +240,10 @@ class UnusedFamiliesScanner(BasePurgeScanner):
         except Exception as e:
             print("ERROR scanning unused families: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
         
         return unused_items
 
@@ -329,7 +335,10 @@ class UnusedFamilyTypesScanner(BasePurgeScanner):
         except Exception as e:
             print("ERROR scanning unused family types: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
         
         return unused_items
 
@@ -476,7 +485,10 @@ class AnnotationFamiliesScanner(BasePurgeScanner):
         except Exception as e:
             print("ERROR scanning annotation families: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
         
         return unused_items
 
@@ -640,6 +652,9 @@ class ProfileFamiliesScanner(BasePurgeScanner):
         except Exception as e:
             print("ERROR scanning profile families: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
         
         return unused_items

@@ -414,9 +414,15 @@ def run_tool_script(script_path, title=None):
     # Only counts as success when a *Window / *Dialog is ACTUALLY shown —
     # a bare successful import means nothing ran.
     try:
-        import imp
         safe = re.sub(r'[^a-z0-9]', '_', (title or 'tool').lower())
-        mod  = imp.load_source('_auto_' + safe, script_path)
+        try:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location('_auto_' + safe, script_path)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+        except Exception:
+            import imp
+            mod  = imp.load_source('_auto_' + safe, script_path)
         for attr in dir(mod):
             if not (attr.endswith('Window') or attr.endswith('Dialog')):
                 continue

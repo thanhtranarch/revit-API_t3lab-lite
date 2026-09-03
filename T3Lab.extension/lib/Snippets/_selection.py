@@ -40,8 +40,17 @@ from GUI.forms           import select_from_dict
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
 #  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
 #==================================================
-uidoc     = __revit__.ActiveUIDocument
-doc       = __revit__.ActiveUIDocument.Document
+# `__revit__` members are unavailable when no UIDocument is active, and at
+# module scope that kills the import outright. Resolve defensively; the entry
+# point reports the real problem (see Snippets._host.resolve_doc()).
+try:
+    uidoc = __revit__.ActiveUIDocument
+except Exception:
+    uidoc = None
+try:
+    doc = __revit__.ActiveUIDocument.Document
+except Exception:
+    doc = None
 selection = uidoc.Selection                          # type: Selection
 
 # ╔═╗╔═╗╔╦╗  ╔═╗╔═╗╦  ╔═╗╔═╗╔╦╗╔═╗╔╦╗
@@ -201,6 +210,7 @@ def select_floor_type(given_uidoc = uidoc):
 # ║  ╚═╗║╣ ║  ║╣ ║   ║ ║║ ║║║║  ╠╣ ║║  ║ ║╣ ╠╦╝
 # ╩  ╚═╝╚═╝╩═╝╚═╝╚═╝ ╩ ╩╚═╝╝╚╝  ╚  ╩╩═╝╩ ╚═╝╩╚═
 class CustomISelectionFilter(ISelectionFilter):
+    __namespace__ = "T3Lab.Selection"
     """Filter user selection to certain element."""
     def __init__(self, cats):
         self.cats = cats
@@ -211,6 +221,7 @@ class CustomISelectionFilter(ISelectionFilter):
         return False
 
 class ISelectionFilter_Classes(ISelectionFilter):
+    __namespace__ = "T3Lab.Selection"
     def __init__(self, allowed_types):
         """ ISelectionFilter made to filter with types
         :param allowed_types: list of allowed Types"""

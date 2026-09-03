@@ -29,9 +29,11 @@ from System.Windows import Window, WindowStartupLocation, WindowStyle
 from System.Windows.Markup import XamlReader
 from System.Windows.Controls import ListBox
 from System.Collections.ObjectModel import ObservableCollection
+from System import Object
 from System import Uri, UriKind
 
 from pyrevit import revit, DB, forms
+from GUI.WPF_Base import T3WPFWindow
 from Autodesk.Revit.DB import (
     BuiltInParameter, ViewSheet, View,
     StorageType
@@ -76,7 +78,7 @@ class ParameterItem:
         )
 
 
-class ParameterSelectorDialog(forms.WPFWindow):
+class ParameterSelectorDialog(T3WPFWindow):
     """Dialog for selecting parameters to build custom filenames."""
 
     def __init__(self, doc, element_type='sheet'):
@@ -87,7 +89,7 @@ class ParameterSelectorDialog(forms.WPFWindow):
             element_type: 'sheet' or 'view' - determines which parameters to load
         """
         xaml_file = os.path.join(os.path.dirname(__file__), 'Tools', 'ParameterSelector.xaml')
-        forms.WPFWindow.__init__(self, xaml_file)
+        T3WPFWindow.__init__(self, xaml_file)
 
         self.doc = doc
         self.element_type = element_type
@@ -131,10 +133,10 @@ class ParameterSelectorDialog(forms.WPFWindow):
         self.MouseDown += self.header_drag
 
         # Initialize parameter collections
-        # Use ObservableCollection[object] instead of ObservableCollection[ParameterItem]
+        # Use ObservableCollection[Object] instead of ObservableCollection[ParameterItem]
         # because ParameterItem is a Python class, not a .NET type
-        self.available_params = ObservableCollection[object]()
-        self.selected_params = ObservableCollection[object]()
+        self.available_params = ObservableCollection[Object]()
+        self.selected_params = ObservableCollection[Object]()
 
         self.list_available.ItemsSource = self.available_params
         self.list_selected.ItemsSource = self.selected_params

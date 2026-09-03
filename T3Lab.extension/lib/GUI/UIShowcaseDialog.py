@@ -25,8 +25,10 @@ from System.Windows.Controls import (RowDefinition, ColumnDefinition, Border,
 from System.Windows.Media import SolidColorBrush, BrushConverter
 from System.Windows.Data import Binding
 from System.Collections.ObjectModel import ObservableCollection
+from System import Object
 
 from pyrevit import revit, DB, forms
+from GUI.WPF_Base import T3WPFWindow
 
 # Revit light/dark palette bridge
 try:
@@ -96,11 +98,11 @@ class ShowcaseItem(object):
         self._is_selected = bool(val)
 
 
-class UIShowcaseWindow(forms.WPFWindow):
+class UIShowcaseWindow(T3WPFWindow):
     """Window class for the unified T3Lab UI Standard Showcase."""
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, XAML_FILE)
+        T3WPFWindow.__init__(self, XAML_FILE)
         self._skin = None
         self._pinned = False
         self._all_items = []
@@ -233,6 +235,14 @@ class UIShowcaseWindow(forms.WPFWindow):
     def close_button_clicked(self, sender, e):
         self.Close()
 
+    def title_bar_mouse_down(self, sender, e):
+        try:
+            from System.Windows.Input import MouseButtonState
+            if e.LeftButton == MouseButtonState.Pressed:
+                self.DragMove()
+        except Exception:
+            pass
+
     # ── Data & Filtering ─────────────────────────────────────────────────────
 
     def _load_sample_data(self):
@@ -315,7 +325,7 @@ class UIShowcaseWindow(forms.WPFWindow):
 
         self._filtered_items = filtered
         try:
-            self.sample_grid.ItemsSource = ObservableCollection[object](self._filtered_items)
+            self.sample_grid.ItemsSource = ObservableCollection[Object](self._filtered_items)
             if len(self._filtered_items) == 0:
                 self.grid_empty.Visibility = Visibility.Visible
             else:
@@ -422,12 +432,15 @@ def show_ui_standard_showcase():
         window = UIShowcaseWindow()
         window.ShowDialog()
     except Exception as e:
-        print("\nFATAL ERROR: {}".format(str(e)))
+        # Do NOT print() or traceback.print_exc() here. Under the CPython engine
+        # sys.stdout/stderr is a pyRevit ScriptIO with no write(), so both raise
+        # 'ScriptIO' object has no attribute 'write' — burying the real error
+        # before the MessageBox below ever runs. Format the traceback instead
+        # and show it, so the actual cause reaches the user.
         import traceback
-        traceback.print_exc()
-
+        detail = traceback.format_exc()
         MessageBox.Show(
-            "Error starting UI Standard Showcase:\n\n{}".format(str(e)),
+            "Error starting UI Standard Showcase:\n\n{}".format(detail[-1500:]),
             "Error",
             MessageBoxButton.OK,
             MessageBoxImage.Error

@@ -22,6 +22,7 @@ import clr
 clr.AddReference("System.Drawing")
 
 from pyrevit import forms
+from GUI.WPF_Base import T3WPFWindow
 
 from System import TimeSpan
 from System.Windows import (WindowState, Thickness, CornerRadius,
@@ -141,11 +142,11 @@ GRADIENT_PRESETS = [
 ]
 
 
-class BackgroundThemeWindow(forms.WPFWindow):
+class BackgroundThemeWindow(T3WPFWindow):
     """3-tab theme studio: model background / 3D gradient / Revit UI theme."""
 
     def __init__(self, config, presets, callbacks):
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
 
         self.presets = presets
         self.callbacks = callbacks or {}

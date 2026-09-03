@@ -84,7 +84,10 @@ class SheetGroupsService(object):
         except Exception as e:
             print("ERROR saving groups: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
             return False
     
     def get_all_groups(self):

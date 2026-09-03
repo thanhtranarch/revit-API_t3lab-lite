@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 T3Lab Assistant
@@ -18,6 +19,39 @@ __version__ = "1.0.0"
 import io
 import os
 import sys
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
 import clr
 import json
 import re
@@ -33,6 +67,7 @@ from System import Uri, UriKind, Action
 from System.Threading import Thread, ThreadStart, ApartmentState
 
 from pyrevit import revit, forms, script
+from GUI.WPF_Base import T3WPFWindow
 from Autodesk.Revit import DB
 
 # DEFINE VARIABLES
@@ -474,16 +509,16 @@ def _get_tool_script_dir(*parts):
 def _load_script(name, script_path):
     """Load a tool script as a module. Works in both CPython and IronPython."""
     try:
-        import imp
-        return imp.load_source(name, script_path)
-    except ImportError:
-        pass
-    try:
         import importlib.util
         spec = importlib.util.spec_from_file_location(name, script_path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         return mod
+    except Exception:
+        pass
+    try:
+        import imp
+        return imp.load_source(name, script_path)
     except Exception:
         pass
     return None
@@ -717,7 +752,7 @@ def _get_uiapp():
     except Exception:
         pass
     try:
-        import __builtin__
+        import builtins as __builtin__
         from Autodesk.Revit.UI import UIApplication
         rvt = getattr(__builtin__, '__revit__', None)
         if rvt is None:
@@ -1158,7 +1193,7 @@ _MEM_SAVE_RX = re.compile(
 # CLASS/FUNCTIONS
 # ==================================================
 
-class T3LabAssistantWindow(forms.WPFWindow):
+class T3LabAssistantWindow(T3WPFWindow):
     """Standalone T3Lab Assistant chatbox window."""
 
     # Dynamic buttons added by _bootstrap_discovered_tools
@@ -1168,7 +1203,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self.is_docked = is_docked
         try:
             xaml_path = os.path.join(extension_dir, 'lib', 'GUI', 'Tools', 'T3LabAssistant.xaml')
-            forms.WPFWindow.__init__(self, xaml_path)
+            T3WPFWindow.__init__(self, xaml_path)
         except Exception as ex:
             logger.error(u"Could not load T3LabAssistant XAML: {}".format(_exc_text(ex)))
             raise

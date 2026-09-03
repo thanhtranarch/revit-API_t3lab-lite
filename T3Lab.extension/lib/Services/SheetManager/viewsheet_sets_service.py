@@ -37,7 +37,10 @@ class ViewSheetSetsService(object):
         except Exception as e:
             print("Error getting sheet sets: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
             return []
     
     def create_sheet_set(self, name):
@@ -57,7 +60,10 @@ class ViewSheetSetsService(object):
         except Exception as e:
             print("Error creating sheet set: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
             return None
     
     def delete_sheet_set(self, set_name):
@@ -76,7 +82,10 @@ class ViewSheetSetsService(object):
         except Exception as e:
             print("Error deleting sheet set: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
             return False
     
     def rename_sheet_set(self, sheet_set, new_name):

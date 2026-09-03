@@ -60,11 +60,11 @@ except Exception:
 _HAS_URLLIB = False
 if not _USE_NET:
     try:
-        from urllib2 import urlopen, Request  # Python 2 / IronPython
+        from urllib.request import urlopen, Request  # Python 3 / CPython
         _HAS_URLLIB = True
     except ImportError:
         try:
-            from urllib.request import urlopen, Request  # Python 3
+            from urllib2 import urlopen, Request     # Python 2 / IronPython
             _HAS_URLLIB = True
         except Exception:
             pass

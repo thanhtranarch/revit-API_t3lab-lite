@@ -3,7 +3,7 @@
 
 import os
 import codecs
-import __builtin__
+import builtins as __builtin__
 
 import clr
 clr.AddReference('System')
@@ -29,10 +29,12 @@ from System.Windows.Media import BrushConverter, SolidColorBrush
 from System.Windows.Data import Binding as WPFBinding
 from System.Windows.Controls import DataGridLength
 from System.Collections.ObjectModel import ObservableCollection
+from System import Object
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 from System.Reflection import BindingFlags
 
 from pyrevit import revit, DB, forms, script
+from GUI.WPF_Base import T3WPFWindow
 
 
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'ManaPara.xaml')
@@ -1665,9 +1667,9 @@ class LoaderGridRow(INotifyPropertyChanged):
 # MAIN WINDOW
 # ============================================================================
 
-class ManaParaWindow(forms.WPFWindow):
+class ManaParaWindow(T3WPFWindow):
     def __init__(self, script_dir, revit_obj):
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
         self._script_dir = script_dir
         self._revit = revit_obj
         self._doc = revit.doc
@@ -1853,7 +1855,7 @@ class ManaParaWindow(forms.WPFWindow):
                     continue
                 filtered.append(item)
 
-            self.dg_parameters.ItemsSource = ObservableCollection[object](filtered)
+            self.dg_parameters.ItemsSource = ObservableCollection[Object](filtered)
             self._set_status("Showing {} of {} parameters.".format(
                 len(filtered), len(self._all_param_items)))
         except Exception as ex:
@@ -2465,7 +2467,7 @@ class ManaParaWindow(forms.WPFWindow):
     def _refresh_loader_grid(self):
         """Populate dg_loader_params with current requirements."""
         try:
-            rows = ObservableCollection[object](
+            rows = ObservableCollection[Object](
                 [LoaderGridRow(r) for r in self._loader_requirements])
             self.dg_loader_params.ItemsSource = rows
         except Exception as ex:

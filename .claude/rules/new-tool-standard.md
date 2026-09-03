@@ -109,6 +109,7 @@ crash `EMPTYPROPERTYELEMENT` lúc mở tool) và mọi `Effect` (P2).
 ## 3 · `script.py` — khung bắt buộc
 
 ```python
+#! python3
 # -*- coding: utf-8 -*-
 """<Tên tool> — <một câu tool này làm gì>."""
 __title__ = 'Tên\nTool'
@@ -116,15 +117,23 @@ __author__ = 'T3Lab'
 
 # ── IMPORTS ──────────────────────────────────────────────────────────────
 import os
-from pyrevit import forms, script
+import sys
 
+# ── PATH SETUP ───────────────────────────────────────────────────────────
+SCRIPT_DIR = os.path.dirname(__file__)
+# 3 levels for non-stacked (Panel/Tool.pushbutton), 4 for stacked (Panel/Stack/Tool.pushbutton)
+EXT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
+LIB_DIR = os.path.join(EXT_DIR, 'lib')
+if LIB_DIR not in sys.path:
+    sys.path.insert(0, LIB_DIR)
+
+from pyrevit import forms, script, revit
 from Autodesk.Revit.DB import Transaction, FilteredElementCollector
 
 # ── CONSTANTS ────────────────────────────────────────────────────────────
-doc = __revit__.ActiveUIDocument.Document          # noqa: F821
-uidoc = __revit__.ActiveUIDocument                 # noqa: F821
-XAML_FILE = os.path.join(os.path.dirname(__file__),
-                         '..', '..', '..', 'lib', 'GUI', 'Tools', '<Tool>.xaml')
+doc = revit.doc
+uidoc = revit.uidoc
+XAML_FILE = os.path.join(LIB_DIR, 'GUI', 'Tools', '<Tool>.xaml')
 
 # ── WINDOW ───────────────────────────────────────────────────────────────
 class ToolWindow(forms.WPFWindow):
@@ -151,7 +160,15 @@ if __name__ == '__main__':
 | S6 | Không chọn gì / model rỗng → thông báo thân thiện, không stacktrace | |
 | S7 | Nạp dữ liệu grid trong `__init__`, không trong `Loaded` | Tránh trang trắng lúc mở |
 | S8 | Mọi `x:Name` dùng trong Python phải tồn tại trong XAML | Sai = `AttributeError` lúc runtime |
-| S9 | Không thêm dependency mới | IronPython 2.7 + .NET 4.8 + stock WPF |
+| S9 | Không thêm dependency mới | CPython 3 (pyRevit) + .NET + stock WPF |
+| S10 | Shebang `#! python3` bắt buộc ở dòng 1 | pyRevit định tuyến chạy CPython 3 (CPY3123) |
+| S11 | Path setup `sys.path.insert(0, LIB_DIR)` bắt buộc | Đảm bảo import `GUI`, `Snippets`, `Services` không phụ thuộc vào vị trí chạy |
+| S12 | .NET Interface phải có `__namespace__ = "T3Lab.<UniqueName>"` — **nhưng CHỈ dưới IronPython**, xem ô dưới | Tránh type collision trong dynamic assembly của PythonNet |
+| S13 | Cấm cú pháp Python 2 (`xrange`, `__builtin__`, `execfile`, `unicode`, `open(..., 'wb')` cho CSV) | Gây crash ngay lập tức trên Python 3 |
+| S14 | **Debug lỗi Revit bắt buộc đọc Journal**: Đọc file `%LOCALAPPDATA%\Autodesk\Revit\Autodesk Revit <Year>\Journals\journal.XXXX.txt` | Trích xuất stack trace thực tế, tuyệt đối không đoán mò |
+| S15 | **`__namespace__` phải bọc `if sys.version_info[0] < 3:`** khi class nằm trong `script.py` | Engine CPython là interpreter **thường trú**; `script.py` chạy lại mỗi lần click, mà `__namespace__` ghim cứng tên CLR type → lần click thứ 2 ném `TypeError: Duplicate type name within an assembly`. Bỏ `__namespace__` thì pythonnet tự sinh tên duy nhất. IronPython vẫn cần nó nên giữ trong nhánh `< 3`. Tốt nhất: đưa class đó vào `lib/` (chỉ import một lần mỗi phiên) |
+| S16 | **Không dùng `pyrevit.forms.*` trực tiếp** — dùng `GUI.T3Dialog`, hoặc thêm API vào `_cpython_bootstrap.install_forms_shim()` | `pyrevit/forms/__init__.py` có module `__getattr__` ném `PyRevitCPythonNotSupported` cho **mọi** thuộc tính dưới CPython |
+| S17 | **Mọi sửa đổi trong `lib/` cần Reload pyRevit** mới có hiệu lực | `sys.modules` sống suốt phiên Revit. Triệu chứng đánh lừa: pyRevit in traceback theo **file hiện tại trên đĩa** nhưng chạy **code cũ**, nên số dòng không khớp lỗi. Thấy lỗi vô lý so với dòng được chỉ → nghi module cũ trước khi nghi code |
 
 ---
 
@@ -166,11 +183,14 @@ if __name__ == '__main__':
 
 ---
 
-## 5 · Checklist trước khi commit
+## 5 · Checklist trước khi commit / sau khi debug
 
 ```
-[ ] python3 dev/audit_t3.py --quiet     → xanh
-[ ] python3 dev/audit_tools.py --quiet  → xanh
+[ ] Shebang `#! python3` ở dòng 1 của script.py
+[ ] Path setup chèn `lib_dir` vào sys.path
+[ ] python3 dev/audit_t3.py --quiet      → xanh (0 vi phạm)
+[ ] python3 dev/audit_tools.py --quiet   → xanh (clean)
+[ ] python3 dev/audit_cpython.py --quiet → 0 P0 (bẫy migration CPython)
 [ ] Pattern P1–P5 rõ ràng, size class đúng S/M/L
 [ ] Mở tool trong Revit: không lỗi, chrome hoạt động, không trang trắng
 [ ] Happy path đúng; Ctrl+Z revert đúng một bước

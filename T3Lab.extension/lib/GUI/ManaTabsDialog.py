@@ -3,8 +3,10 @@
 
 import os
 from pyrevit import forms
+from GUI.WPF_Base import T3WPFWindow
 from System.Windows import WindowState
 from System.Collections.ObjectModel import ObservableCollection
+from System import Object
 
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'ManaTabs.xaml')
 
@@ -13,13 +15,13 @@ class TabItemModel(object):
         self.Name = name
         self.IsChecked = is_checked
 
-class TabManagerWindow(forms.WPFWindow):
+class TabManagerWindow(T3WPFWindow):
     def __init__(self, current_lst):
         # WPFWindow.__init__ loads XAML
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
         
         self.all_items = [TabItemModel(item.item, item.state) for item in current_lst]
-        self.filtered_items = ObservableCollection[object]()
+        self.filtered_items = ObservableCollection[Object]()
         
         self.BtnApply.Click += self._on_apply
         self.BtnClose.Click += self._on_close

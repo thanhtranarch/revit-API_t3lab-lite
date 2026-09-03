@@ -2,7 +2,7 @@
 """Split Elements — event handling for the Split Elements launcher window."""
 
 import os
-import __builtin__
+import builtins as __builtin__
 
 from pyrevit import forms
 
@@ -14,12 +14,14 @@ except Exception:
     except Exception:
         _theme = None
 
+from GUI.WPF_Base import T3WPFWindow
+
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'SplitElements.xaml')
 
 
-class SplitElementsWindow(forms.WPFWindow):
+class SplitElementsWindow(T3WPFWindow):
     def __init__(self, script_dir, revit):
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
         self._script_dir = script_dir
         self._revit = revit
 
@@ -82,7 +84,8 @@ class SplitElementsWindow(forms.WPFWindow):
         g = {'__name__': '__main__', '__file__': script_path,
              '__builtins__': __builtin__, '__revit__': self._revit}
         try:
-            execfile(script_path, g)
+            with open(script_path, 'r', encoding='utf-8') as fh:
+                exec(compile(fh.read(), script_path, 'exec'), g)
         except Exception as ex:
             forms.alert("Error launching tool:\n{}".format(ex))
 

@@ -11,6 +11,7 @@ from __future__ import unicode_literals
 import os
 import sys
 from pyrevit import forms, script
+from GUI.WPF_Base import T3WPFWindow
 from System.Windows import WindowState
 from System.Windows.Media import BrushConverter
 
@@ -96,13 +97,13 @@ def apply_watcher_status(status, indicator, label, btn, resources):
 
 # ─── Dialog ────────────────────────────────────────────────────────────────────
 
-class MCPControlWindow(forms.WPFWindow):
+class MCPControlWindow(T3WPFWindow):
     """
     MCP Control dialog — thin UI layer over MCPService.
     """
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
 
         # MCP server events
         self.toggle_btn.Click    += self._on_toggle

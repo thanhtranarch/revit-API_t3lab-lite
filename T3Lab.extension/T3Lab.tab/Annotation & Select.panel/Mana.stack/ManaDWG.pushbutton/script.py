@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 DWG Management
@@ -19,6 +20,39 @@ __version__ = "1.1.0"
 # ==================================================
 import os
 import sys
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
 
 import clr
 clr.AddReference('PresentationFramework')
@@ -38,6 +72,7 @@ from Autodesk.Revit.DB import (
 )
 
 from pyrevit import revit, forms, script
+from GUI.WPF_Base import T3WPFWindow
 
 # PATH SETUP
 # ==================================================
@@ -55,8 +90,18 @@ from Snippets._compat import eid_value
 # ==================================================
 logger = script.get_logger()
 
-doc   = revit.doc
-uidoc = revit.uidoc
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
+try:
+    uidoc = revit.uidoc
+except Exception:
+    uidoc = None
 
 # FILTER CONSTANTS
 # ==================================================
@@ -147,11 +192,11 @@ def _collect_dwg_items(document):
 # WPF WINDOW
 # ==================================================
 
-class DWGManagementWindow(forms.WPFWindow):
+class DWGManagementWindow(T3WPFWindow):
     """WPF dialog for listing, renaming, and deleting CAD imports/links."""
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, XAML_FILE)
+        T3WPFWindow.__init__(self, XAML_FILE)
 
 
         self._all_items      = []

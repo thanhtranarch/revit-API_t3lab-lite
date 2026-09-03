@@ -14,6 +14,7 @@ clr.AddReference('RevitAPI')
 clr.AddReference('RevitAPIUI')
 
 from pyrevit import forms
+from GUI.WPF_Base import T3WPFWindow
 
 from Autodesk.Revit.DB import (
     FilteredElementCollector, BuiltInCategory, BuiltInParameter,
@@ -79,6 +80,7 @@ class _CategoryItem(object):
 # =============================================================================
 
 class TextNoteSelectionFilter(ISelectionFilter):
+    __namespace__ = "T3Lab.TextToElement"
     """ISelectionFilter that only allows TextNote elements."""
     def AllowElement(self, element):
         return isinstance(element, TextNote)
@@ -91,7 +93,7 @@ class TextNoteSelectionFilter(ISelectionFilter):
 # DIALOG CLASS
 # =============================================================================
 
-class TextToElementDialog(forms.WPFWindow):
+class TextToElementDialog(T3WPFWindow):
     """WPF dialog controller for Text to Element."""
 
     def __init__(self, revit_obj):
@@ -104,7 +106,7 @@ class TextToElementDialog(forms.WPFWindow):
         xaml_path = os.path.join(
             os.path.dirname(__file__), 'Tools', 'TextToElement.xaml'
         )
-        forms.WPFWindow.__init__(self, xaml_path)
+        T3WPFWindow.__init__(self, xaml_path)
 
         # Wire up window chrome handlers
         self.btn_minimize.Click += self._on_minimize

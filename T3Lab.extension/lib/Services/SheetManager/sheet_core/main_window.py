@@ -16,7 +16,10 @@ from System.Windows.Controls import Grid, StackPanel, Button, Orientation, RowDe
 from System.Windows.Media import SolidColorBrush, Color, Brushes
 import System
 
-from sheet_core.config import Config
+try:
+    from Services.SheetManager.sheet_core.config import Config
+except Exception:
+    from .config import Config
 
 
 class MainWindow(Window):
@@ -31,36 +34,36 @@ class MainWindow(Window):
         try:
             import sys
             import os
-            
+
             # Excel service
-            from excel_service import ExcelService
+            from Services.SheetManager.excel_service import ExcelService
             self.excel_service = ExcelService()
             print("DEBUG: Excel service initialized")
         except Exception as e:
             print("WARNING: Could not initialize Excel service: {}".format(str(e)))
             self.excel_service = None
-        
+
         try:
             # ViewSheet Sets service
-            from viewsheet_sets_service import ViewSheetSetsService
+            from Services.SheetManager.viewsheet_sets_service import ViewSheetSetsService
             self.sheet_sets_service = ViewSheetSetsService(doc)
             print("DEBUG: ViewSheet Sets service initialized")
         except Exception as e:
             print("WARNING: Could not initialize ViewSheet Sets service: {}".format(str(e)))
             self.sheet_sets_service = None
-        
+
         try:
             # Place Views service
-            from place_views_service import PlaceViewsService
+            from Services.SheetManager.place_views_service import PlaceViewsService
             self.place_views_service = PlaceViewsService(doc)
             print("DEBUG: Place Views service initialized")
         except Exception as e:
             print("WARNING: Could not initialize Place Views service: {}".format(str(e)))
             self.place_views_service = None
-        
+
         try:
             # Custom Parameters service
-            from custom_parameters_service import CustomParametersService
+            from Services.SheetManager.custom_parameters_service import CustomParametersService
             self.params_service = CustomParametersService(doc, __revit__.Application)
             print("DEBUG: Custom Parameters service initialized")
         except Exception as e:

@@ -39,6 +39,7 @@ from System.Windows.Controls import (
 )
 
 from pyrevit import revit, DB, forms
+from GUI.WPF_Base import T3WPFWindow
 
 # ============================================================
 # XAML PATH
@@ -904,7 +905,7 @@ class ScheduleItem(object):
 # MAIN WINDOW CLASS
 # ============================================================
 
-class ManaSchedWindow(forms.WPFWindow):
+class ManaSchedWindow(T3WPFWindow):
     """
     WPF host for ManaSched.xaml.
 
@@ -914,7 +915,7 @@ class ManaSchedWindow(forms.WPFWindow):
     """
 
     def __init__(self, script_dir, revit_obj):
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
         self._script_dir = script_dir
         self._revit      = revit_obj
         self._doc        = revit_obj.ActiveUIDocument.Document

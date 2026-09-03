@@ -8,12 +8,14 @@ clr.AddReference('WindowsBase')
 clr.AddReference('System.Windows.Forms')
 
 from System.Collections.ObjectModel import ObservableCollection
+from System import Object
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 from System.Windows import WindowState, Visibility
 from System.Windows.Controls import DataGridEditAction
 from System.Windows.Forms import OpenFileDialog, DialogResult
 
 from pyrevit import forms, DB, revit
+from GUI.WPF_Base import T3WPFWindow
 
 
 RESOLUTION_MAP = {0: 150, 1: 300, 2: 600}
@@ -51,9 +53,9 @@ _MIN_VERSION_DPI   = 2021
 def _injected_uiapp():
     """The UIApplication pyRevit injects as the `__revit__` builtin, or None."""
     try:
-        import __builtin__ as _b       # IronPython 2.7
-    except ImportError:
-        import builtins as _b          # CPython 3 engine
+        import builtins as _b
+    except Exception:
+        _b = None
     return getattr(_b, '__revit__', None)
 
 
@@ -231,7 +233,7 @@ class ViewItem(INotifyPropertyChanged):
         self.PageDisplay = str(n) if n else u"–"
 
 
-class PDFImportDialog(forms.WPFWindow):
+class PDFImportDialog(T3WPFWindow):
 
     def __init__(self):
         self._pdf_path  = None
@@ -248,7 +250,7 @@ class PDFImportDialog(forms.WPFWindow):
         self._version           = get_revit_version()
         self._doc, self._doc_err = resolve_doc()
 
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
 
         # Bind the persistent ObservableCollection and populate the grid
         # SYNCHRONOUSLY here — inside __init__, before ShowDialog(), while the
@@ -264,7 +266,7 @@ class PDFImportDialog(forms.WPFWindow):
         #   * Mutating a DataGrid-bound OC during the Loaded event happens
         #     mid-layout and can hard-crash the Revit host (the reported crash).
         # Populating before the window renders sidesteps both problems.
-        self._oc = ObservableCollection[object]()
+        self._oc = ObservableCollection[Object]()
         self.grid_views.ItemsSource = self._oc
         try:
             self._load_views()
@@ -440,7 +442,7 @@ class PDFImportDialog(forms.WPFWindow):
 
     def mode_changed(self, sender, args):
         # Guard: rb_sequential has IsChecked="True" in XAML, so this handler
-        # fires during forms.WPFWindow.__init__ (XAML parse) — before _oc is
+        # fires during T3WPFWindow.__init__(XAML parse) — before _oc is
         # created a few lines later. Bail out until the grid is populated.
         if self._oc is None:
             return

@@ -9,12 +9,12 @@ Copyright © 2025 Dang Quoc Truong (DQT)
 __author__ = "Dang Quoc Truong (DQT)"
 
 try:
-    from base_scanner import BaseAdvancedScanner
+    from .base_scanner import BaseAdvancedScanner
 except ImportError:
     import sys
     import os
     sys.path.insert(0, os.path.dirname(__file__))
-    from base_scanner import BaseAdvancedScanner
+    from .base_scanner import BaseAdvancedScanner
 
 from Autodesk.Revit.DB import FilteredElementCollector, Category
 

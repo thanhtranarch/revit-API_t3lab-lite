@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """Auto Adjust Base Offset
 Automatically adjusts Base Offset when changing Base Constraint to maintain element position.
@@ -21,17 +22,61 @@ Usage:
 
 Copyright (c) 2025 by Dang Quoc Truong (DQT)"""
 
+import os
+import sys
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
+
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI import *
 from Autodesk.Revit.UI.Selection import ObjectType
 from pyrevit import revit, forms, script
-import sys
 
 from Snippets._compat import eid_value
 
 # Get current document
-doc = __revit__.ActiveUIDocument.Document
-uidoc = __revit__.ActiveUIDocument
+# `__revit__` members are unavailable when no UIDocument is active, and at
+# module scope that kills the import outright. Resolve defensively; the entry
+# point reports the real problem (see Snippets._host.resolve_doc()).
+try:
+    doc = __revit__.ActiveUIDocument.Document
+except Exception:
+    doc = None
+try:
+    uidoc = __revit__.ActiveUIDocument
+except Exception:
+    uidoc = None
 
 def get_all_levels():
     """Get all levels in the project sorted by elevation"""
@@ -221,6 +266,12 @@ def main():
                 from Autodesk.Revit.UI.Selection import ISelectionFilter
                 
                 class ElementSelectionFilter(ISelectionFilter):
+                    # IronPython only: __namespace__ pins the generated CLR type
+                    # name, so re-running this script.py on the next click raises
+                    # "Duplicate type name within an assembly". pythonnet
+                    # auto-uniquifies when it is absent, which is what we want.
+                    if sys.version_info[0] < 3:
+                        __namespace__ = "T3Lab.WallAdjustBase"
                     def AllowElement(self, elem):
                         return isinstance(elem, (Wall, Floor)) or is_column(elem) or is_beam(elem)
                     

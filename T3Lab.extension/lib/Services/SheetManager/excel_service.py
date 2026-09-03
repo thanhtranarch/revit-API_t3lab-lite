@@ -8,6 +8,23 @@ Copyright © Dang Quoc Truong (DQT)
 import os
 import sys
 
+try:
+    _unicode = unicode
+except NameError:
+    _unicode = str
+
+def _open_csv_write(filepath):
+    if sys.version_info[0] >= 3:
+        return open(filepath, 'w', newline='', encoding='utf-8')
+    return open(filepath, 'wb')
+
+def _csv_cell(val):
+    if val is None:
+        return ""
+    if sys.version_info[0] >= 3:
+        return str(val)
+    return val.encode('utf-8') if isinstance(val, _unicode) else str(val)
+
 
 class ExcelService(object):
     """Handle Excel import/export operations"""
@@ -110,7 +127,10 @@ class ExcelService(object):
         except Exception as e:
             print("Error exporting to Excel: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
             return False
     
     def _export_to_csv(self, sheet_models, filepath):
@@ -118,7 +138,7 @@ class ExcelService(object):
         try:
             import csv
             
-            with open(filepath, 'wb') as f:
+            with _open_csv_write(filepath) as f:
                 writer = csv.writer(f)
                 
                 # Header
@@ -134,12 +154,12 @@ class ExcelService(object):
                 # Data
                 for sheet_model in sheet_models:
                     writer.writerow([
-                        sheet_model.sheet_number.encode('utf-8') if isinstance(sheet_model.sheet_number, unicode) else sheet_model.sheet_number,
-                        sheet_model.sheet_name.encode('utf-8') if isinstance(sheet_model.sheet_name, unicode) else sheet_model.sheet_name,
-                        sheet_model.designed_by.encode('utf-8') if isinstance(sheet_model.designed_by, unicode) else sheet_model.designed_by,
-                        sheet_model.checked_by.encode('utf-8') if isinstance(sheet_model.checked_by, unicode) else sheet_model.checked_by,
-                        sheet_model.drawn_by.encode('utf-8') if isinstance(sheet_model.drawn_by, unicode) else sheet_model.drawn_by,
-                        sheet_model.approved_by.encode('utf-8') if isinstance(sheet_model.approved_by, unicode) else sheet_model.approved_by
+                        _csv_cell(getattr(sheet_model, 'sheet_number', '')),
+                        _csv_cell(getattr(sheet_model, 'sheet_name', '')),
+                        _csv_cell(getattr(sheet_model, 'designed_by', '')),
+                        _csv_cell(getattr(sheet_model, 'checked_by', '')),
+                        _csv_cell(getattr(sheet_model, 'drawn_by', '')),
+                        _csv_cell(getattr(sheet_model, 'approved_by', ''))
                     ])
             
             return True
@@ -173,7 +193,10 @@ class ExcelService(object):
         except Exception as e:
             print("Error importing from Excel: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
             return None
 
     # ── Dict-based API used by the Sheet Manager dialog (ManaSheetsDialog) ──────
@@ -221,23 +244,24 @@ class ExcelService(object):
         except Exception as e:
             print("Error exporting sheets to Excel: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
             return False
 
     def _export_dicts_to_csv(self, sheet_dicts, filepath):
         """CSV fallback for export_sheets when openpyxl is unavailable."""
         try:
             import csv
-            with open(filepath, 'wb') as f:
+            with _open_csv_write(filepath) as f:
                 writer = csv.writer(f)
                 writer.writerow([label for label, _key in self._EXPORT_COLUMNS])
                 for data in sheet_dicts:
                     row_vals = []
                     for _label, key in self._EXPORT_COLUMNS:
                         v = data.get(key, "")
-                        if isinstance(v, unicode):
-                            v = v.encode('utf-8')
-                        row_vals.append(v)
+                        row_vals.append(_csv_cell(v))
                     writer.writerow(row_vals)
             return True
         except Exception as e:
@@ -268,7 +292,7 @@ class ExcelService(object):
             for idx, label in enumerate(header):
                 if label is None:
                     continue
-                key = self._HEADER_TO_KEY.get(unicode(label).strip().lower())
+                key = self._HEADER_TO_KEY.get(_unicode(label).strip().lower())
                 if key is not None:
                     col_of[key] = idx
             if "id" not in col_of and "sheet_number" not in col_of:
@@ -303,5 +327,8 @@ class ExcelService(object):
         except Exception as e:
             print("Error importing sheets from Excel: {}".format(str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
             return None

@@ -42,8 +42,18 @@ from Autodesk.Revit.DB import (
 
 from pyrevit import forms, script, revit
 
-uidoc = revit.uidoc
-doc = revit.doc
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    uidoc = revit.uidoc
+except Exception:
+    uidoc = None
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
 app = doc.Application
 
 # ==============================================================================

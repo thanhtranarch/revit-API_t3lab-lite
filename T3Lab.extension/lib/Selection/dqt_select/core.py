@@ -15,9 +15,12 @@ from pyrevit import forms
 from Autodesk.Revit.DB import FilteredElementCollector
 
 try:
-    from dqt_select.compat import eid_int, to_element_id_list, notify
-except ImportError:
-    from compat import eid_int, to_element_id_list, notify
+    from .compat import eid_int, to_element_id_list, notify
+except (ImportError, ValueError):
+    try:
+        from Selection.dqt_select.compat import eid_int, to_element_id_list, notify
+    except (ImportError, ValueError):
+        from dqt_select.compat import eid_int, to_element_id_list, notify
 
 
 # ----------------------------------------------------------------------------

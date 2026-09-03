@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 Image To Drafting View  v4.0
@@ -28,6 +29,41 @@ __author__  = "Tran Tien Thanh"
 __version__ = "4.0.0"
 
 import os
+import sys
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
+
 import re
 import glob as _glob
 import tempfile
@@ -50,8 +86,7 @@ from System import Uri
 import Microsoft.Win32
 
 from pyrevit import revit, DB, forms, script
-
-import sys
+from GUI.WPF_Base import T3WPFWindow
 # Put the extension's lib/ on sys.path so GUI.ProgressPauseMixin imports
 # (mirror main()'s "walk up to T3Lab.extension" logic).
 _ext_dir = os.path.dirname(__file__)
@@ -66,7 +101,14 @@ if _lib_dir not in sys.path:
 
 from GUI.ProgressPauseMixin import ProgressPauseMixin
 
-doc = revit.doc
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1193,7 +1235,7 @@ def save_binary_bmp(bmp_path, binary_bytes, w, h, stride):
 # WPF WINDOW
 # ══════════════════════════════════════════════════════════════════════════════
 
-class ImageToDraftingWindow(forms.WPFWindow, ProgressPauseMixin):
+class ImageToDraftingWindow(T3WPFWindow, ProgressPauseMixin):
 
     # ProgressPauseMixin — ImageToDrafting.xaml footer progress panel
     PP_PANEL      = "i2d_progress_panel"
@@ -1206,7 +1248,7 @@ class ImageToDraftingWindow(forms.WPFWindow, ProgressPauseMixin):
     PP_STOP_MSG   = u"Stopping… finishing current line"
 
     def __init__(self, xaml_file):
-        forms.WPFWindow.__init__(self, xaml_file)
+        T3WPFWindow.__init__(self, xaml_file)
         self.image_path   = None   # path to BMP ready for potrace
         self.pdf_path     = None   # original PDF path (None for images)
         self.gs_path      = None   # cached Ghostscript path

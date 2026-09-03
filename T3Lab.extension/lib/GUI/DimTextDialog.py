@@ -30,10 +30,21 @@ from System.Windows.Controls import Orientation as WPFOrientation
 from System.Windows.Media import SolidColorBrush, Color, FontFamily as WPFFontFamily
 from Autodesk.Revit.DB import Dimension, FilteredElementCollector, Transaction
 from pyrevit import revit, forms, script
+from GUI.WPF_Base import T3WPFWindow
 
 # ── VARIABLES ─────────────────────────────────────────────────────────────────
-uidoc  = revit.uidoc
-doc    = revit.doc
+# `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
+# UIDocument is active. At module scope that kills the import outright, so the
+# tool dies before it can explain itself. Resolve defensively and let the entry
+# point report the real problem.
+try:
+    uidoc = revit.uidoc
+except Exception:
+    uidoc = None
+try:
+    doc = revit.doc
+except Exception:
+    doc = None
 logger = script.get_logger()
 
 XAML_PATH = os.path.join(os.path.dirname(__file__), "Tools", "DimText.xaml")
@@ -108,10 +119,10 @@ def _get_selected_dims():
 
 
 # ── WINDOW ────────────────────────────────────────────────────────────────────
-class DimTextWindow(forms.WPFWindow):
+class DimTextWindow(T3WPFWindow):
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, XAML_PATH)
+        T3WPFWindow.__init__(self, XAML_PATH)
         self._rules = []  # list of dicts: {panel, combo, txt1, txt2, lbl_and, lbl_mm2}
         # Pre-cache all named controls immediately so they remain accessible after
         # the content grid is detached from this Window and embedded into a parent.

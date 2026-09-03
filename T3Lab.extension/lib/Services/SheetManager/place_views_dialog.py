@@ -567,7 +567,8 @@ class PlaceViewsDialog(Window):
     def _populate_sheet_grid(self):
         """Populate target sheet DataGrid."""
         import System.Collections.ObjectModel as OCM
-        rows = OCM.ObservableCollection[object]()
+        from System import Object
+        rows = OCM.ObservableCollection[Object]()
 
         for sheet in self._sheets:
             row = SheetRow()
@@ -675,7 +676,10 @@ class PlaceViewsDialog(Window):
             MessageBox.Show("Error: {}".format(str(ex)), "Error",
                             MessageBoxButton.OK, MessageBoxImage.Error)
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
 
     def _do_place(self, views, mode, rows, cols):
         """Core placement logic. Returns count of placed viewports."""

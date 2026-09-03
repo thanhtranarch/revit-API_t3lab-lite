@@ -82,8 +82,6 @@ class AssistantPaneProvider(IDockablePaneProvider):
 
     def SetupDockablePane(self, data):
         try:
-            import imp
-            
             # Load the pushbutton script.py as a module to get T3LabAssistantWindow
             tab_dir = os.path.join(_EXT_DIR, 'T3Lab.tab')
             script_path = os.path.join(
@@ -94,8 +92,15 @@ class AssistantPaneProvider(IDockablePaneProvider):
                     sys.path.insert(0, _LIB_DIR)
                 if _EXT_DIR not in sys.path:
                     sys.path.insert(0, _EXT_DIR)
-                    
-                mod = imp.load_source('t3lab_assistant_full', script_path)
+
+                try:
+                    import importlib.util
+                    spec = importlib.util.spec_from_file_location('t3lab_assistant_full', script_path)
+                    mod = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(mod)
+                except Exception:
+                    import imp
+                    mod = imp.load_source('t3lab_assistant_full', script_path)
                 if hasattr(mod, 'T3LabAssistantWindow'):
                     # Instantiate on UI thread as docked
                     win = mod.T3LabAssistantWindow(is_docked=True)

@@ -29,7 +29,12 @@ sys.path.append(os.path.dirname(__file__))
 # Add parent of Selection folder to find Selection
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-import QuickElementDialog
+try:
+    from GUI import QuickElementDialog
+except Exception:
+    import QuickElementDialog
+
+from GUI.WPF_Base import T3WPFWindow
 
 # Import dqt selection logic
 from Selection.dqt_select import core as dqt_core
@@ -38,9 +43,9 @@ from Selection.dqt_select import compat as dqt_compat
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'ManaSelect.xaml')
 
 
-class ManaSelectWindow(forms.WPFWindow):
+class ManaSelectWindow(T3WPFWindow):
     def __init__(self):
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
         self.uidoc = revit.uidoc
         self.doc = revit.doc
 

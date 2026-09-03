@@ -1,7 +1,7 @@
 # T3Lab pyRevit Extension
 
 pyRevit extension for Revit automation.
-Framework: IronPython 2.7 + WPF + Revit API
+Framework: CPython 3 (Python 3.12+ via pyRevit) + WPF + Revit API
 
 ## Rules
 - **UI standard — one source, no exceptions:** `pyRevit UI Design System/T3LAB_UI_STANDARD.md` + `pyRevit UI Design System/T3Lab.Styles.xaml`. Read both before any UI work. Every colour, size, margin and control style comes from `{StaticResource T3.*}`; a tool XAML never defines its own brush, style or hex.
@@ -11,6 +11,16 @@ Framework: IronPython 2.7 + WPF + Revit API
 - The runtime stylesheet is `T3Lab.extension/lib/GUI/Resources/T3Lab.Styles.xaml`, generated from the reference copy by `python3 dev/sync_t3_styles.py` (`--check` to verify). Edit the reference in `pyRevit UI Design System/`, never the deployed copy.
 - **The old standards are dead and their files are gone** (2026-08-28). Lumina, Revit-native, Terra v2 and Kinetix are no longer binding; `.claude/rules/ui-design-standard.md`, `.claude/standard/UIStandardShowcase.xaml`, `.claude/docs/wpf-window-templates.md`, `dev/audit_ui.py` and `dev/sync_wpf_styles.py` were deleted with the cleanup — recover them from git history if you ever need the old wording. `lib/GUI/Resources/WPF_styles.xaml` and the `T3LAB SHARED STYLES` block inside the 51 unmigrated XAMLs are frozen legacy: no longer synced, and they disappear file by file as migration proceeds.
 - Migration is governed by `docs/ui-governance/08-design-system-authority.md` — read it before editing any XAML. Full migration of a file requires QA in Revit before it counts as done.
+- **Gates check is mandatory:** `python3 dev/audit_t3.py --quiet` (UI gate) + `python3 dev/audit_tools.py --quiet` (static gate). Both must be GREEN before committing any fix or feature.
+- **Debugging & Error Prevention Protocol:**
+  1. **Revit Journal First:** Khi gặp "Command Failure for External Command" hoặc Revit crash không có dialog chi tiết, **tuyệt đối không đoán mò nguyên nhân**. Mở và đọc ngay file Revit Journal mới nhất tại `%LOCALAPPDATA%\Autodesk\Revit\Autodesk Revit <Year>\Journals\journal.XXXX.txt` để trích xuất exception và stack trace thực tế.
+  2. **CPython Shebang:** Mọi pushbutton `script.py` bắt buộc có `#! python3` ở dòng đầu tiên.
+  3. **Path Bootstrap:** Mọi pushbutton `script.py` phải đảm bảo `lib_dir` được thêm vào `sys.path`: `if lib_dir not in sys.path: sys.path.insert(0, lib_dir)`.
+  4. **WPF dưới CPython:** pyRevit `forms.WPFWindow` gốc ném `PyRevitCPythonNotSupported`. Mọi UI window phải dùng `T3WPFWindow` (từ `GUI.WPF_Base` hoặc `from GUI.forms import WPFWindow`), tự động xử lý tách event handlers cho `XamlReader`.
+  5. **.NET Interface Namespaces:** Mọi class triển khai .NET interface (`ISelectionFilter`, `IExternalEventHandler`, `IFailuresPreprocessor`) bắt buộc khai báo `__namespace__ = "T3Lab.<UniqueName>"` để tránh type collision trong PythonNet.
+  6. **Cấm cú pháp Python 2:** Không tái phạm cú pháp Python 2 cũ (`xrange`, `__builtin__`, `execfile`, `unicode`, `open(..., 'wb')` cho CSV, `urllib2`).
+  7. **Engine Hot-Reload Awareness:** Đổi engine hoặc sửa runtime assembly trong khi Revit đang mở có thể gây race condition nạp nóng PythonNet (`set_PythonDLL: This property must be set before runtime is initialized`) ở cú click đầu tiên. Khi đổi cấu hình engine, cần reload pyRevit sạch hoặc khởi động lại Revit.
+  8. **CPython Standard Library Isolation (`configparser`, v.v.):** pyRevit CPython chạy nhúng trong Revit.exe nên không tự động nhận `python312.zip`. Mọi pushbutton `script.py` bắt buộc có khối bootstrap (`_cpython_bootstrap` từ `lib`) ở đầu file trước khi import `pyrevit` để đảm bảo nạp thư viện chuẩn Python 3 (`configparser`, `json`, `email`, v.v.) vào `sys.path`.
 - XAML files go in `T3Lab.extension/lib/GUI/Tools/`
 - Python dialog classes stay in `T3Lab.extension/lib/GUI/`
 - Keep Revit API logic separate from WPF/UI code

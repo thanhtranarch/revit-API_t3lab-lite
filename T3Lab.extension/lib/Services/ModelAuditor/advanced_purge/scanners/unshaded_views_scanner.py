@@ -14,7 +14,7 @@ __author__ = "Dang Quoc Truong (DQT)"
 from Autodesk.Revit.DB import (
     FilteredElementCollector, ViewSheet, View, ViewType
 )
-from base_scanner import BaseAdvancedScanner
+from .base_scanner import BaseAdvancedScanner
 
 
 class UnshadedViewsScanner(BaseAdvancedScanner):

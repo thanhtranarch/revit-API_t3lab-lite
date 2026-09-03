@@ -98,7 +98,10 @@ class CustomParametersService(object):
         except Exception as e:
             print("Error setting parameter '{}': {}".format(param_name, str(e)))
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
             return False
     
     def bulk_update_parameter(self, sheets, param_name, value):

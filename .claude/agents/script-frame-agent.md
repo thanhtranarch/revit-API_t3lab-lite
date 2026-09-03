@@ -13,6 +13,7 @@ Apply the canonical **BatchOut script frame** to a target `script.py`. This agen
 
 ### 1 — File Header
 ```python
+#! python3
 # -*- coding: utf-8 -*-
 """
 <Tool Name>
@@ -67,7 +68,7 @@ from Autodesk.Revit.DB import (
 extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 lib_dir = os.path.join(extension_dir, 'lib')
 if lib_dir not in sys.path:
-    sys.path.append(lib_dir)
+    sys.path.insert(0, lib_dir)
 ```
 
 ### 4 — Optional feature imports (if the tool already has try/except imports, keep them here)
@@ -182,5 +183,7 @@ if __name__ == '__main__':
 
 1. Read the target `script.py` fully (may need multiple reads for large files)
 2. Identify all deviations from the frame above
-3. Edit the file in minimal targeted patches — do NOT rewrite the whole file
-4. Verify by grepping for `logo_image` (must not appear), `__revit__` (must not appear as doc/uidoc source), and `if __name__` (must appear at bottom)
+3. Ensure shebang `#! python3` is at line 1
+4. Edit the file in minimal targeted patches — do NOT rewrite the whole file
+5. Verify by grepping for `logo_image` (must not appear), `__revit__` (must not appear as doc/uidoc source), and `if __name__` (must appear at bottom)
+6. Run `python dev/audit_tools.py --quiet` to ensure frame passes CPython audit cleanly

@@ -21,8 +21,8 @@ from Autodesk.Revit.DB import BuiltInCategory, FamilyInstance
 
 try:
     from Snippets._compat import eid_value
-except ImportError:      # running from inside the Snippets package
-    from _compat import eid_value
+except (ImportError, ValueError):      # running from inside the Snippets package
+    from ._compat import eid_value
 
 
 # Categories whose elements have no meaningful "Type", so "select similar by

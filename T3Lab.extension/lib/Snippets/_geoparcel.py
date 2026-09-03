@@ -33,15 +33,15 @@ __all__ = [
 
 # ── HTTP plumbing (IronPython 2.7 / CPython 3) ───────────────────────────────
 try:
-    import urllib2 as _u2
-except ImportError:
-    _u2 = None
-try:
     import urllib.request as _urq
     import urllib.parse as _upa
 except ImportError:
     _urq = None
     _upa = None
+try:
+    import urllib2 as _u2
+except ImportError:
+    _u2 = None
 
 # Inside Revit the .NET stack is available and is the only HTTP path with an
 # unambiguous text decode - see _http_dotnet below.
@@ -211,12 +211,12 @@ def url_quote(text, safe=""):
             text = text.encode("utf-8")
     except NameError:
         pass
-    if _u2 is not None:
-        return _u2.quote(text, safe=safe)
     if _upa is not None:
         if isinstance(text, bytes):
             text = text.decode("utf-8")
         return _upa.quote(text, safe=safe)
+    if _u2 is not None:
+        return _u2.quote(text, safe=safe)
     out = []
     safe_set = set(safe)
     for byte in bytearray(_to_bytes(text)):
@@ -323,19 +323,6 @@ def http_request(url, data=None, headers=None, timeout=25):
                 raise
             _log("System.Net path unusable, falling back to urllib: {}".format(ex))
 
-    if _u2 is not None:
-        req = _u2.Request(url, body)
-        for key, val in hdrs.items():
-            req.add_header(key, val)
-        try:
-            resp = _u2.urlopen(req, timeout=timeout)
-            return resp.getcode(), _to_text(resp.read())
-        except _u2.HTTPError as err:
-            try:
-                return err.code, _to_text(err.read())
-            except Exception:
-                return err.code, u""
-
     if _urq is not None:
         req = _urq.Request(url, data=body, headers=hdrs)
         try:
@@ -349,7 +336,20 @@ def http_request(url, data=None, headers=None, timeout=25):
                     return err.code, u""
             raise
 
-    raise RuntimeError("No HTTP library available (urllib2 / urllib.request)")
+    if _u2 is not None:
+        req = _u2.Request(url, body)
+        for key, val in hdrs.items():
+            req.add_header(key, val)
+        try:
+            resp = _u2.urlopen(req, timeout=timeout)
+            return resp.getcode(), _to_text(resp.read())
+        except _u2.HTTPError as err:
+            try:
+                return err.code, _to_text(err.read())
+            except Exception:
+                return err.code, u""
+
+    raise RuntimeError("No HTTP library available (urllib.request / urllib2)")
 
 
 # ── geometry helpers (equirectangular - exact enough at parcel scale) ────────

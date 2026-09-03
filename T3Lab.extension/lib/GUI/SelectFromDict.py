@@ -14,7 +14,7 @@ import os
 
 from pyrevit import forms
 
-from GUI.forms import my_WPF
+from GUI.WPF_Base import my_WPF
 
 import clr
 clr.AddReference("System")

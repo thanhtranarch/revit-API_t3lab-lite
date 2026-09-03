@@ -31,12 +31,43 @@ FALLBACK_VERSION = 2023
 
 
 def injected_uiapp():
-    """The UIApplication pyRevit injects as the `__revit__` builtin, or None."""
+    """The UIApplication pyRevit injects as `__revit__`, or None.
+
+    Under IronPython `__revit__` is a real builtin. Under the CPython engine it
+    is injected into the *executing script's* globals instead, so a library
+    module like this one never sees it in builtins — which silently made every
+    caller fall through to "no Revit application" and turned a working model
+    into a "no document is open" message. Probe both, then the call stack.
+    """
     try:
-        import __builtin__ as _b        # IronPython 2.7
-    except ImportError:
-        import builtins as _b           # CPython 3 engine
-    return getattr(_b, '__revit__', None)
+        import builtins as _b
+        uiapp = getattr(_b, '__revit__', None)
+        if uiapp is not None:
+            return uiapp
+    except Exception:
+        pass
+
+    # CPython engine: __revit__ lives in the running script's globals.
+    try:
+        import sys
+        uiapp = getattr(sys.modules.get('__main__'), '__revit__', None)
+        if uiapp is not None:
+            return uiapp
+    except Exception:
+        pass
+
+    try:
+        import inspect
+        frame = inspect.currentframe()
+        while frame is not None:
+            uiapp = frame.f_globals.get('__revit__')
+            if uiapp is not None:
+                return uiapp
+            frame = frame.f_back
+    except Exception:
+        pass
+
+    return None
 
 
 def host_uiapp():
@@ -47,7 +78,19 @@ def host_uiapp():
             return HOST_APP.uiapp
     except Exception:
         pass
-    return injected_uiapp()
+
+    uiapp = injected_uiapp()
+    if uiapp is not None:
+        return uiapp
+
+    try:
+        from pyrevit import EXEC_PARAMS
+        if EXEC_PARAMS.uiapp is not None:
+            return EXEC_PARAMS.uiapp
+    except Exception:
+        pass
+
+    return None
 
 
 def get_revit_version(default=FALLBACK_VERSION):

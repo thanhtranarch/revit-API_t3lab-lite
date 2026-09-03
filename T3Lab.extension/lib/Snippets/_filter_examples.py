@@ -17,9 +17,21 @@ import clr, os
 from Autodesk.Revit.DB import *
 
 #>>>>>>>>>> VARIABLES
-doc = __revit__.ActiveUIDocument.Document
-uidoc = __revit__.ActiveUIDocument
-app = __revit__.Application
+# `__revit__` members are unavailable when no UIDocument is active, and at
+# module scope that kills the import outright. Resolve defensively; the entry
+# point reports the real problem (see Snippets._host.resolve_doc()).
+try:
+    doc = __revit__.ActiveUIDocument.Document
+except Exception:
+    doc = None
+try:
+    uidoc = __revit__.ActiveUIDocument
+except Exception:
+    uidoc = None
+try:
+    app = __revit__.Application
+except Exception:
+    app = None
 
 #>>>>>>>>>> STRING FILTER
 def create_string_filter(key_parameter, element_value, caseSensitive = True):

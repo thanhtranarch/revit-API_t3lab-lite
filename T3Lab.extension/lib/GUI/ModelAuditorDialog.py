@@ -11,6 +11,23 @@ import csv
 import traceback
 from collections import OrderedDict, defaultdict
 
+try:
+    _unicode = unicode
+except NameError:
+    _unicode = str
+
+def _open_csv_write(filepath):
+    if sys.version_info[0] >= 3:
+        return open(filepath, "w", newline="", encoding="utf-8")
+    return open(filepath, "wb")
+
+def _csv_cell(val):
+    if val is None:
+        return ""
+    if sys.version_info[0] >= 3:
+        return str(val)
+    return val.encode("utf-8") if isinstance(val, _unicode) else str(val)
+
 import clr
 clr.AddReference('System')
 clr.AddReference('PresentationCore')
@@ -23,9 +40,11 @@ import System
 from System.Windows import (WindowState, MessageBox, MessageBoxButton, MessageBoxImage, Visibility, Thickness)
 from System.Windows.Controls import (TabControl, TabItem, RadioButton, ComboBox, ListBox, DataGrid)
 from System.Collections.ObjectModel import ObservableCollection
+from System import Object
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 from pyrevit import forms, DB, script, revit
+from GUI.WPF_Base import T3WPFWindow
 from GUI.ProgressPauseMixin import ProgressPauseMixin
 from Autodesk.Revit.DB import (
     FilteredElementCollector, BuiltInCategory, BuiltInParameter, ElementId,
@@ -830,7 +849,7 @@ def parse_slog_time(time_str):
 # ============================================================================
 # MAIN AUDITOR WINDOW
 # ============================================================================
-class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
+class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
 
     # ProgressPauseMixin — ModelAuditor.xaml footer progress panel
     PP_PANEL      = "ma_progress_panel"
@@ -843,7 +862,7 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
     PP_STOP_MSG   = u"Stopping… finishing current step"
 
     def __init__(self, script_dir, revit):
-        forms.WPFWindow.__init__(self, _XAML)
+        T3WPFWindow.__init__(self, _XAML)
         self._script_dir = script_dir
         self._revit = revit
         self.doc = revit.ActiveUIDocument.Document
@@ -1300,16 +1319,16 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
             if not filepath:
                 return
             
-            with open(filepath, "wb") as f:
+            with _open_csv_write(filepath) as f:
                 import csv
                 writer = csv.writer(f)
                 writer.writerow(["Metric", "Value", "Status", "Recommendation"])
                 for row in self.dg_health_metrics.ItemsSource:
                     writer.writerow([
-                        row.label.encode("utf-8") if isinstance(row.label, unicode) else row.label,
-                        row.value_str.encode("utf-8") if isinstance(row.value_str, unicode) else row.value_str,
-                        row.status_title_full.encode("utf-8") if isinstance(row.status_title_full, unicode) else row.status_title_full,
-                        row.recommendation.encode("utf-8") if isinstance(row.recommendation, unicode) else row.recommendation
+                        _csv_cell(getattr(row, 'label', '')),
+                        _csv_cell(getattr(row, 'value_str', '')),
+                        _csv_cell(getattr(row, 'status_title_full', '')),
+                        _csv_cell(getattr(row, 'recommendation', ''))
                     ])
             forms.alert("Health report exported successfully to:\n\n{}".format(filepath), title="Model Health Check")
         except Exception as ex:
@@ -1364,7 +1383,10 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
                 self.status_text.Text = "Compliance check complete. Rules run: {}, Fails: {}".format(len(results), fails)
         except Exception as ex:
             forms.alert("Failed to run compliance check:\n{}".format(ex), title="Error")
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
         finally:
             self.end_progress()
 
@@ -1379,17 +1401,17 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
             return
         
         try:
-            with open(filepath, "wb") as f:
+            with _open_csv_write(filepath) as f:
                 writer = csv.writer(f)
                 writer.writerow(["ID", "Category", "Severity", "Rule Name", "Result", "Details"])
                 for item in items:
                     writer.writerow([
-                        item.get("id", "").encode("utf-8") if isinstance(item.get("id"), unicode) else item.get("id", ""),
-                        item.get("category", "").encode("utf-8") if isinstance(item.get("category"), unicode) else item.get("category", ""),
-                        item.get("severity", "").encode("utf-8") if isinstance(item.get("severity"), unicode) else item.get("severity", ""),
-                        item.get("name", "").encode("utf-8") if isinstance(item.get("name"), unicode) else item.get("name", ""),
-                        item.get("status", "").encode("utf-8") if isinstance(item.get("status"), unicode) else item.get("status", ""),
-                        item.get("message", "").encode("utf-8") if isinstance(item.get("message"), unicode) else item.get("message", "")
+                        _csv_cell(item.get("id", "")),
+                        _csv_cell(item.get("category", "")),
+                        _csv_cell(item.get("severity", "")),
+                        _csv_cell(item.get("name", "")),
+                        _csv_cell(item.get("status", "")),
+                        _csv_cell(item.get("message", ""))
                     ])
             forms.alert("Report exported successfully to:\n\n{}".format(filepath), title="Compliance Checker")
         except Exception as ex:
@@ -1424,7 +1446,10 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
             self.status_text.Text = "Loaded {} warnings in {} unique groups".format(len(warnings), len(grid_data))
         except Exception as ex:
             print("Error loading warnings: {}".format(ex))
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
 
     def on_warning_group_changed(self, sender, e):
         selected = self.dg_warning_groups.SelectedItem
@@ -1501,7 +1526,10 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
                 forms.alert("No duplicate elements could be collected for deletion.", title="Warning Manager")
         except Exception as ex:
             forms.alert("Error resolving duplicates:\n{}".format(ex))
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
 
     def on_warning_export(self, sender, e):
         groups = self.dg_warning_groups.ItemsSource
@@ -1514,13 +1542,13 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
             return
         
         try:
-            with open(filepath, "wb") as f:
+            with _open_csv_write(filepath) as f:
                 writer = csv.writer(f)
                 writer.writerow(["Warning Description", "Count", "Element IDs"])
                 for g in groups:
                     ids_str = ";".join([str(eid) for eid in g.get("element_ids", [])])
                     writer.writerow([
-                        g.get("description", "").encode("utf-8") if isinstance(g.get("description"), unicode) else g.get("description", ""),
+                        _csv_cell(g.get("description", "")),
                         g.get("count", 0),
                         ids_str
                     ])
@@ -1562,7 +1590,7 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
 
             cancelled = self.is_cancelled
             self.end_progress()
-            self.dg_smart_purge.ItemsSource = ObservableCollection[object](self.purge_items)
+            self.dg_smart_purge.ItemsSource = ObservableCollection[Object](self.purge_items)
             if cancelled:
                 self.status_text.Text = "Smart Purge scan cancelled. Unused items found so far: {}".format(len(self.purge_items))
             else:
@@ -1570,7 +1598,10 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
         except Exception as ex:
             self.end_progress()
             forms.alert("Failed to load smart purge elements:\n{}".format(ex))
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
 
     def on_smart_purge_check_all(self, sender, e):
         if hasattr(self, 'purge_items') and self.purge_items:
@@ -1607,7 +1638,10 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
             self.load_smart_purge()
         except Exception as ex:
             forms.alert("Error executing purge:\n{}".format(ex))
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
 
     def on_adv_purge_run(self, sender, e):
         # Gather selections
@@ -1694,7 +1728,10 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
             self.status_text.Text = "Deep Purge complete. Deleted: {}".format(len(deleted))
         except Exception as ex:
             forms.alert("Advanced Purge failed:\n{}".format(ex))
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
 
     def on_delete_analyze(self, sender, e):
         id_str = self.tb_delete_ids.Text.strip()
@@ -1726,7 +1763,10 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
             self.status_text.Text = "Dependency check complete. Found {} total elements (including targets).".format(len(self.delete_elements_ids))
         except Exception as ex:
             forms.alert("Dependency check failed:\n{}".format(ex))
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
 
     def on_delete_run(self, sender, e):
         if not hasattr(self, 'delete_elements_ids') or not self.delete_elements_ids:
@@ -1752,7 +1792,10 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
             self.btn_delete_run.IsEnabled = False
         except Exception as ex:
             forms.alert("Delete failed:\n{}".format(ex))
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
 
     # ========================================================================
     # TAB 5: SPECIAL AUDITS
@@ -1860,7 +1903,10 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
             self.status_text.Text = "Material list generated successfully."
         except Exception as ex:
             print("Error loading materials: {}".format(ex))
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
 
     def on_materials_export(self, sender, e):
         items = self.dg_special_materials.ItemsSource
@@ -1873,15 +1919,15 @@ class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
             return
             
         try:
-            with open(filepath, "wb") as f:
+            with _open_csv_write(filepath) as f:
                 writer = csv.writer(f)
                 writer.writerow(["Category", "Material Name", "Volume (m3)", "Area (m2)"])
                 for item in items:
                     writer.writerow([
-                        item.get("category", "").encode("utf-8") if isinstance(item.get("category"), unicode) else item.get("category", ""),
-                        item.get("name", "").encode("utf-8") if isinstance(item.get("name"), unicode) else item.get("name", ""),
-                        item.get("volume_str", ""),
-                        item.get("area_str", "")
+                        _csv_cell(item.get("category", "")),
+                        _csv_cell(item.get("name", "")),
+                        _csv_cell(item.get("volume_str", "")),
+                        _csv_cell(item.get("area_str", ""))
                     ])
             forms.alert("Material list exported successfully.", title="Material List")
         except Exception as ex:

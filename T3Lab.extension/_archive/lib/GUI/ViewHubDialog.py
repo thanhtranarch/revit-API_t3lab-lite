@@ -2,7 +2,10 @@
 """View Hub — event handling for the View Hub launcher window."""
 
 import os
-import __builtin__
+try:
+    import builtins as __builtin__
+except ImportError:
+    import __builtin__
 
 from pyrevit import forms
 
@@ -29,7 +32,8 @@ class ViewHubWindow(forms.WPFWindow):
         g = {'__name__': '__main__', '__file__': script_path,
              '__builtins__': __builtin__, '__revit__': self._revit}
         try:
-            execfile(script_path, g)
+            with open(script_path, 'r', encoding='utf-8') as fh:
+                exec(compile(fh.read(), script_path, 'exec'), g)
         except Exception as ex:
             forms.alert("Error launching tool:\n{}".format(ex))
 

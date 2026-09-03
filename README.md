@@ -2,7 +2,7 @@
 
 [![Revit Version](https://img.shields.io/badge/Revit-2020%2B-blue.svg)](https://www.autodesk.com/products/revit/overview)
 [![pyRevit](https://img.shields.io/badge/pyRevit-4.8%2B-orange.svg)](https://github.com/eirannejad/pyRevit)
-[![IronPython](https://img.shields.io/badge/IronPython-2.7-lightgrey.svg)](https://ironpython.net/)
+[![CPython](https://img.shields.io/badge/CPython-3.12%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 T3Lab is a BIM automation and intelligence framework for Autodesk Revit, built on the **T3Lab Master Architecture System (MAS)**. It bridges traditional BIM workflows with AI assistance and batch automation.
@@ -100,7 +100,7 @@ The tab exposes **7 panels**. Buttons marked *(DQT)* were developed in collabora
 The Assistant is the largest subsystem in the repo. It chats in Vietnamese or
 English, answers from project knowledge, and calls T3Lab tools on the live model
 through the MCP bridge. Everything under `lib/Intelligence/` is **pure Python** —
-no Revit API or WPF imports — so it runs under IronPython 2.7 inside Revit and
+no Revit API or WPF imports — so it runs under CPython 3 inside Revit and
 under CPython 3 for the `dev/` test suites.
 
 ### Providers — local-first
@@ -252,7 +252,7 @@ t3lab-revit-api/
 `server.py` and `bridge.py` implement the thread-safe local MCP server (dynamic port allocation from `48884`) and the ExternalEvent bridge that marshals agent calls onto the Revit API thread. `teaching.py` records demonstrated tool-use trajectories when Teaching Capture is on; the teaching tools (`t3lab_set_teaching_mode`, `t3lab_mark_sandbox`, `t3lab_begin_teaching` / `t3lab_end_teaching`, `t3lab_training_status`, `t3lab_train_model`, `t3lab_build_exemplars`) are exposed to external MCP clients only and hidden from the in-app assistant.
 
 ### `lib/Snippets/`
-22 reusable IronPython patterns covering annotations, bounding boxes, context managers, unit conversion, element manipulation, Excel integration, filtered element collectors, filters, geometry probing, groups, host lookup, lines, graphic overrides, revisions, selection, similar-element matching, sheets, text and views.
+22 reusable Python patterns covering annotations, bounding boxes, context managers, unit conversion, element manipulation, Excel integration, filtered element collectors, filters, geometry probing, groups, host lookup, lines, graphic overrides, revisions, selection, similar-element matching, sheets, text and views.
 
 ### `pyRevit UI Design System/`
 The **only** UI standard: `T3LAB_UI_STANDARD.md` (tokens, 7 type sizes, spacing, 10 layout rules, 5 patterns) and `T3Lab.Styles.xaml` (82 `T3.*` resource keys). Every new tool follows `.claude/rules/new-tool-standard.md`; `python3 dev/audit_t3.py` is the gate. The daily governance routine lives in `docs/ui-governance/`.

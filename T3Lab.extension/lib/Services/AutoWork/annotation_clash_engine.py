@@ -156,9 +156,9 @@ def check_annotation_clashes(doc, views=None, min_overlap_pct=5.0):
 
         count = len(boxes)
         # Pairwise comparison
-        for i in xrange(count):
+        for i in range(count):
             a = boxes[i]
-            for j in xrange(i + 1, count):
+            for j in range(i + 1, count):
                 b = boxes[j]
 
                 # Quick axis separation check

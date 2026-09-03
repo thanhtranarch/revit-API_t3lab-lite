@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 Auto Work
@@ -19,6 +20,46 @@ __version__ = "3.0.0"
 # ==================================================
 import os
 import sys
+# ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
+for _env in ('APPDATA', 'PROGRAMDATA'):
+    _base = os.environ.get(_env, '')
+    if _base:
+        for _clone in ('pyRevit-Master', 'pyRevit'):
+            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+            if os.path.isdir(_ceng):
+                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                    if hasattr(os, 'add_dll_directory'):
+                        try:
+                            os.add_dll_directory(_d)
+                        except Exception:
+                            pass
+                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                    if os.path.exists(_p) and _p not in sys.path:
+                        sys.path.insert(0, _p)
+
+_cur = os.path.dirname(os.path.abspath(__file__))
+while _cur and not os.path.exists(os.path.join(_cur, 'lib')):
+    _parent = os.path.dirname(_cur)
+    if _parent == _cur:
+        break
+    _cur = _parent
+_lib_dir = os.path.join(_cur, 'lib')
+if os.path.exists(_lib_dir) and _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+try:
+    import _cpython_bootstrap
+    _cpython_bootstrap.init_cpython_paths()
+except Exception:
+    pass
+
+try:
+    from importlib import reload as _reload
+    if 'GUI.WPF_Base' in sys.modules:
+        _reload(sys.modules['GUI.WPF_Base'])
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────────────
 import clr
 import time
 import codecs
@@ -38,8 +79,10 @@ from System.Windows.Media import SolidColorBrush, Color
 from System.Windows.Threading import DispatcherPriority
 from System.Threading import Thread, ThreadStart
 from System.Collections.ObjectModel import ObservableCollection
+from System import Object
 
 from pyrevit import forms, script, revit, DB
+from GUI.WPF_Base import T3WPFWindow
 
 extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 lib_dir       = os.path.join(extension_dir, 'lib')
@@ -67,17 +110,13 @@ _VK_LBUTTON = 0x01
 _VK_RBUTTON = 0x02
 
 
-# ╔══════════════════════════════════════════════════════════════════════╗
-# ║  ⚠  IRONPYTHON 2.7 RANGE FIX — DO NOT CHANGE BACK TO range()  ⚠  ║
-# ╚══════════════════════════════════════════════════════════════════════╝
-
 def _flush_keys():
-    for vk in xrange(8, 256):
+    for vk in range(8, 256):
         ctypes.windll.user32.GetAsyncKeyState(vk)
 
 
 def _any_key_pressed():
-    for vk in xrange(8, 256):
+    for vk in range(8, 256):
         if ctypes.windll.user32.GetAsyncKeyState(vk) & 0x8000:
             return True
     return False
@@ -117,10 +156,10 @@ class AuditRecord(object):
 
 # WINDOW CLASS
 # ==================================================
-class AutoWorkWindow(forms.WPFWindow):
+class AutoWorkWindow(T3WPFWindow):
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, XAML_PATH)
+        T3WPFWindow.__init__(self, XAML_PATH)
         self.doc = revit.doc
         self.uidoc = revit.uidoc
 
@@ -131,7 +170,7 @@ class AutoWorkWindow(forms.WPFWindow):
 
         # Audit state
         self._all_records = []
-        self._displayed_records = ObservableCollection[object]()
+        self._displayed_records = ObservableCollection[Object]()
         self.dg_audit_results.ItemsSource = self._displayed_records
         self._active_filter = "All"
 
@@ -557,7 +596,7 @@ class AutoWorkWindow(forms.WPFWindow):
     def _play_worker(self, actions, loops):
         aborted = False
         loops_done = 0
-        for _ in xrange(loops):
+        for _ in range(loops):
             if aborted:
                 break
             for (atype, x, y, delay_ms) in actions:

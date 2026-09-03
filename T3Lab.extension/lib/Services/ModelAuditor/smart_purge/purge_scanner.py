@@ -10,7 +10,7 @@ __author__ = "Dang Quoc Truong (DQT)"
 from Autodesk.Revit.DB import *
 
 try:
-    from revit_utils import _eid_int
+    from .revit_utils import _eid_int
 except:
     # Fallback if revit_utils not available
     def _eid_int(element_id):
@@ -941,61 +941,61 @@ def create_scanner(scanner_class_name, doc):
         return FilterScanner(doc)
     # Phase 2: Element Type Scanners
     elif scanner_class_name == 'WallTypeScanner':
-        from purge_scanner_elements import WallTypeScanner
+        from .purge_scanner_elements import WallTypeScanner
         return WallTypeScanner(doc)
     elif scanner_class_name == 'FloorTypeScanner':
-        from purge_scanner_elements import FloorTypeScanner
+        from .purge_scanner_elements import FloorTypeScanner
         return FloorTypeScanner(doc)
     elif scanner_class_name == 'RoofTypeScanner':
-        from purge_scanner_elements import RoofTypeScanner
+        from .purge_scanner_elements import RoofTypeScanner
         return RoofTypeScanner(doc)
     # Phase 3: System Cleanup Scanners
     elif scanner_class_name == 'ImportSymbolsScanner':
-        from purge_scanner_system import ImportSymbolsScanner
+        from .purge_scanner_system import ImportSymbolsScanner
         return ImportSymbolsScanner(doc)
     elif scanner_class_name == 'CADLinksScanner':
-        from purge_scanner_system import CADLinksScanner
+        from .purge_scanner_system import CADLinksScanner
         return CADLinksScanner(doc)
     elif scanner_class_name == 'UnusedGroupsScanner':
-        from purge_scanner_system import UnusedGroupsScanner
+        from .purge_scanner_system import UnusedGroupsScanner
         return UnusedGroupsScanner(doc)
     elif scanner_class_name == 'DesignOptionsScanner':
-        from purge_scanner_system import DesignOptionsScanner
+        from .purge_scanner_system import DesignOptionsScanner
         return DesignOptionsScanner(doc)
     elif scanner_class_name == 'UnplacedSeparatorsScanner':
-        from purge_scanner_system import UnplacedSeparatorsScanner
+        from .purge_scanner_system import UnplacedSeparatorsScanner
         return UnplacedSeparatorsScanner(doc)
     elif scanner_class_name == 'OrphanedRoomsScanner':
-        from purge_scanner_system import OrphanedRoomsScanner
+        from .purge_scanner_system import OrphanedRoomsScanner
         return OrphanedRoomsScanner(doc)
     # Phase 4: Views & Sheets Scanners
     elif scanner_class_name == 'EmptySheetsScanner':
-        from purge_scanner_views import EmptySheetsScanner
+        from .purge_scanner_views import EmptySheetsScanner
         return EmptySheetsScanner(doc)
     elif scanner_class_name == 'UnusedSchedulesScanner':
-        from purge_scanner_views import UnusedSchedulesScanner
+        from .purge_scanner_views import UnusedSchedulesScanner
         return UnusedSchedulesScanner(doc)
     elif scanner_class_name == 'LegendViewsScanner':
-        from purge_scanner_views import LegendViewsScanner
+        from .purge_scanner_views import LegendViewsScanner
         return LegendViewsScanner(doc)
     elif scanner_class_name == 'TempWorkingViewsScanner':
-        from purge_scanner_views import TempWorkingViewsScanner
+        from .purge_scanner_views import TempWorkingViewsScanner
         return TempWorkingViewsScanner(doc)
     # Phase 5: Families Scanners
     elif scanner_class_name == 'DetailComponentsScanner':
-        from purge_scanner_families import DetailComponentsScanner
+        from .purge_scanner_families import DetailComponentsScanner
         return DetailComponentsScanner(doc)
     elif scanner_class_name == 'UnusedFamiliesScanner':
-        from purge_scanner_families import UnusedFamiliesScanner
+        from .purge_scanner_families import UnusedFamiliesScanner
         return UnusedFamiliesScanner(doc)
     elif scanner_class_name == 'UnusedFamilyTypesScanner':
-        from purge_scanner_families import UnusedFamilyTypesScanner
+        from .purge_scanner_families import UnusedFamilyTypesScanner
         return UnusedFamilyTypesScanner(doc)
     elif scanner_class_name == 'AnnotationFamiliesScanner':
-        from purge_scanner_families import AnnotationFamiliesScanner
+        from .purge_scanner_families import AnnotationFamiliesScanner
         return AnnotationFamiliesScanner(doc)
     elif scanner_class_name == 'ProfileFamiliesScanner':
-        from purge_scanner_families import ProfileFamiliesScanner
+        from .purge_scanner_families import ProfileFamiliesScanner
         return ProfileFamiliesScanner(doc)
     else:
         return None

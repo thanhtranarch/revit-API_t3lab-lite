@@ -8,7 +8,7 @@ Copyright © 2025 Dang Quoc Truong (DQT)
 
 __author__ = "Dang Quoc Truong (DQT)"
 
-from config_advanced import Icons
+from .config_advanced import Icons
 import Autodesk.Revit.DB
 
 

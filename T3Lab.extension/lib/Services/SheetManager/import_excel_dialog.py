@@ -206,7 +206,8 @@ class ImportExcelDialog(Window):
             
             # Convert to observable collection
             from System.Collections.ObjectModel import ObservableCollection
-            preview_items = ObservableCollection[object]()
+            from System import Object
+            preview_items = ObservableCollection[Object]()
             
             for row in data:
                 # Create anonymous object for preview
@@ -224,7 +225,10 @@ class ImportExcelDialog(Window):
             MessageBox.Show("Error loading file: {}".format(str(e)), "Error",
                           MessageBoxButton.OK, MessageBoxImage.Error)
             import traceback
-            traceback.print_exc()
+            try:                     # ScriptIO has no write() under CPython
+                traceback.print_exc()
+            except Exception:
+                pass
     
     def on_import_click(self, sender, args):
         """Import data into Revit"""
