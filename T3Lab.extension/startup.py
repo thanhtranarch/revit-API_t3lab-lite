@@ -51,6 +51,25 @@ try:
 except Exception:
     pass
 
+# ─── Reload-survival probe ─────────────────────────────────────────────────────
+# init_cpython_paths() installs the no-op IFormatter that stops `Reload pyRevit`
+# from crashing on BinaryFormatter (see _cpython_bootstrap.enable_safe_engine_
+# shutdown). CPython here has no output window, so the only way to know whether
+# it took is a file — and a silent failure looks exactly like success until the
+# next Reload kills the engine. One line per Revit start.
+try:
+    import datetime as _dt
+    _status = getattr(_cpython_bootstrap, 'SAFE_SHUTDOWN_STATUS', 'unavailable')
+    _status_log = os.path.join(os.path.expanduser("~"), "T3Lab_AI_Data",
+                               "bootstrap_status.log")
+    if not os.path.isdir(os.path.dirname(_status_log)):
+        os.makedirs(os.path.dirname(_status_log))
+    with open(_status_log, "a") as _f:
+        _f.write("[{}] safe engine shutdown: {}\n".format(
+            _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), _status))
+except Exception:
+    pass
+
 # ─── Attempt DockablePane registration ─────────────────────────────────────────
 
 try:

@@ -9,6 +9,7 @@ Copyright © 2025 Dang Quoc Truong (DQT)
 __author__ = "Dang Quoc Truong (DQT)"
 
 from .config_advanced import Icons
+from .scanners.base_scanner import eid_value
 import Autodesk.Revit.DB
 
 
@@ -142,12 +143,12 @@ def get_workset_cleanup_categories(doc):
             workset_kind = workset.Kind
             
             print("DEBUG: Workset '{}' - ID: {} - Kind: {}".format(
-                workset_name, workset_id.IntegerValue, workset_kind
+                workset_name, eid_value(workset_id), workset_kind
             ))
             
             # Create category for this workset
             category = AdvancedPurgeCategory(
-                id="workset_{}".format(workset_id.IntegerValue),
+                id="workset_{}".format(eid_value(workset_id)),
                 name='Elements on "{}"'.format(workset_name),
                 description="Remove all elements on {} workset".format(workset_name),
                 requires_worksets=True,

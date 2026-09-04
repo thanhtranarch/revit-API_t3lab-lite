@@ -490,36 +490,145 @@ class _NullOutput(object):
         return _noop
 
 
+SAFE_SHUTDOWN_STATUS = 'not attempted'
+
+
+def _formatter_interface_type():
+    """The exact IFormatter type pythonnet itself uses.
+
+    Taken from RuntimeData.CreateFormatter's return type rather than from a
+    plain import: under .NET 8 an assembly can be loaded into more than one
+    AssemblyLoadContext, and two IFormatter types with the same full name but
+    different contexts are NOT assignable to each other — the FormatterType
+    setter would reject our type with a message that says nothing about why.
+    Falls back to the plain import when the internal method cannot be found.
+    """
+    import clr
+    from System.Reflection import BindingFlags
+    try:
+        from Python.Runtime import RuntimeData
+        method = clr.GetClrType(RuntimeData).GetMethod(
+            'CreateFormatter',
+            BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Public)
+        if method is not None and method.ReturnType.IsInterface:
+            return method.ReturnType
+    except Exception:
+        pass
+    from System.Runtime.Serialization import IFormatter
+    return clr.GetClrType(IFormatter)
+
+
+def _build_noop_formatter_type():
+    """Emit a .NET type implementing IFormatter whose Serialize does nothing.
+
+    Reflection.Emit rather than Roslyn on purpose: no compiler assemblies to
+    resolve, no MetadataReference wrangling, and the result is a plain CLR type,
+    so nothing calls back into Python while the interpreter is shutting down.
+
+    The members are derived from IFormatter by reflection instead of being
+    hardcoded, so the shape stays correct whatever the interface declares:
+      void  -> ret
+      struct-> default value  (StreamingContext)
+      class -> null           (SerializationBinder, ISurrogateSelector)
+    """
+    import clr
+    from System import Array, Type
+    from System.Reflection import AssemblyName, MethodAttributes, TypeAttributes
+    from System.Reflection.Emit import (AssemblyBuilder, AssemblyBuilderAccess,
+                                        OpCodes)
+
+    iface = _formatter_interface_type()
+    asm = AssemblyBuilder.DefineDynamicAssembly(
+        AssemblyName('T3Lab.Interop.Serialization'), AssemblyBuilderAccess.Run)
+    module = asm.DefineDynamicModule('T3Lab.Interop.Serialization')
+    tb = module.DefineType(
+        'T3Lab.Interop.NoopFormatter',
+        TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed)
+    tb.AddInterfaceImplementation(iface)
+    tb.DefineDefaultConstructor(MethodAttributes.Public)
+
+    base_attrs = (MethodAttributes.Public | MethodAttributes.Virtual |
+                  MethodAttributes.NewSlot | MethodAttributes.HideBySig |
+                  MethodAttributes.Final)
+
+    for iface_method in iface.GetMethods():
+        attrs = base_attrs
+        if iface_method.Name[:4] in ('get_', 'set_'):
+            attrs = attrs | MethodAttributes.SpecialName
+        arg_types = Array[Type](
+            [p.ParameterType for p in iface_method.GetParameters()])
+        mb = tb.DefineMethod(iface_method.Name, attrs,
+                             iface_method.ReturnType, arg_types)
+        il = mb.GetILGenerator()
+        ret_type = iface_method.ReturnType
+        if ret_type.FullName == 'System.Void':
+            pass                                  # nothing to push
+        elif ret_type.IsValueType:
+            local = il.DeclareLocal(ret_type)     # default(T)
+            il.Emit(OpCodes.Ldloca, local)
+            il.Emit(OpCodes.Initobj, ret_type)
+            il.Emit(OpCodes.Ldloc, local)
+        else:
+            il.Emit(OpCodes.Ldnull)
+        il.Emit(OpCodes.Ret)
+        tb.DefineMethodOverride(mb, iface_method)
+
+    return tb.CreateType()
+
+
 def enable_safe_engine_shutdown():
-    """Make `Reload pyRevit` work again on Revit 2026 / .NET 8.
+    """Make `Reload pyRevit` survive on Revit 2025+ / .NET 8+.
 
     Reload calls ScriptEngineManager.ClearEngines() -> PythonEngine.Shutdown()
-    -> RuntimeData.Stash(), and Stash serializes with BinaryFormatter, which
-    .NET 8 refuses:
+    -> RuntimeData.Stash(), and Stash serializes with BinaryFormatter, which the
+    runtime refuses:
 
         PlatformNotSupportedException: BinaryFormatter serialization and
         deserialization have been removed.
 
     sessionmgr._clear_running_engines() only catches AttributeError, so this
-    escapes and aborts the whole reload — which means edits under lib/ can never
-    be picked up without restarting Revit.
+    escapes, aborts the reload, and leaves pythonnet half-torn-down — after
+    which every script reports absent members on healthy .NET types and only a
+    Revit restart clears it.
 
-    pythonnet ships `NoopFormatter` for exactly this; pointing RuntimeData at it
-    makes Stash a no-op. Discarding the stash is what we want anyway: the point
-    of a reload is fresh modules, not restored engine state.
+    `RuntimeData.FormatterType` exists precisely to replace BinaryFormatter:
+    Stash does `Activator.CreateInstance(FormatterType)` and serializes through
+    it. Pointing it at a no-op formatter discards the stash, which is what a
+    reload wants anyway - fresh modules, not restored engine state.
 
-    Static on the loaded Python.Runtime assembly, so one CPython script running
-    this fixes Reload for the rest of the Revit session.
+    Note the earlier version of this function imported `Python.Runtime.NoopFormatter`,
+    which does NOT exist in pyRevit's pythonnet build (verified 2026-09-04
+    against pyRevit 6.5.5.26237): the ImportError was swallowed and the patch
+    never applied. Hence emitting our own type, and hence SAFE_SHUTDOWN_STATUS -
+    a silent failure here is indistinguishable from success until Reload dies.
+
+    RuntimeData is static on the loaded assembly, so one call fixes Reload for
+    the rest of the Revit session. Never raises; returns the status string.
     """
+    global SAFE_SHUTDOWN_STATUS
     if sys.version_info[0] < 3:
-        return
+        SAFE_SHUTDOWN_STATUS = 'skipped: IronPython 2'
+        return SAFE_SHUTDOWN_STATUS
     try:
-        import clr
-        from Python.Runtime import RuntimeData, NoopFormatter
-        if RuntimeData.FormatterType is None:
-            RuntimeData.FormatterType = clr.GetClrType(NoopFormatter)
-    except Exception:
-        pass
+        try:
+            from Python.Runtime import RuntimeData
+        except ImportError:
+            import clr
+            clr.AddReference('pyRevitLabs.PythonNet')
+            from Python.Runtime import RuntimeData
+    except Exception as exc:
+        SAFE_SHUTDOWN_STATUS = 'failed: Python.Runtime unavailable (%s)' % exc
+        return SAFE_SHUTDOWN_STATUS
+
+    try:
+        if RuntimeData.FormatterType is not None:
+            SAFE_SHUTDOWN_STATUS = 'already set: %s' % RuntimeData.FormatterType
+            return SAFE_SHUTDOWN_STATUS
+        RuntimeData.FormatterType = _build_noop_formatter_type()
+        SAFE_SHUTDOWN_STATUS = 'ok: %s' % RuntimeData.FormatterType
+    except Exception as exc:
+        SAFE_SHUTDOWN_STATUS = 'failed: %s: %s' % (type(exc).__name__, exc)
+    return SAFE_SHUTDOWN_STATUS
 
 
 def safe_output():

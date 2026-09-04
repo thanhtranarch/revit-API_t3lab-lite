@@ -16,6 +16,8 @@ except ImportError:
     sys.path.insert(0, os.path.dirname(__file__))
     from .base_scanner import BaseAdvancedScanner
 
+from .base_scanner import eid_value
+
 from Autodesk.Revit.DB import FilteredElementCollector, BuiltInParameter
 
 
@@ -53,7 +55,7 @@ class WorksetScanner(BaseAdvancedScanner):
                 # Check if element is on target workset
                 elem_workset_param = elem.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM)
                 
-                if elem_workset_param and elem_workset_param.AsInteger() == target_workset_id.IntegerValue:
+                if elem_workset_param and elem_workset_param.AsInteger() == eid_value(target_workset_id):
                     # Element is on target workset
                     if self.can_delete(elem):
                         item_dict = self.create_item_dict(

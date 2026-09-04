@@ -16,6 +16,8 @@ except ImportError:
     sys.path.insert(0, os.path.dirname(__file__))
     from .base_scanner import BaseAdvancedScanner
 
+from .base_scanner import eid_value
+
 from Autodesk.Revit.DB import FilteredElementCollector, Category
 
 
@@ -106,13 +108,13 @@ class CollaborationScanner(BaseAdvancedScanner):
             used_subcategory_ids = set()
             for elem in all_elements:
                 if elem.Category and elem.Category.Id:
-                    used_subcategory_ids.add(elem.Category.Id.IntegerValue)
+                    used_subcategory_ids.add(eid_value(elem.Category.Id))
             
             # Check each category for unused subcategories
             for cat in categories:
                 if cat and cat.SubCategories:
                     for subcat in cat.SubCategories:
-                        if subcat.Id.IntegerValue not in used_subcategory_ids:
+                        if eid_value(subcat.Id) not in used_subcategory_ids:
                             # This subcategory is unused
                             # Note: Subcategories are NOT elements, they're Category objects
                             # We can't delete them like regular elements
@@ -122,7 +124,7 @@ class CollaborationScanner(BaseAdvancedScanner):
                             item = {
                                 'name': "{} > {}".format(cat.Name, subcat.Name),
                                 'type': 'SubCategory',
-                                'id': str(subcat.Id.IntegerValue),
+                                'id': str(eid_value(subcat.Id)),
                                 'category': category.name,
                                 'element': None  # No actual element
                             }

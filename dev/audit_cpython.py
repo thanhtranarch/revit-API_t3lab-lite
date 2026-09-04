@@ -11,6 +11,7 @@ suy doan. Chay:  python3 dev/audit_cpython.py [--quiet]
   C4  P0  __namespace__ trong pushbutton script  -> Duplicate type name (click 2)
   C5  P1  DB.<Enum> qua pyrevit.DB               -> attribute missing tren stub
   C6  P1  print() ngoai except                   -> ScriptIO has no attribute write
+  C8  P0  ElementId.IntegerValue khong guard     -> AttributeError tren Revit 2024+
 """
 
 import io
@@ -53,6 +54,31 @@ def rel(path):
 
 def audit():
     findings = []
+
+    def eid_scope_is_safe(lines, idx):
+        """True neu ham bao quanh dong idx (0-based) co nhanh .Value du phong.
+
+        Helper doi phien ban (`eid.Value if hasattr(...) else eid.IntegerValue`,
+        hoac try `.Value` / except `.IntegerValue`) la hop le - chi bao dong
+        goi `.IntegerValue` tran, vi Revit 2024+ da bo han member nay.
+        """
+        start, indent = 0, None
+        for j in range(idx, -1, -1):
+            ln = lines[j]
+            st = ln.lstrip()
+            if st.startswith('def ') or st.startswith('async def '):
+                start, indent = j, len(ln) - len(st)
+                break
+        else:
+            start, indent = 0, -1
+        end = len(lines)
+        for j in range(start + 1, len(lines)):
+            ln = lines[j]
+            if ln.strip() and (len(ln) - len(ln.lstrip())) <= indent:
+                end = j
+                break
+        body = chr(10).join(lines[start:end])
+        return '.Value' in body or "'Value'" in body or '"Value"' in body
 
     def add(sev, code, path, line, msg):
         findings.append((sev, code, rel(path), line, msg))
@@ -108,6 +134,12 @@ def audit():
                 add('P1', 'C5', path, i,
                     'DB.%s - import truc tiep tu Autodesk.Revit.DB' % m.group(1))
 
+            if '.IntegerValue' in line.split('#')[0]:
+                if not eid_scope_is_safe(lines, i - 1):
+                    add('P0', 'C8', path, i,
+                        '.IntegerValue tran - Revit 2024+ da bo; dung '
+                        'Snippets._compat.eid_value()')
+
             if PRINT_CALL.match(line):
                 add('P1', 'C6', path, i, 'print() - bo hoac dung logger')
 
@@ -121,7 +153,7 @@ def main():
     p1 = [f for f in findings if f[0] == 'P1']
 
     if not quiet:
-        for code in ('C1', 'C2', 'C3', 'C4', 'C5', 'C6'):
+        for code in sorted(set(f[1] for f in findings)):
             rows = [f for f in findings if f[1] == code]
             if not rows:
                 continue

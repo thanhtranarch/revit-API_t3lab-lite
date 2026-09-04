@@ -7833,7 +7833,7 @@ class T3LabAIServer(object):
                 result = []
                 for ws in worksets:
                     result.append({
-                        'id': ws.Id.IntegerValue,
+                        'id': eid_value(ws.Id),
                         'name': ws.Name,
                         'is_open': ws.IsOpen,
                         'owner': ws.Owner or ''
@@ -7885,7 +7885,7 @@ class T3LabAIServer(object):
                                 __import__('Autodesk.Revit.DB', fromlist=['BuiltInParameter']).BuiltInParameter.ELEM_PARTITION_PARAM
                             )
                             if ws_param and not ws_param.IsReadOnly:
-                                ws_param.Set(target_ws.Id.IntegerValue)
+                                ws_param.Set(eid_value(target_ws.Id))
                                 count += 1
                     t.Commit()
                     return {'success': True, 'moved_count': count, 'workset': ws_name}
