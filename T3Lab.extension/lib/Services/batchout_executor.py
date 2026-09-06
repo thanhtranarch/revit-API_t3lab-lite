@@ -181,8 +181,12 @@ def _apply_sheet_filter(window, filter_kw):
 
     # Refresh ListView and counter if the window is already initialised
     try:
-        window.sheets_listview.ItemsSource = None
-        window.sheets_listview.ItemsSource = window.filtered_sheets
+        if hasattr(window, 'update_sheets_list'):
+            window.update_sheets_list()
+        elif hasattr(window, 'sheets_listview') and window.sheets_listview:
+            from GUI.WPF_Base import to_items_source
+            window.sheets_listview.ItemsSource = None
+            window.sheets_listview.ItemsSource = to_items_source(window.filtered_sheets)
     except Exception:
         pass
     try:

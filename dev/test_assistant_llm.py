@@ -30,6 +30,11 @@ import os
 import sys
 import tempfile
 
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB = os.path.join(REPO, 'T3Lab.extension', 'lib')
 sys.path.insert(0, LIB)
@@ -141,6 +146,9 @@ def test_settings_unreadable_refuses_write():
     path = s._settings_file
     good = io.open(path, encoding='utf-8').read()
 
+    if os.name == 'nt':
+        print('  skip  running on Windows — chmod cannot make a file unreadable to owner')
+        return
     if os.geteuid() == 0 if hasattr(os, 'geteuid') else False:
         print('  skip  running as root — chmod cannot make a file unreadable')
         return

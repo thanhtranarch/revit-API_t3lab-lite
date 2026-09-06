@@ -53,7 +53,7 @@ from Autodesk.Revit.DB import (
 )
 
 from pyrevit import revit, forms, script
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -2476,7 +2476,7 @@ class _CADtoFloorWindow(ProgressPauseMixin):
 # BEAM WINDOW
 # ===========================================================================
 
-class _CADtoBeamWindow(T3WPFWindow, ProgressPauseMixin):
+class _CADtoBeamWindow(T3WPFWindow):
     """Full Beam creation window — loads CADtoBeam.xaml via forms.WPFWindow."""
 
     # ProgressPauseMixin — CADtoBeam.xaml status-bar progress panel
@@ -2503,7 +2503,7 @@ class _CADtoBeamWindow(T3WPFWindow, ProgressPauseMixin):
             key = "{} (Id:{})".format(cad["name"], cad["id"])
             self.cad_map[key] = cad["element"]
 
-        self.cb_cad_links.ItemsSource = sorted(self.cad_map.keys())
+        self.cb_cad_links.ItemsSource = to_items_source(sorted(self.cad_map.keys()))
 
         # Beam families
         beam_symbols = (FilteredElementCollector(self.doc)
@@ -2511,12 +2511,12 @@ class _CADtoBeamWindow(T3WPFWindow, ProgressPauseMixin):
                         .OfClass(DB.FamilySymbol)
                         .ToElements())
         self.family_names = sorted(list(set(s.Family.Name for s in beam_symbols)))
-        self.cb_beam_types.ItemsSource = self.family_names
+        self.cb_beam_types.ItemsSource = to_items_source(self.family_names)
 
         # Levels
         levels = FilteredElementCollector(self.doc).OfClass(Level).ToElements()
         self.level_map = {l.Name: l for l in levels}
-        self.cb_levels.ItemsSource = sorted(self.level_map.keys())
+        self.cb_levels.ItemsSource = to_items_source(sorted(self.level_map.keys()))
 
     def cad_link_changed(self, sender, e):
         selected_key = self.cb_cad_links.SelectedItem
@@ -2535,7 +2535,7 @@ class _CADtoBeamWindow(T3WPFWindow, ProgressPauseMixin):
                             layers.add(g_style.GraphicsStyleCategory.Name)
                         except Exception:
                             pass
-        self.cb_layers.ItemsSource = sorted(list(layers))
+        self.cb_layers.ItemsSource = to_items_source(sorted(list(layers)))
 
     def generate_clicked(self, sender, e):
         cad_key = self.cb_cad_links.SelectedItem
@@ -2962,21 +2962,10 @@ class CADToElementsWindow(T3WPFWindow):
 
     def _switch_type(self, type_name):
         self._active_type = type_name
-        bc = BrushConverter()
-        active_bg = bc.ConvertFromString("#18181B")
-        active_fg = bc.ConvertFromString("#FFFFFF")
-        inactive_bg = bc.ConvertFromString("Transparent")
-        inactive_fg = bc.ConvertFromString("#71717A")
-
-        # Recolor buttons and toggle panel visibility from the nav map
+        # Update rail tile state and panel visibility from nav map
         for key, btn, panel in self._nav_items:
             try:
-                if key == type_name:
-                    btn.Background = active_bg
-                    btn.Foreground = active_fg
-                else:
-                    btn.Background = inactive_bg
-                    btn.Foreground = inactive_fg
+                btn.IsChecked = (key == type_name)
             except Exception:
                 pass
             try:

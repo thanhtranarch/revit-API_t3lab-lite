@@ -77,7 +77,13 @@ from GUI.ProgressPauseMixin import ProgressPauseMixin
 # RENUMBER WRAPPER MODEL
 # =====================================================
 
-class RenumberItem(INotifyPropertyChanged):
+try:
+    _Reactive = getattr(forms, 'Reactive', object)
+except Exception:
+    _Reactive = object
+
+
+class RenumberItem(_Reactive):
     """Wrapper class for Sheet Renumber preview grid"""
     def __init__(self, sheet_model):
         self._property_changed_handlers = []
@@ -106,22 +112,31 @@ class RenumberItem(INotifyPropertyChanged):
             self.OnPropertyChanged("IsSelected")
 
     def add_PropertyChanged(self, handler):
-        self._property_changed_handlers.append(handler)
+        if handler not in self._property_changed_handlers:
+            self._property_changed_handlers.append(handler)
 
     def remove_PropertyChanged(self, handler):
-        self._property_changed_handlers.remove(handler)
+        if handler in self._property_changed_handlers:
+            self._property_changed_handlers.remove(handler)
 
     def OnPropertyChanged(self, property_name):
-        args = PropertyChangedEventArgs(property_name)
-        for handler in self._property_changed_handlers:
-            handler(self, args)
+        try:
+            if PropertyChangedEventArgs is not None:
+                args = PropertyChangedEventArgs(property_name)
+                for handler in list(self._property_changed_handlers):
+                    try:
+                        handler(self, args)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
 
 # =====================================================
 # MAIN WINDOW CONTROLLER
 # =====================================================
 
-class SheetManagerWindow(T3WPFWindow, ProgressPauseMixin):
+class SheetManagerWindow(T3WPFWindow):
 
     # ProgressPauseMixin — ManaSheets.xaml status-bar progress panel
     PP_PANEL      = "ms_progress_panel"
@@ -627,6 +642,11 @@ class SheetManagerWindow(T3WPFWindow, ProgressPauseMixin):
         for index, item in enumerate(selected_preview):
             new_num = "{}{}{}".format(prefix, start_num + index * step_num, suffix)
             item.preview_number = new_num
+
+        try:
+            self.renum_grid.Items.Refresh()
+        except Exception:
+            pass
 
     def _on_renum_run(self, sender, args):
         selected_preview = [item for item in self.renumber_items if item.IsSelected]

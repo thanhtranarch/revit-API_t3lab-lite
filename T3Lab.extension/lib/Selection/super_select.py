@@ -90,10 +90,30 @@ from Autodesk.Revit.DB import ( ModelLine,
 
 
 
+from Snippets._compat import make_eid, eid_value
+try:
+    from Snippets._host import resolve_doc, resolve_uidoc
+except ImportError:
+    try:
+        import importlib
+        import Snippets._host
+        importlib.reload(Snippets._host)
+        from Snippets._host import resolve_doc, resolve_uidoc
+    except Exception:
+        from Snippets._host import resolve_doc
+        def resolve_uidoc(candidate=None):
+            if candidate is not None and hasattr(candidate, 'Document') and candidate.Document is not None:
+                return candidate
+            try:
+                from pyrevit import revit
+                return revit.uidoc
+            except Exception:
+                return None
+
 #____________________________________________________________________ FUNCTIONS
 def create_filter(key_parameter, element_value):
     """Function to create a RevitAPI filter."""
-    f_parameter = ParameterValueProvider(ElementId(key_parameter))
+    f_parameter = ParameterValueProvider(make_eid(key_parameter))
     f_parameter_value = element_value #e.g. element.Category.Id
     f_rule = FilterElementIdRule(f_parameter, FilterNumericEquals(), f_parameter_value)
     filter = ElementParameterFilter(f_rule)
@@ -103,90 +123,97 @@ def create_filter(key_parameter, element_value):
 def select(mode):
     """Run Super Select: all in model/view based on given mode."""
 
-    uidoc = __revit__.ActiveUIDocument
-    doc = __revit__.ActiveUIDocument.Document
-    # print(doc.Title)
-
+    uidoc = resolve_uidoc()
+    if not uidoc:
+        return
+    doc = uidoc.Document
 
     # FILTERS CONTAINER
     list_of_filters = List[ElementFilter]()
 
     # GET CURRENT SELECTION
-    current_selection_ids = uidoc.Selection.GetElementIds()
+    current_selection_ids = list(uidoc.Selection.GetElementIds())
 
     # LOOP THROUGH SELECTION
     for id in current_selection_ids:
         element = doc.GetElement(id)
+        if not element:
+            continue
         element_type = type(element)
+        cat_id_val = eid_value(element.Category.Id) if (hasattr(element, 'Category') and element.Category) else None
 
         # [RULE] - LINES
         line_types = [DetailLine, DetailCurve, DetailArc, DetailEllipse, DetailNurbSpline,
                       ModelLine, ModelCurve, ModelArc, ModelEllipse, ModelNurbSpline]
         if element_type in line_types:
             # [FILTER FOR CATEGORY] - RoomSeparation(-2000066)  / AreaBoundary(-2000079)
-            if element.Category.Id == ElementId(-2000066) or element.Category.Id == ElementId(-2000079):
+            if cat_id_val in (-2000066, -2000079):
                 filter = create_filter(key_parameter=BuiltInParameter.ELEM_CATEGORY_PARAM,
                                        element_value=element.Category.Id)
                 list_of_filters.Add(filter)
 
             # [FILTER FOR LINESTYLE] - Other Lines
-            else:
+            elif hasattr(element, 'LineStyle') and element.LineStyle:
                 filter = create_filter(key_parameter=BuiltInParameter.BUILDING_CURVE_GSTYLE,
                                        element_value=element.LineStyle.Id)
                 list_of_filters.Add(filter)
 
-
         # [RULE] - ReferencePlane
         elif element_type == ReferencePlane:
-            filter = create_filter(key_parameter=BuiltInParameter.CLINE_SUBCATEGORY,
-                                   element_value=element.get_Parameter(
-                                       BuiltInParameter.CLINE_SUBCATEGORY).AsElementId())
-            list_of_filters.Add(filter)
+            param = element.get_Parameter(BuiltInParameter.CLINE_SUBCATEGORY)
+            if param:
+                filter = create_filter(key_parameter=BuiltInParameter.CLINE_SUBCATEGORY,
+                                       element_value=param.AsElementId())
+                list_of_filters.Add(filter)
 
         # [RULE] - PropertyLine
         elif element_type == PropertyLine:
-            filter = create_filter(key_parameter=BuiltInParameter.ELEM_CATEGORY_PARAM,
-                                   element_value=element.Category.Id)
-            list_of_filters.Add(filter)
+            if element.Category:
+                filter = create_filter(key_parameter=BuiltInParameter.ELEM_CATEGORY_PARAM,
+                                       element_value=element.Category.Id)
+                list_of_filters.Add(filter)
 
         # [RULE] - RevisionClouds
         elif element_type == RevisionCloud:
-            filter = create_filter(key_parameter=BuiltInParameter.REVISION_CLOUD_REVISION,
-                                   element_value=element.get_Parameter(
-                                       BuiltInParameter.REVISION_CLOUD_REVISION).AsElementId())
-            list_of_filters.Add(filter)
+            param = element.get_Parameter(BuiltInParameter.REVISION_CLOUD_REVISION)
+            if param:
+                filter = create_filter(key_parameter=BuiltInParameter.REVISION_CLOUD_REVISION,
+                                       element_value=param.AsElementId())
+                list_of_filters.Add(filter)
 
         # [RULE] - ROOMS(-2000160)
-        elif element.Category.Id == ElementId(-2000160):
+        elif cat_id_val == -2000160:
             list_of_filters.Add(ElementCategoryFilter(BuiltInCategory.OST_Rooms))
 
         # [RULE] - AREAS(-2003200)
-        elif element.Category.Id == ElementId(-2003200):
+        elif cat_id_val == -2003200:
             list_of_filters.Add(ElementCategoryFilter(BuiltInCategory.OST_Areas))
 
         # [RULE] - ScopeBox(-2006000)
-        elif element.Category.Id == ElementId(-2006000):
+        elif cat_id_val == -2006000:
             filter = create_filter(key_parameter=BuiltInParameter.ELEM_CATEGORY_PARAM,
                                    element_value=element.Category.Id)
             list_of_filters.Add(filter)
 
         # [RULE] - PlanRegion(-2000191)
-        elif element.Category.Id == ElementId(-2000191):
+        elif cat_id_val == -2000191:
             filter = create_filter(key_parameter=BuiltInParameter.ELEM_CATEGORY_PARAM,
                                    element_value=element.Category.Id)
             list_of_filters.Add(filter)
 
         # [RULE] - MatchLine(-2000193)
-        elif element.Category.Id == ElementId(-2000191):
+        elif cat_id_val == -2000193:
             filter = create_filter(key_parameter=BuiltInParameter.ELEM_CATEGORY_PARAM,
                                    element_value=element.Category.Id)
             list_of_filters.Add(filter)
 
         # [RULE] - Others
         else:
-            filter = create_filter(key_parameter=BuiltInParameter.ELEM_TYPE_PARAM,
-                                   element_value=element.GetTypeId())
-            list_of_filters.Add(filter)
+            type_id = element.GetTypeId()
+            if type_id and eid_value(type_id) != -1:
+                filter = create_filter(key_parameter=BuiltInParameter.ELEM_TYPE_PARAM,
+                                       element_value=type_id)
+                list_of_filters.Add(filter)
 
     if list_of_filters:
         # COMBINE FILTERS

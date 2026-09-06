@@ -17,7 +17,7 @@
         TextOptions.TextFormattingMode="Display">
 
     <WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="40"
+        <shell:WindowChrome CaptionHeight="48"
                            ResizeBorderThickness="6"
                            GlassFrameThickness="0"
                            CornerRadius="0"/>
@@ -662,6 +662,7 @@
           </Style>
 
           <Style x:Key="T3.DataGrid" TargetType="DataGrid">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
             <Setter Property="FontSize"   Value="{StaticResource T3.Size.Body}"/>
             <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
@@ -750,6 +751,9 @@
                     </Grid>
                   </Border>
                   <ControlTemplate.Triggers>
+                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.RowAlt}"/>
+                    </Trigger>
                     <Trigger Property="IsMouseOver" Value="True">
                       <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
                     </Trigger>
@@ -772,6 +776,7 @@
           </Style>
 
           <Style x:Key="T3.ListView" TargetType="ListView">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -913,7 +918,7 @@
             <Setter Property="Background"  Value="{StaticResource T3.SurfaceSunken}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
-            <Setter Property="Padding" Value="16,0,8,0"/>
+            <Setter Property="Padding" Value="12,0,8,0"/>
           </Style>
 
           <Style x:Key="T3.Panel" TargetType="Border">
@@ -969,16 +974,34 @@
           <!-- Zero-gap tab surface. WPF's stock TabControl carries Padding="2,2,2,2", a
                light Background and a 1px border, which render as a white gutter around
                every tab's content (rule 19 — bố cục liền mạch). Implicit so every tool
-               inherits it; a tool that sets these locally still wins. -->
+               inherits it; a tool that sets these locally still wins.
+               Template: stock TabPanel uses Margin="0,2,2,0" which creates a 2px gap above
+               content even when TabItems are collapsed. TabPanel Margin="0" eliminates this gap. -->
           <Style TargetType="TabControl">
             <Setter Property="Padding" Value="0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
-            <!-- NOTE: a content-only ControlTemplate here would also remove the stock
-                 HeaderPanel's Margin="2,2,2,0" (the last 2px strip above the content),
-                 but retemplating TabControl globally coincided with XAML load failures
-                 in Revit and was reverted 2026-09-03. Re-attempt only with a Revit test.
-                 Padding/BorderThickness/Background already remove the L/R/B gutter. -->
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                  <Grid KeyboardNavigation.TabNavigation="Local">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TabPanel Grid.Row="0" IsItemsHost="True" Margin="0"/>
+                    <Border Grid.Row="1"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            Background="{TemplateBinding Background}">
+                      <ContentPresenter x:Name="PART_SelectedContentHost"
+                                        Margin="{TemplateBinding Padding}"
+                                        ContentSource="SelectedContent"/>
+                    </Border>
+                  </Grid>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
           </Style>
 
           <Style x:Key="T3.TabItem.Hidden" TargetType="TabItem">
@@ -1002,15 +1025,15 @@
                           </Border>
                           <ControlTemplate.Triggers>
                               <Trigger Property="IsChecked" Value="True">
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Ink}"/>
-                                  <Setter Property="Foreground" Value="{StaticResource T3.Surface}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </Trigger>
                               <MultiTrigger>
                                   <MultiTrigger.Conditions>
                                       <Condition Property="IsChecked" Value="False"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Canvas}"/>
                                   <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                               <MultiTrigger>
@@ -1018,7 +1041,8 @@
                                       <Condition Property="IsChecked" Value="True"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Text}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.BorderStrong}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                           </ControlTemplate.Triggers>
                       </ControlTemplate>
@@ -1179,7 +1203,7 @@
             <Setter Property="Width"  Value="42"/>
             <Setter Property="Height" Value="42"/>
             <Setter Property="CornerRadius" Value="{StaticResource T3.R.Window}"/>
-            <Setter Property="Background"   Value="{StaticResource T3.Ink}"/>
+            <Setter Property="Background"   Value="{StaticResource T3.Border}"/>
           </Style>
 
           <!-- Pill 36px — dải trạng thái/đếm nằm ngang. Bo góc 18 = nửa chiều cao. -->
@@ -1375,72 +1399,15 @@
     <!-- ═══ Outer Window Border (Zero-Gap Grid) ═══ -->
     <Border BorderBrush="{StaticResource T3.BorderStrong}" BorderThickness="1.5"
             Background="{StaticResource T3.Surface}" CornerRadius="12" ClipToBounds="True">
-        <Grid Margin="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="58"/>  <!-- Col 0: Left Navigation Icon Rail -->
-                <ColumnDefinition Width="*"/>   <!-- Col 1: Main Content Work Area -->
-            </Grid.ColumnDefinitions>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48"/>      <!-- Row 0: Full-width Title Bar -->
+                <RowDefinition Height="*"/>       <!-- Row 1: Main Body with Sidebar Rail -->
+                <RowDefinition Height="48"/>      <!-- Row 2: Full-width Footer Bar -->
+            </Grid.RowDefinitions>
 
-            <!-- ══════════════════ COL 0: LEFT NAVIGATION ICON RAIL ══════════════════ -->
-            <Border Grid.Column="0"
-                    Background="{StaticResource T3.SurfaceSunken}"
-                    BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
-                <Grid Margin="0,12,0,12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- Logo -->
-                        <RowDefinition Height="Auto"/> <!-- Style Manager Nav -->
-                        <RowDefinition Height="Auto"/> <!-- Color Splasher Nav -->
-                        <RowDefinition Height="*"/>    <!-- Spacer -->
-                    </Grid.RowDefinitions>
-
-                    <!-- App Logo Tile -->
-                    <Border Grid.Row="0" Style="{StaticResource T3.Rail.Logo}" Margin="0,0,0,16">
-                        <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16"
-                              Stroke="{StaticResource T3.Ink}" StrokeThickness="1.8" StrokeLineJoin="Round"
-                              Width="19" Height="19" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-
-                    <!-- Nav: Style Manager -->
-                    <RadioButton x:Name="btn_tab_styles" Grid.Row="1"
-                                 GroupName="ManaStylesNav" IsChecked="True"
-                                 Click="on_sidebar_clicked"
-                                 Style="{StaticResource T3.Rail.Tile}"
-                                 ToolTip="Style Manager"
-                                 HorizontalAlignment="Center" Margin="0,0,0,8">
-                        <Path Data="M3 4 A2 2 0 0 1 5 2 L15 2 A2 2 0 0 1 17 4 L17 16 A2 2 0 0 1 15 18 L5 18 A2 2 0 0 1 3 16 Z M3 8 L17 8 M3 13 L17 13"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
-                              StrokeThickness="1.5"
-                              Width="18" Height="18" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </RadioButton>
-
-                    <!-- Nav: Color Splasher -->
-                    <RadioButton x:Name="btn_tab_splasher" Grid.Row="2"
-                                 GroupName="ManaStylesNav" IsChecked="False"
-                                 Click="on_sidebar_clicked"
-                                 Style="{StaticResource T3.Rail.Tile}"
-                                 ToolTip="Color Splasher"
-                                 HorizontalAlignment="Center" Margin="0,0,0,8">
-                        <Path Data="M12 2 C6.48 2 2 6.48 2 12 C2 17.52 6.48 22 12 22 C13.66 22 15 20.66 15 19 C15 18.23 14.71 17.53 14.24 17 C13.78 16.48 13.5 15.77 13.5 15 C13.5 13.34 14.84 12 16.5 12 L19 12 C20.66 12 22 10.66 22 9 C22 5.13 17.52 2 12 2 Z"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
-                              StrokeThickness="1.5"
-                              Width="18" Height="18" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </RadioButton>
-                </Grid>
-            </Border>
-
-            <!-- ══════════════════ COL 1: WORK AREA ══════════════════ -->
-            <Grid Grid.Column="1">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="48"/> <!-- Row 0: Title Bar -->
-                    <RowDefinition Height="*"/>  <!-- Row 1: Main Tab Content -->
-                    <RowDefinition Height="48"/> <!-- Row 2: Unified Bottom Footer Bar -->
-                </Grid.RowDefinitions>
-
-                <!-- ══════════════════ ROW 0: TITLE BAR ══════════════════ -->
-                <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
+            <!-- ══════════════════ ROW 0: FULL-WIDTH TITLE BAR ══════════════════ -->
+            <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -1448,14 +1415,19 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Title and Subtitle -->
-                        <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="16,0,0,0"
-                                shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                        <TextBlock Text="Style Manager" Style="{StaticResource T3.Title}"/>
-                        <TextBlock Text="Manage line styles, fill patterns and color overrides" Style="{StaticResource T3.Subtitle}"/>
-                    </StackPanel>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,0"
+                                    shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                            <Image x:Name="logo_image" Height="28" Margin="0,0,12,0"
+                                   VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                <TextBlock Text="Style Manager" Style="{StaticResource T3.Title}"/>
+                                <TextBlock Text="Manage line styles, fill patterns and color overrides" Style="{StaticResource T3.Subtitle}"/>
+                            </StackPanel>
+                        </StackPanel>
 
                         <!-- Window Controls -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal"
                                     shell:WindowChrome.IsHitTestVisibleInChrome="True">
                             <Button x:Name="btn_minimize" Style="{StaticResource T3.WinCtrl}" ToolTip="Minimize">
                                 <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
@@ -1470,8 +1442,57 @@
                     </Grid>
                 </Border>
 
+            <!-- ══════════════════ ROW 1: WORKSPACE WITH REFINED SIDEBAR ══════════════════ -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="58"/>    <!-- Col 0: Left Navigation Icon Rail -->
+                    <ColumnDefinition Width="*"/>     <!-- Col 1: Main Content Work Area -->
+                </Grid.ColumnDefinitions>
+
+                <!-- ══════════════════ COL 0: LEFT NAVIGATION ICON RAIL ══════════════════ -->
+                <Border Grid.Column="0"
+                    Background="{StaticResource T3.SurfaceSunken}"
+                    BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
+                <Grid Margin="0,12,0,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Style Manager Nav -->
+                        <RowDefinition Height="Auto"/> <!-- Color Splasher Nav -->
+                        <RowDefinition Height="*"/>    <!-- Spacer -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Nav: Style Manager -->
+                    <RadioButton x:Name="btn_tab_styles" Grid.Row="0"
+                                 GroupName="ManaStylesNav" IsChecked="True"
+                                 Click="on_sidebar_clicked"
+                                 Style="{StaticResource T3.Rail.Tile}"
+                                 ToolTip="Style Manager"
+                                 HorizontalAlignment="Center" Margin="0,0,0,8">
+                        <Path Data="M3 4 A2 2 0 0 1 5 2 L15 2 A2 2 0 0 1 17 4 L17 16 A2 2 0 0 1 15 18 L5 18 A2 2 0 0 1 3 16 Z M3 8 L17 8 M3 13 L17 13"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </RadioButton>
+
+                    <!-- Nav: Color Splasher -->
+                    <RadioButton x:Name="btn_tab_splasher" Grid.Row="1"
+                                 GroupName="ManaStylesNav" IsChecked="False"
+                                 Click="on_sidebar_clicked"
+                                 Style="{StaticResource T3.Rail.Tile}"
+                                 ToolTip="Color Splasher"
+                                 HorizontalAlignment="Center" Margin="0,0,0,8">
+                        <Path Data="M12 2 C6.48 2 2 6.48 2 12 C2 17.52 6.48 22 12 22 C13.66 22 15 20.66 15 19 C15 18.23 14.71 17.53 14.24 17 C13.78 16.48 13.5 15.77 13.5 15 C13.5 13.34 14.84 12 16.5 12 L19 12 C20.66 12 22 10.66 22 9 C22 5.13 17.52 2 12 2 Z"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </RadioButton>
+                </Grid>
+            </Border>
+
+                <!-- ══════════════════ COL 1: MAIN WORKSPACE ══════════════════ -->
                 <!-- ══════════════════ ROW 1: MAIN TAB CONTENT ══════════════════ -->
-                <TabControl x:Name="main_tab_control" Grid.Row="1"
+                <TabControl x:Name="main_tab_control" Grid.Column="1"
                             Margin="0" Background="Transparent" BorderThickness="0">
                     <TabControl.ItemContainerStyle>
                         <Style TargetType="TabItem" BasedOn="{StaticResource T3.TabItem.Hidden}"/>
@@ -1547,13 +1568,13 @@
                                                       AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                                       BorderThickness="0">
                                                 <DataGrid.Columns>
-                                                    <DataGridCheckBoxColumn Header="" Binding="{Binding is_selected, UpdateSourceTrigger=PropertyChanged}" Width="40">
+                                                    <DataGridCheckBoxColumn Header="" Binding="{Binding is_selected, UpdateSourceTrigger=PropertyChanged}" Width="36">
                                                         <DataGridCheckBoxColumn.ElementStyle>
                                                             <Style TargetType="CheckBox" BasedOn="{StaticResource T3.CheckBox}"/>
                                                         </DataGridCheckBoxColumn.ElementStyle>
                                                     </DataGridCheckBoxColumn>
-                                                    <DataGridTextColumn Header="Name" Binding="{Binding name}" Width="*" IsReadOnly="True"/>
-                                                    <DataGridTemplateColumn Header="Illustration" Width="110" IsReadOnly="True">
+                                                    <DataGridTextColumn Header="NAME" Binding="{Binding name}" Width="*" IsReadOnly="True"/>
+                                                    <DataGridTemplateColumn Header="ILLUSTRATION" Width="110" IsReadOnly="True">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
                                                                 <Grid Height="24" VerticalAlignment="Center">
@@ -1567,11 +1588,16 @@
                                                             </DataTemplate>
                                                         </DataGridTemplateColumn.CellTemplate>
                                                     </DataGridTemplateColumn>
-                                                    <DataGridTextColumn Header="Color" Binding="{Binding color}" Width="100" IsReadOnly="True"/>
-                                                    <DataGridTextColumn Header="Weight" Binding="{Binding weight}" Width="80" IsReadOnly="True"/>
-                                                    <DataGridTextColumn Header="Pattern" Binding="{Binding pattern}" Width="150" IsReadOnly="True"/>
-                                                    <DataGridTextColumn Header="Usage" Binding="{Binding usage_count}" Width="80" IsReadOnly="True"/>
-                                                    <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"/>
+                                                    <DataGridTextColumn Header="COLOR" Binding="{Binding color}" Width="100" IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource T3.Cell.Muted}"/>
+                                                    <DataGridTextColumn Header="WEIGHT" Binding="{Binding weight}" Width="80" IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource T3.Cell.Number}"/>
+                                                    <DataGridTextColumn Header="PATTERN" Binding="{Binding pattern}" Width="150" IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource T3.Body.Secondary}"/>
+                                                    <DataGridTextColumn Header="USAGE" Binding="{Binding usage_count}" Width="80" IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource T3.Cell.Number}"/>
+                                                    <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource T3.Cell.Mono}"/>
                                                 </DataGrid.Columns>
                                             </DataGrid>
                                             <TextBlock x:Name="grid_style_empty" Style="{StaticResource T3.Empty}"
@@ -1641,13 +1667,13 @@
                                                       AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                                       BorderThickness="0">
                                                 <DataGrid.Columns>
-                                                    <DataGridCheckBoxColumn Header="" Binding="{Binding is_selected, UpdateSourceTrigger=PropertyChanged}" Width="40">
+                                                    <DataGridCheckBoxColumn Header="" Binding="{Binding is_selected, UpdateSourceTrigger=PropertyChanged}" Width="36">
                                                         <DataGridCheckBoxColumn.ElementStyle>
                                                             <Style TargetType="CheckBox" BasedOn="{StaticResource T3.CheckBox}"/>
                                                         </DataGridCheckBoxColumn.ElementStyle>
                                                     </DataGridCheckBoxColumn>
-                                                    <DataGridTextColumn Header="Name" Binding="{Binding name}" Width="*" IsReadOnly="True"/>
-                                                    <DataGridTemplateColumn Header="Illustration" Width="130" IsReadOnly="True">
+                                                    <DataGridTextColumn Header="NAME" Binding="{Binding name}" Width="*" IsReadOnly="True"/>
+                                                    <DataGridTemplateColumn Header="ILLUSTRATION" Width="130" IsReadOnly="True">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
                                                                 <Grid Height="24" VerticalAlignment="Center">
@@ -1661,10 +1687,14 @@
                                                             </DataTemplate>
                                                         </DataGridTemplateColumn.CellTemplate>
                                                     </DataGridTemplateColumn>
-                                                    <DataGridTextColumn Header="Segments Count" Binding="{Binding segment_count}" Width="120" IsReadOnly="True"/>
-                                                    <DataGridTextColumn Header="Segments Type" Binding="{Binding segments_type}" Width="150" IsReadOnly="True"/>
-                                                    <DataGridTextColumn Header="Segments Value" Binding="{Binding segments_value}" Width="200" IsReadOnly="True"/>
-                                                    <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"/>
+                                                    <DataGridTextColumn Header="SEGMENTS COUNT" Binding="{Binding segment_count}" Width="120" IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource T3.Cell.Number}"/>
+                                                    <DataGridTextColumn Header="SEGMENTS TYPE" Binding="{Binding segments_type}" Width="150" IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource T3.Cell.Muted}"/>
+                                                    <DataGridTextColumn Header="SEGMENTS VALUE" Binding="{Binding segments_value}" Width="200" IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource T3.Cell.Mono}"/>
+                                                    <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource T3.Cell.Mono}"/>
                                                 </DataGrid.Columns>
                                             </DataGrid>
                                             <TextBlock x:Name="grid_pattern_empty" Style="{StaticResource T3.Empty}"
@@ -1744,13 +1774,13 @@
                                                       AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                                       BorderThickness="0">
                                                 <DataGrid.Columns>
-                                                    <DataGridCheckBoxColumn Header="" Binding="{Binding is_selected, UpdateSourceTrigger=PropertyChanged}" Width="40">
+                                                    <DataGridCheckBoxColumn Header="" Binding="{Binding is_selected, UpdateSourceTrigger=PropertyChanged}" Width="36">
                                                         <DataGridCheckBoxColumn.ElementStyle>
                                                             <Style TargetType="CheckBox" BasedOn="{StaticResource T3.CheckBox}"/>
                                                         </DataGridCheckBoxColumn.ElementStyle>
                                                     </DataGridCheckBoxColumn>
-                                                    <DataGridTextColumn Header="Name" Binding="{Binding name}" Width="*" IsReadOnly="True"/>
-                                                    <DataGridTemplateColumn Header="Illustration" Width="100" IsReadOnly="True">
+                                                    <DataGridTextColumn Header="NAME" Binding="{Binding name}" Width="*" IsReadOnly="True"/>
+                                                    <DataGridTemplateColumn Header="ILLUSTRATION" Width="100" IsReadOnly="True">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
                                                                 <Border Width="60" Height="18"
@@ -1760,8 +1790,10 @@
                                                             </DataTemplate>
                                                         </DataGridTemplateColumn.CellTemplate>
                                                     </DataGridTemplateColumn>
-                                                    <DataGridTextColumn Header="Target" Binding="{Binding target_str}" Width="120" IsReadOnly="True"/>
-                                                    <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"/>
+                                                    <DataGridTextColumn Header="TARGET" Binding="{Binding target_str}" Width="120" IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource T3.Cell.Muted}"/>
+                                                    <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"
+                                                                        ElementStyle="{StaticResource T3.Cell.Mono}"/>
                                                 </DataGrid.Columns>
                                             </DataGrid>
                                             <TextBlock x:Name="grid_fill_empty" Style="{StaticResource T3.Empty}"
@@ -1930,26 +1962,25 @@
                 </TabControl>
 
                 <!-- ══════════════════ ROW 2: UNIFIED BOTTOM FOOTER BAR ══════════════════ -->
-                <Border Grid.Row="2" Style="{StaticResource T3.FooterBar}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="1"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Left: Single Copyright -->
-                        <TextBlock Grid.Column="0" Style="{StaticResource T3.Copyright}" VerticalAlignment="Center"/>
-
-                        <!-- Divider -->
-                        <Border Grid.Column="1" Width="1" Height="16" Background="{StaticResource T3.Border}" Margin="12,0"/>
-
-                        <!-- Status Message -->
-                        <TextBlock Grid.Column="2" x:Name="status_text" Text="Ready"
-                                   Style="{StaticResource T3.Body.Secondary}" VerticalAlignment="Center"/>
-                    </Grid>
-                </Border>
             </Grid>
+
+            <!-- ══════════════════ ROW 2: UNIFIED FOOTER BAR ══════════════════ -->
+            <Border Grid.Row="2" Style="{StaticResource T3.FooterBar}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: Copyright + Status -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource T3.Copyright}"/>
+                        <Border Width="1" Height="16" Background="{StaticResource T3.Border}" Margin="12,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="status_text" Text="Ready"
+                                   Style="{StaticResource T3.Body.Secondary}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
     </Border>
 </Window>

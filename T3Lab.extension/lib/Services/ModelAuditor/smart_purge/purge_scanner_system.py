@@ -15,6 +15,9 @@ FIXED in this version:
 
 __author__ = "Dang Quoc Truong (DQT)"
 
+import os
+import sys
+
 from Autodesk.Revit.DB import (
     FilteredElementCollector,
     ImportInstance,

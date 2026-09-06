@@ -26,7 +26,10 @@ from System import Uri, UriKind
 from System.Diagnostics.Process import Start
 from System.Windows import WindowState
 from System.Windows.Media.Imaging import BitmapImage
-import wpf
+try:
+    import wpf
+except Exception:
+    wpf = None
 
 from GUI.WPF_Base import my_WPF
 
@@ -39,7 +42,7 @@ class FindReplace(my_WPF):
 
     def __init__(self, title, label="Find and Replace", button_name="Rename"):
         path_xaml_file = os.path.join(PATH_SCRIPT, 'Tools', 'FindReplace.xaml')
-        wpf.LoadComponent(self, path_xaml_file)
+        my_WPF.__init__(self, path_xaml_file)
 
         if hasattr(self.UI_label, "Text"):
             self.UI_label.Text = label

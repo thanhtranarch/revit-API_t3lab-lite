@@ -59,8 +59,10 @@ if lib_dir not in sys.path:
 # Evict stale cached modules so code changes take effect without a full pyRevit reload
 _stale = [k for k in list(sys.modules.keys())
           if k in ('GUI.ManaAnnoDialog', 'GUI.DimTextDialog',
-                   'GUI.TagCheckerDialog', 'ManaAnnoDialog',
-                   'DimTextDialog', 'TagCheckerDialog')]
+                   'GUI.TagCheckerDialog', 'GUI.CopyAnnotationDialog',
+                   'ManaAnnoDialog', 'DimTextDialog',
+                   'TagCheckerDialog', 'CopyAnnotationDialog',
+                   'Snippets._host', '_host')]
 for _k in _stale:
     del sys.modules[_k]
 

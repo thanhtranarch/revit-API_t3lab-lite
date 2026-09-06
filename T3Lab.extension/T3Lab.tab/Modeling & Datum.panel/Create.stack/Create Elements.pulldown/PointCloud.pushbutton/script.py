@@ -68,7 +68,7 @@ from System.Windows import WindowState, Visibility
 from System.Windows.Threading import DispatcherPriority
 from System.Collections.Generic import List
 
-from rpw import revit, DB
+from pyrevit import revit, DB
 from Autodesk.Revit.DB import (
     Transaction,
     TransactionGroup,
@@ -106,7 +106,7 @@ from Autodesk.Revit.UI import TaskDialog
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter, PickBoxStyle
 from Autodesk.Revit.Exceptions import OperationCanceledException
 from pyrevit import forms, script
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 
 # Path setup
 # ==============================================================================
@@ -125,7 +125,7 @@ logger        = script.get_logger()
 # tool is launched from the Assistant pane or with no project open, and the
 # old `int(revit.doc.Application.VersionNumber)` raised at IMPORT time
 # ('NoneType' object has no attribute 'Application') so the window never opened.
-from Snippets._host import get_revit_version, resolve_doc, host_uiapp
+from Snippets._host import get_revit_version, resolve_doc, resolve_uidoc, host_uiapp
 REVIT_VERSION = get_revit_version()
 
 # Same null-document trap, one layer deeper: `revit.doc` is None from the
@@ -135,22 +135,8 @@ REVIT_VERSION = get_revit_version()
 # hands back an actionable message instead of a null-document crash.
 doc, DOC_ERROR = resolve_doc()
 
-
-def _resolve_uidoc():
-    """Best available UIDocument; None when no view context exists."""
-    try:
-        if revit.uidoc is not None:
-            return revit.uidoc
-    except Exception:
-        pass
-    uiapp = host_uiapp()
-    try:
-        return uiapp.ActiveUIDocument if uiapp is not None else None
-    except Exception:
-        return None
-
-
-uidoc = _resolve_uidoc()
+_resolve_uidoc = resolve_uidoc
+uidoc = resolve_uidoc()
 
 # CLASS / FUNCTIONS
 # ==============================================================================
@@ -192,13 +178,10 @@ def mm_to_internal(value_mm):
 
 # ── Section 2: Point Cloud Extraction ─────────────────────────────────────────
 
+import uuid
+
 class PointCloudSelectionFilter(ISelectionFilter):
-    # IronPython only: __namespace__ pins the generated CLR type
-    # name, so re-running this script.py on the next click raises
-    # "Duplicate type name within an assembly". pythonnet
-    # auto-uniquifies when it is absent, which is what we want.
-    if sys.version_info[0] < 3:
-        __namespace__ = "T3Lab.PointCloud"
+    __namespace__ = "T3Lab.PointCloud_" + uuid.uuid4().hex[:8]
     def AllowElement(self, element):
         return isinstance(element, PointCloudInstance)
 
@@ -1393,6 +1376,7 @@ class PointCloudAnalyzer(object):
 # ── Section 6: ElementBuilder ─────────────────────────────────────────────────
 
 class WarningSwallower(IFailuresPreprocessor):
+    __namespace__ = "T3Lab.PointCloud_Warning_" + uuid.uuid4().hex[:8]
     """
     Suppress Revit's modal warning dialogs during batch creation.
 
@@ -2186,7 +2170,7 @@ class PointCloudModelWindow(T3WPFWindow):
         total = len(elems)
         self.pnl_empty_state.Visibility = Visibility.Collapsed
         if total > 0:
-            self.results_grid.ItemsSource     = elems
+            self.results_grid.ItemsSource     = to_items_source(elems)
             self.results_grid_card.Visibility = Visibility.Visible
             self.pnl_no_results.Visibility    = Visibility.Collapsed
             self.btn_generate.IsEnabled       = True

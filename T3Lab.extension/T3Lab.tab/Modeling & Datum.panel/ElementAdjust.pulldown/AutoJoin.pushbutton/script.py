@@ -75,7 +75,7 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.UI import TaskDialog, TaskDialogCommonButtons, TaskDialogResult
 from pyrevit import revit, forms, script
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 
 from Snippets._compat import eid_value
 from GUI.ProgressPauseMixin import ProgressPauseMixin
@@ -160,7 +160,10 @@ class RuleItem(object):
 # FAILURE HANDLING
 # ==================================================
 
+import uuid
+
 class _JoinFailuresPreprocessor(IFailuresPreprocessor):
+    __namespace__ = "T3Lab.AutoJoin_" + uuid.uuid4().hex[:8]
     """Auto-dismiss warnings raised during join/unjoin so Revit's native
     failure-resolution dialog never blocks the transaction commit.
 
@@ -404,7 +407,7 @@ def load_rules_from_file(filepath=None):
 # WPF WINDOW
 # ==================================================
 
-class AutoJoinWindow(T3WPFWindow, ProgressPauseMixin):
+class AutoJoinWindow(T3WPFWindow):
 
     # ProgressPauseMixin — XAML element names match the mixin defaults
     # (progress_panel / pb_run / btn_pause / btn_stop / status_text)
@@ -436,7 +439,7 @@ class AutoJoinWindow(T3WPFWindow, ProgressPauseMixin):
             for i, r in enumerate(self._rules)
         ]
         self.rules_grid.ItemsSource = None
-        self.rules_grid.ItemsSource = items
+        self.rules_grid.ItemsSource = to_items_source(items)
         self.rule_count_text.Text = "{} rule(s) defined".format(len(self._rules))
 
     # --------------------------------------------------

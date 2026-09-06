@@ -14,6 +14,8 @@ def eid_value(element_id):
     """
     if element_id is None:
         return -1
+    if isinstance(element_id, (int, float)):
+        return int(element_id)
     try:
         return int(element_id.Value)          # Revit 2024+ (Int64 -> plain int)
     except Exception:
@@ -39,6 +41,10 @@ def make_eid(value):
     """
     global _EID_NEEDS_INT64
     from Autodesk.Revit.DB import ElementId
+    if value is None:
+        return ElementId.InvalidElementId
+    if isinstance(value, ElementId):
+        return value
     v = int(value)
     if _EID_NEEDS_INT64:
         import System

@@ -23,7 +23,7 @@ from System.Windows.Controls import DataGridComboBoxColumn, DataGridLength
 from System.Windows.Data import Binding, BindingMode, UpdateSourceTrigger
 
 from pyrevit import forms
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 import pyrevit.script as _pyrevit_script
 
 logger = _pyrevit_script.get_logger()
@@ -401,6 +401,8 @@ _CAT_HINTS = [
 # ==============================================================================
 
 class WarningSwallower(IFailuresPreprocessor):
+    __namespace__ = "T3Lab.FamiGen"
+
     def PreprocessFailures(self, failuresAccessor):
         fail_list = failuresAccessor.GetFailureMessages()
         if fail_list.Count == 0:
@@ -499,7 +501,7 @@ CATEGORY_TEMPLATES = _CATEGORY_TEMPLATES
 # COMBINED DIALOG
 # ==============================================================================
 
-class FamilyCreatorDialog(T3WPFWindow, ProgressPauseMixin):
+class FamilyCreatorDialog(T3WPFWindow):
 
     # ProgressPauseMixin element names — FamiGen.xaml uses export-suffixed names
     PP_BAR      = "pb_export"
@@ -650,7 +652,7 @@ class FamilyCreatorDialog(T3WPFWindow, ProgressPauseMixin):
         col = DataGridComboBoxColumn()
         col.Header = "Category"
         col.Width = DataGridLength(140)
-        col.ItemsSource = cat_names
+        col.ItemsSource = to_items_source(cat_names)
         b = Binding("Category")
         b.Mode = BindingMode.TwoWay
         b.UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
@@ -710,7 +712,7 @@ class FamilyCreatorDialog(T3WPFWindow, ProgressPauseMixin):
                 if cat and item.Category != cat:
                     continue
                 visible.append(item)
-        self.blocks_grid.ItemsSource = visible
+        self.blocks_grid.ItemsSource = to_items_source(visible)
         total   = len(self._block_items)
         showing = len(visible)
         if total == 0:

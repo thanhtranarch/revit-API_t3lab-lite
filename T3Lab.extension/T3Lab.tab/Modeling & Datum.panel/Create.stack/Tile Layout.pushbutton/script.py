@@ -925,13 +925,10 @@ class ReportGenerator(object):
 # SECTION 11 — SELECTION FILTER
 # ═════════════════════════════════════════════════════════════════════════════
 
+import uuid
+
 class _FloorFilter(ISelectionFilter):
-    # IronPython only: __namespace__ pins the generated CLR type
-    # name, so re-running this script.py on the next click raises
-    # "Duplicate type name within an assembly". pythonnet
-    # auto-uniquifies when it is absent, which is what we want.
-    if sys.version_info[0] < 3:
-        __namespace__ = "T3Lab.TileLayout"
+    __namespace__ = "T3Lab.TileLayout_" + uuid.uuid4().hex[:8]
     def AllowElement(self, e):
         return (e.Category is not None and
                 eid_value(e.Category.Id) == int(BuiltInCategory.OST_Floors))
@@ -966,7 +963,7 @@ STEP_PATTERN    = 1
 STEP_CONCEPTS   = 2
 
 
-class TileLayoutWindow(T3WPFWindow, ProgressPauseMixin):
+class TileLayoutWindow(T3WPFWindow):
 
     # ProgressPauseMixin — TileLayout.xaml status-bar progress panel
     PP_PANEL      = "tl_progress_panel"

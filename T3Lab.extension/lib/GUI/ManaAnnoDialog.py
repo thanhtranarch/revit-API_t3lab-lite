@@ -73,16 +73,37 @@ except Exception:
 # `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
 # UIDocument is active. At module scope that kills the import outright, so the
 # tool dies before it can explain itself. Resolve defensively and let the entry
-# point report the real problem.
 try:
-    doc = revit.doc
+    from Snippets._host import resolve_doc, resolve_uidoc, get_revit_version
+except ImportError:
+    try:
+        import importlib
+        import Snippets._host
+        importlib.reload(Snippets._host)
+        from Snippets._host import resolve_doc, resolve_uidoc, get_revit_version
+    except Exception:
+        from Snippets._host import resolve_doc, get_revit_version
+        def resolve_uidoc(candidate=None):
+            if candidate is not None and hasattr(candidate, 'Document') and candidate.Document is not None:
+                return candidate
+            try:
+                from pyrevit import revit
+                return revit.uidoc
+            except Exception:
+                return None
+
+try:
+    doc = resolve_doc(getattr(revit, 'doc', None)).doc
 except Exception:
     doc = None
 try:
-    uidoc = revit.uidoc
+    uidoc = resolve_uidoc(getattr(revit, 'uidoc', None))
 except Exception:
     uidoc = None
-REVIT_VERSION = int(revit.doc.Application.VersionNumber)
+try:
+    REVIT_VERSION = get_revit_version(doc)
+except Exception:
+    REVIT_VERSION = 2024
 
 # ============================================================
 # NAMING STRUCTURE CONFIGURATION — ISO 19650 COMPLIANT

@@ -28,7 +28,7 @@ from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventAr
 from System.Windows.Controls import Grid as WPFGrid
 
 from pyrevit import revit, DB, forms
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 from Autodesk.Revit.DB import (
     FilteredElementCollector, View, ViewType, ElementId,
     BuiltInParameter, ViewDetailLevel, StorageType, Transaction
@@ -89,7 +89,13 @@ from GUI.ProgressPauseMixin import ProgressPauseMixin
 # VIEW TEMPLATE ITEM WRAPPER
 # =====================================================
 
-class ViewTemplateItem(INotifyPropertyChanged):
+try:
+    _Reactive = getattr(forms, 'Reactive', object)
+except Exception:
+    _Reactive = object
+
+
+class ViewTemplateItem(_Reactive):
     """Wrapper class for View Template with WPF binding support"""
     def __init__(self, view_template):
         self._property_changed_handlers = []
@@ -187,7 +193,7 @@ class ViewTemplateItem(INotifyPropertyChanged):
 # VIEW MANAGER DIALOG CLASS
 # =====================================================
 
-class ViewManagerWindow(T3WPFWindow, ProgressPauseMixin):
+class ViewManagerWindow(T3WPFWindow):
 
     # ProgressPauseMixin — ManaViews.xaml status-bar progress panel
     PP_PANEL      = "mv_progress_panel"
@@ -267,8 +273,8 @@ class ViewManagerWindow(T3WPFWindow, ProgressPauseMixin):
         
         # Load combobox data
         self.template_items = self._get_all_templates_names()
-        self.col_template.ItemsSource = self.template_items
-        self.col_detail.ItemsSource = ["Coarse", "Medium", "Fine"]
+        self.col_template.ItemsSource = to_items_source(self.template_items)
+        self.col_detail.ItemsSource = to_items_source(["Coarse", "Medium", "Fine"])
         
         # Load initial data
         self._load_views_data()

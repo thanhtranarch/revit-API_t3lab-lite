@@ -14,7 +14,7 @@ import os
 
 from pyrevit import forms
 
-from GUI.WPF_Base import my_WPF
+from GUI.WPF_Base import my_WPF, to_items_source
 
 import clr
 clr.AddReference("System")
@@ -25,7 +25,10 @@ from System import Uri, UriKind
 from System.Collections.Generic import List
 from System.Windows import Visibility, WindowState
 from System.Windows.Media.Imaging import BitmapImage
-import wpf
+try:
+    import wpf
+except Exception:
+    wpf = None
 
 PATH_SCRIPT = os.path.dirname(__file__)
 
@@ -50,7 +53,7 @@ class SelectFromDict(my_WPF):
         self.selected_items = []
 
         path_xaml_file = os.path.join(PATH_SCRIPT, 'Tools', 'SelectFromDict.xaml')
-        wpf.LoadComponent(self, path_xaml_file)
+        my_WPF.__init__(self, path_xaml_file)
 
         self.main_title.Text     = title
         self.text_label.Text     = label
@@ -60,7 +63,7 @@ class SelectFromDict(my_WPF):
         if not SelectMultiple:
             self.UI_Buttons_all_none.Visibility = Visibility.Collapsed
 
-        self.main_ListBox.ItemsSource = self.items
+        self.main_ListBox.ItemsSource = to_items_source(self.items)
         self.ShowDialog()
 
     def generate_list_items(self):
@@ -89,11 +92,11 @@ class SelectFromDict(my_WPF):
     def text_filter_updated(self, sender, e):
         filter_text = self.textbox_filter.Text.strip().lower() if self.textbox_filter.Text else ''
         if filter_text:
-            self.main_ListBox.ItemsSource = [
+            self.main_ListBox.ItemsSource = to_items_source([
                 item for item in self.items if filter_text in item.Name.lower()
-            ]
+            ])
         else:
-            self.main_ListBox.ItemsSource = self.items
+            self.main_ListBox.ItemsSource = to_items_source(self.items)
 
     def button_select(self, sender, e):
         self.selected_items = [item.element for item in self.items if item.IsChecked]

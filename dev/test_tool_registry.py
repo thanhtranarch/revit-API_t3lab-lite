@@ -41,6 +41,11 @@ import os
 import re
 import sys
 
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXT = os.path.join(REPO, 'T3Lab.extension')
 LIB = os.path.join(EXT, 'lib')
@@ -158,14 +163,26 @@ def _dispatch_branches():
     """{tool_name: source_text} for each `elif tool_name == 'x':` branch."""
     lines = _SERVER_SRC.splitlines()
     starts = []
-    pat = re.compile(r"^\s*(?:el)?if\s+tool_name\s*==\s*'([a-z0-9_]+)'\s*:")
+    attr_map = {}
+    for m in re.finditer(r"^\s*(_[A-Z0-9_]+)\s*=\s*'([a-z0-9_]+)'", _SERVER_SRC, re.M):
+        attr_map[m.group(1)] = m.group(2)
+
+    pat = re.compile(r"^\s*(?:el)?if\s+tool_name\s*==\s*(?:'([a-z0-9_]+)'|self\.(_[A-Z0-9_]+))\s*:")
     for i, line in enumerate(lines):
         m = pat.match(line)
         if m:
-            starts.append((i, m.group(1)))
+            name = m.group(1) or attr_map.get(m.group(2))
+            if name:
+                starts.append((i, len(m.group(0)) - len(m.group(0).lstrip()), name))
     out = {}
-    for idx, (line_no, name) in enumerate(starts):
-        end = starts[idx + 1][0] if idx + 1 < len(starts) else len(lines)
+    for idx, (line_no, indent, name) in enumerate(starts):
+        next_start = starts[idx + 1][0] if idx + 1 < len(starts) else len(lines)
+        end = next_start
+        for j in range(line_no + 1, next_start):
+            l = lines[j]
+            if l.strip() and (len(l) - len(l.lstrip())) <= indent:
+                end = j
+                break
         out[name] = '\n'.join(lines[line_no:end])
     return out
 

@@ -265,13 +265,9 @@ def main():
             try:
                 from Autodesk.Revit.UI.Selection import ISelectionFilter
                 
+                import uuid
                 class ElementSelectionFilter(ISelectionFilter):
-                    # IronPython only: __namespace__ pins the generated CLR type
-                    # name, so re-running this script.py on the next click raises
-                    # "Duplicate type name within an assembly". pythonnet
-                    # auto-uniquifies when it is absent, which is what we want.
-                    if sys.version_info[0] < 3:
-                        __namespace__ = "T3Lab.WallAdjustBase"
+                    __namespace__ = "T3Lab.WallAdjustBase_" + uuid.uuid4().hex[:8]
                     def AllowElement(self, elem):
                         return isinstance(elem, (Wall, Floor)) or is_column(elem) or is_beam(elem)
                     

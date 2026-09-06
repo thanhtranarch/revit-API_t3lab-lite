@@ -21,11 +21,16 @@ from Autodesk.Revit.DB import *
 from pyrevit.forms import alert
 # ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
-# ==================================================
-doc   = __revit__.ActiveUIDocument.Document     # Document   class from RevitAPI that represents project. Used to Create, Delete, Modify and Query elements from the project.
-uidoc = __revit__.ActiveUIDocument              # UIDocument class from RevitAPI that represents Revit project opened in the Revit UI.
-app   = __revit__.Application                   # Represents the Autodesk Revit Application, providing access to documents, options and other application wide data and settings.
+try:
+    from Snippets._host import resolve_doc, host_uiapp, get_revit_version
+    doc, _doc_err = resolve_doc()
+    uiapp = host_uiapp()
+    uidoc = uiapp.ActiveUIDocument if uiapp else None
+    app   = uiapp.Application if uiapp else None
+except Exception:
+    doc = None
+    uidoc = None
+    app = None
 
 # ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
 # ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
@@ -44,15 +49,32 @@ def create_filter(key_parameter, element_value):
 # group = FilteredElementCollector(doc).WherePasses(filter).FirstElement()
 
 
-def get_family_types(family_name):
+def get_family_types(family_name, target_doc=None):
     """Function to get FamilyTypes of a given FamilyName. It has to be written exactly the same."""
+    target_doc = target_doc or doc
+    if not target_doc:
+        try:
+            from Snippets._host import resolve_doc
+            target_doc, _ = resolve_doc()
+        except Exception:
+            target_doc = None
+    if not target_doc:
+        return []
+
     pvp         = ParameterValueProvider(ElementId(BuiltInParameter.ALL_MODEL_FAMILY_NAME))
     condition   = FilterStringEquals()
     ruleValue   = family_name
-    fRule       = FilterStringRule(pvp, condition, ruleValue, True)
+
+    try:
+        # Revit 2022+ (caseSensitive parameter was removed)
+        fRule = FilterStringRule(pvp, condition, ruleValue)
+    except Exception:
+        # Revit 2021 and earlier
+        fRule = FilterStringRule(pvp, condition, ruleValue, True)
+
     my_filter   = ElementParameterFilter(fRule)
 
-    family_types = FilteredElementCollector(doc).WherePasses(my_filter).WhereElementIsElementType().ToElements()
+    family_types = FilteredElementCollector(target_doc).WherePasses(my_filter).WhereElementIsElementType().ToElements()
 
     if not family_types:
         alert("Could not find a Family with a name: " + ruleValue, title = 'Family Not Found.', exitscript=True)

@@ -27,7 +27,7 @@ clr.AddReference("PresentationCore")
 clr.AddReference("WindowsBase")
 
 import System
-from System import Uri, Action
+from System import Uri, Action, Object
 from System.Collections.ObjectModel import ObservableCollection
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 from System.Windows import Window, Visibility
@@ -38,7 +38,7 @@ from System.Windows.Threading import Dispatcher
 
 # pyRevit Imports
 from pyrevit import revit, DB, forms, script
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 from Snippets._compat import eid_value, elem_name
 
 from Autodesk.Revit.DB import (
@@ -189,9 +189,13 @@ def sanitize_name(name):
     return name.strip()
 
 
-# VIEW-MODELS
-# ==============================================================================
-class FamilyItem(INotifyPropertyChanged):
+try:
+    _Reactive = getattr(forms, 'Reactive', object)
+except Exception:
+    _Reactive = object
+
+
+class FamilyItem(_Reactive):
     def __init__(self, name, full_path, category, thumbnail_path=None, is_cloud=False, download_url=None):
         self._is_checked = False
         self._is_disposed = False
@@ -314,7 +318,7 @@ class ManaFamiWindow(T3WPFWindow):
         self.current_folder = None
         self.all_families = []
         self.loaded_families = []
-        self.filtered_families = ObservableCollection[FamilyItem]()
+        self.filtered_families = ObservableCollection[Object]()
         self.category_structure = {}
         self._scan_thread = None
         self._cancel_requested = False
@@ -330,73 +334,102 @@ class ManaFamiWindow(T3WPFWindow):
         self._find_named_controls()
         
         # ItemsSource Bindings
-        self.items_families.ItemsSource = self.filtered_families
+        if getattr(self, 'items_families', None) is not None:
+            self.items_families.ItemsSource = to_items_source(self.filtered_families)
         
         # Event Wireup
         self._wire_events()
 
+    @property
+    def doc(self):
+        try:
+            if self._revit and hasattr(self._revit, 'doc') and self._revit.doc:
+                return self._revit.doc
+        except Exception:
+            pass
+        from pyrevit import revit as rvt
+        try:
+            return rvt.doc
+        except Exception:
+            return None
+
+    @property
+    def uidoc(self):
+        try:
+            if self._revit and hasattr(self._revit, 'uidoc') and self._revit.uidoc:
+                return self._revit.uidoc
+        except Exception:
+            pass
+        from pyrevit import revit as rvt
+        try:
+            return rvt.uidoc
+        except Exception:
+            return None
+
     def _find_named_controls(self):
+        def _get(name):
+            return self.FindName(name) or getattr(self, name, None)
+
         # Navigation
-        self.nav_loader = self.FindName('nav_loader')
-        self.nav_management = self.FindName('nav_management')
-        self.main_tab_control = self.FindName('main_tab_control')
-        self.lbl_title = self.FindName('lbl_title')
-        self.lbl_subtitle = self.FindName('lbl_subtitle')
+        self.nav_loader = _get('nav_loader')
+        self.nav_management = _get('nav_management')
+        self.main_tab_control = _get('main_tab_control')
+        self.lbl_title = _get('lbl_title')
+        self.lbl_subtitle = _get('lbl_subtitle')
 
         # Loader
-        self.btn_select_folder = self.FindName('btn_select_folder')
-        self.txt_current_folder = self.FindName('txt_current_folder')
-        self.txt_search = self.FindName('txt_search')
-        self.tree_categories = self.FindName('tree_categories')
-        self.items_families = self.FindName('items_families')
-        self.txt_result_count = self.FindName('txt_result_count')
-        self.txt_selected_count = self.FindName('txt_selected_count')
-        self.btn_select_all_loader = self.FindName('btn_select_all_loader')
-        self.btn_select_none_loader = self.FindName('btn_select_none_loader')
-        self.btn_load = self.FindName('btn_load')
-        self.btn_cancel_loader = self.FindName('btn_cancel_loader')
-
+        self.btn_select_folder = _get('btn_select_folder')
+        self.txt_current_folder = _get('txt_current_folder')
+        self.txt_search = _get('txt_search')
+        self.tree_categories = _get('tree_categories')
+        self.items_families = _get('items_families')
+        self.txt_result_count = _get('txt_result_count')
+        self.txt_selected_count = _get('txt_selected_count')
+        self.btn_select_all_loader = _get('btn_select_all_loader')
+        self.btn_select_none_loader = _get('btn_select_none_loader')
+        self.btn_load = _get('btn_load')
+        self.btn_cancel_loader = _get('btn_cancel_loader')
 
         # Management settings sidebar
-        self.rb_scope_all = self.FindName('rb_scope_all')
-        self.rb_scope_view = self.FindName('rb_scope_view')
-        self.rb_scope_selection = self.FindName('rb_scope_selection')
-        self.cb_category = self.FindName('cb_category')
-        self.tb_find = self.FindName('tb_find')
-        self.btn_match_case = self.FindName('btn_match_case')
-        self.btn_find_next = self.FindName('btn_find_next')
-        self.btn_find_all = self.FindName('btn_find_all')
-        self.tb_replace = self.FindName('tb_replace')
-        self.btn_replace = self.FindName('btn_replace')
-        self.btn_replace_all = self.FindName('btn_replace_all')
-        self.tb_prefix = self.FindName('tb_prefix')
-        self.btn_prefix_sel = self.FindName('btn_prefix_sel')
-        self.btn_prefix_all = self.FindName('btn_prefix_all')
-        self.tb_suffix = self.FindName('tb_suffix')
-        self.btn_suffix_sel = self.FindName('btn_suffix_sel')
-        self.btn_suffix_all = self.FindName('btn_suffix_all')
-        self.cb_case_target = self.FindName('cb_case_target')
-        self.btn_case_upper = self.FindName('btn_case_upper')
-        self.btn_case_lower = self.FindName('btn_case_lower')
-        self.btn_case_title = self.FindName('btn_case_title')
-        self.btn_case_sentence = self.FindName('btn_case_sentence')
-        self.btn_clear_settings = self.FindName('btn_clear_settings')
+        self.rb_scope_all = _get('rb_scope_all')
+        self.rb_scope_view = _get('rb_scope_view')
+        self.rb_scope_selection = _get('rb_scope_selection')
+        self.cb_category = _get('cb_category')
+        self.tb_find = _get('tb_find')
+        self.btn_match_case = _get('btn_match_case')
+        self.btn_find_next = _get('btn_find_next')
+        self.btn_find_all = _get('btn_find_all')
+        self.tb_replace = _get('tb_replace')
+        self.btn_replace = _get('btn_replace')
+        self.btn_replace_all = _get('btn_replace_all')
+        self.tb_prefix = _get('tb_prefix')
+        self.btn_prefix_sel = _get('btn_prefix_sel')
+        self.btn_prefix_all = _get('btn_prefix_all')
+        self.tb_suffix = _get('tb_suffix')
+        self.btn_suffix_sel = _get('btn_suffix_sel')
+        self.btn_suffix_all = _get('btn_suffix_all')
+        self.cb_case_target = _get('cb_case_target')
+        self.btn_case_upper = _get('btn_case_upper')
+        self.btn_case_lower = _get('btn_case_lower')
+        self.btn_case_title = _get('btn_case_title')
+        self.btn_case_sentence = _get('btn_case_sentence')
+        self.btn_clear_settings = _get('btn_clear_settings')
 
         # Management workspace area
-        self.tb_search = self.FindName('tb_search')
-        self.btn_export_list = self.FindName('btn_export_list')
-        self.dg_families = self.FindName('dg_families')
-        self.btn_select_all_mgmt = self.FindName('btn_select_all_mgmt')
-        self.btn_deselect_all_mgmt = self.FindName('btn_deselect_all_mgmt')
-        self.btn_undo = self.FindName('btn_undo')
-        self.btn_apply = self.FindName('btn_apply')
-        self.status_text = self.FindName('status_text')
-        self.count_text = self.FindName('count_text')
+        self.tb_search = _get('tb_search')
+        self.btn_export_list = _get('btn_export_list')
+        self.dg_families = _get('dg_families')
+        self.btn_select_all_mgmt = _get('btn_select_all_mgmt')
+        self.btn_deselect_all_mgmt = _get('btn_deselect_all_mgmt')
+        self.btn_undo = _get('btn_undo')
+        self.btn_apply = _get('btn_apply')
+        self.status_text = _get('status_text')
+        self.count_text = _get('count_text')
 
         # Chrome buttons
-        self.btn_minimize = self.FindName('btn_minimize')
-        self.btn_maximize = self.FindName('btn_maximize')
-        self.btn_close_chrome = self.FindName('btn_close_chrome')
+        self.btn_minimize = _get('btn_minimize')
+        self.btn_maximize = _get('btn_maximize')
+        self.btn_close_chrome = _get('btn_close_chrome')
 
     def _wire_events(self):
         # Sidebar Navigation
@@ -961,31 +994,46 @@ class ManaFamiWindow(T3WPFWindow):
     # ==============================================================================
     def _load_worksets(self):
         self._worksets = [WorksetItem("<No Workset / None>", -1)]
-        if doc.IsWorkshared:
-            f_collector = FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset)
-            for ws in f_collector.ToWorksets():
-                self._worksets.append(WorksetItem(ws.Name, eid_value(ws.Id)))
+        cur_doc = self.doc
+        if cur_doc and cur_doc.IsWorkshared:
+            try:
+                f_collector = FilteredWorksetCollector(cur_doc).OfKind(WorksetKind.UserWorkset)
+                for ws in f_collector.ToWorksets():
+                    self._worksets.append(WorksetItem(ws.Name, eid_value(ws.Id)))
+            except Exception:
+                pass
         self.Worksets = self._worksets
 
     def _refresh_data(self):
-        scope_all = self.rb_scope_all.IsChecked
-        scope_view = self.rb_scope_view.IsChecked
-        scope_selection = self.rb_scope_selection.IsChecked
-        category_idx = self.cb_category.SelectedIndex
+        cur_doc = self.doc
+        cur_uidoc = self.uidoc
+        if not cur_doc:
+            if getattr(self, 'status_text', None) is not None:
+                self.status_text.Text = "No active document open in Revit."
+            return
+
+        scope_all = self.rb_scope_all.IsChecked if getattr(self, 'rb_scope_all', None) else False
+        scope_view = self.rb_scope_view.IsChecked if getattr(self, 'rb_scope_view', None) else False
+        scope_selection = self.rb_scope_selection.IsChecked if getattr(self, 'rb_scope_selection', None) else False
+        category_idx = self.cb_category.SelectedIndex if getattr(self, 'cb_category', None) else 0
 
         if scope_selection:
-            selected_ids = uidoc.Selection.GetElementIds()
+            if not cur_uidoc:
+                return
+            selected_ids = cur_uidoc.Selection.GetElementIds()
             if not selected_ids:
                 self._all_rows = []
                 self._visible_rows = []
-                self.dg_families.ItemsSource = self._visible_rows
-                self.status_text.Text = "No elements selected in Revit."
+                if getattr(self, 'dg_families', None) is not None:
+                    self.dg_families.ItemsSource = to_items_source(self._visible_rows)
+                if getattr(self, 'status_text', None) is not None:
+                    self.status_text.Text = "No elements selected in Revit."
                 return
-            collector = FilteredElementCollector(doc, selected_ids)
+            collector = FilteredElementCollector(cur_doc, selected_ids)
         elif scope_view:
-            collector = FilteredElementCollector(doc, doc.ActiveView.Id)
+            collector = FilteredElementCollector(cur_doc, cur_doc.ActiveView.Id)
         else:
-            collector = FilteredElementCollector(doc)
+            collector = FilteredElementCollector(cur_doc)
 
         rows = []
         
@@ -1000,7 +1048,7 @@ class ManaFamiWindow(T3WPFWindow):
                         if symbol and symbol.Id not in symbols_found:
                             symbols_found.add(symbol.Id)
                             family = symbol.Family
-                            ws_id = inst.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM).AsInteger() if doc.IsWorkshared else -1
+                            ws_id = inst.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM).AsInteger() if cur_doc.IsWorkshared else -1
                             rows.append(FamilyRow(
                                 element=symbol,
                                 family_name=family.Name,
@@ -1012,13 +1060,13 @@ class ManaFamiWindow(T3WPFWindow):
                     except Exception:
                         pass
             else:
-                families = FilteredElementCollector(doc).OfClass(Family).ToElements()
+                families = FilteredElementCollector(cur_doc).OfClass(Family).ToElements()
                 for fam in families:
                     try:
                         if not fam.IsEditable:
                             continue
                         for symbol_id in fam.GetFamilySymbolIds():
-                            symbol = doc.GetElement(symbol_id)
+                            symbol = cur_doc.GetElement(symbol_id)
                             if symbol:
                                 ws_id = -1
                                 try:
@@ -1038,7 +1086,7 @@ class ManaFamiWindow(T3WPFWindow):
 
         # System Families
         elif category_idx == 1:
-            types_collector = FilteredElementCollector(doc).OfClass(ElementType).ToElements()
+            types_collector = FilteredElementCollector(cur_doc).OfClass(ElementType).ToElements()
             for t in types_collector:
                 try:
                     if hasattr(t, "FamilyName") and t.FamilyName and t.Category:
@@ -1051,7 +1099,7 @@ class ManaFamiWindow(T3WPFWindow):
                                 pass
                         
                         if not is_loadable:
-                            ws_id = t.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM).AsInteger() if doc.IsWorkshared else -1
+                            ws_id = t.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM).AsInteger() if cur_doc.IsWorkshared else -1
                             rows.append(FamilyRow(
                                 element=t,
                                 family_name=t.FamilyName,
@@ -1065,10 +1113,10 @@ class ManaFamiWindow(T3WPFWindow):
 
         # Model Groups
         elif category_idx == 2:
-            group_types = FilteredElementCollector(doc).OfClass(GroupType).ToElements()
+            group_types = FilteredElementCollector(cur_doc).OfClass(GroupType).ToElements()
             for gt in group_types:
                 try:
-                    ws_id = gt.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM).AsInteger() if doc.IsWorkshared else -1
+                    ws_id = gt.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM).AsInteger() if cur_doc.IsWorkshared else -1
                     rows.append(FamilyRow(
                         element=gt,
                         family_name="Model Group",
@@ -1082,10 +1130,10 @@ class ManaFamiWindow(T3WPFWindow):
 
         # Assemblies
         elif category_idx == 3:
-            assembly_types = FilteredElementCollector(doc).OfClass(AssemblyType).ToElements()
+            assembly_types = FilteredElementCollector(cur_doc).OfClass(AssemblyType).ToElements()
             for at in assembly_types:
                 try:
-                    ws_id = at.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM).AsInteger() if doc.IsWorkshared else -1
+                    ws_id = at.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM).AsInteger() if cur_doc.IsWorkshared else -1
                     rows.append(FamilyRow(
                         element=at,
                         family_name="Assembly",
@@ -1099,10 +1147,11 @@ class ManaFamiWindow(T3WPFWindow):
 
         self._all_rows = rows
         self._apply_filter()
-        self.status_text.Text = "Loaded {} rows.".format(len(self._all_rows))
+        if getattr(self, 'status_text', None) is not None:
+            self.status_text.Text = "Loaded {} rows.".format(len(self._all_rows))
 
     def _apply_filter(self):
-        search = (self.tb_search.Text or "").strip().lower()
+        search = (self.tb_search.Text or "").strip().lower() if getattr(self, 'tb_search', None) else ""
         if not search:
             self._visible_rows = list(self._all_rows)
         else:
@@ -1113,13 +1162,15 @@ class ManaFamiWindow(T3WPFWindow):
                     search in r.CategoryName.lower()):
                     self._visible_rows.append(r)
         
-        self.dg_families.ItemsSource = self._visible_rows
+        if getattr(self, 'dg_families', None) is not None:
+            self.dg_families.ItemsSource = to_items_source(self._visible_rows)
         self._update_counts()
 
     def _update_counts(self):
         total = len(self._visible_rows)
         selected = sum(1 for r in self._visible_rows if r.IsSelected)
-        self.count_text.Text = "Total number of elements found {} | Selected {}".format(total, selected)
+        if getattr(self, 'count_text', None) is not None:
+            self.count_text.Text = "Total number of elements found {} | Selected {}".format(total, selected)
 
     def scope_changed(self, sender, e):
         if hasattr(self, "rb_scope_all") and self.rb_scope_all:
@@ -1427,17 +1478,28 @@ def show_family_manager(script_dir=None, revit=None, default_tab=0):
             revit = rvt
         window = ManaFamiWindow(script_dir, revit)
         if default_tab == 1:
-            window.main_tab_control.SelectedIndex = 1
-            window.nav_management.IsChecked = True
-            window.nav_loader.IsChecked = False
-            window.lbl_title.Text = "Family Management"
-            window.lbl_subtitle.Text = "Batch rename families/types, modify case, customize prefix/suffix, and assign worksets"
+            if getattr(window, 'main_tab_control', None) is not None:
+                window.main_tab_control.SelectedIndex = 1
+            if getattr(window, 'nav_management', None) is not None:
+                window.nav_management.IsChecked = True
+            if getattr(window, 'nav_loader', None) is not None:
+                window.nav_loader.IsChecked = False
+            if getattr(window, 'lbl_title', None) is not None:
+                window.lbl_title.Text = "Family Management"
+            if getattr(window, 'lbl_subtitle', None) is not None:
+                window.lbl_subtitle.Text = "Batch rename families/types, modify case, customize prefix/suffix, and assign worksets"
         else:
-            window.main_tab_control.SelectedIndex = 0
-            window.nav_loader.IsChecked = True
-            window.nav_management.IsChecked = False
-            window.lbl_title.Text = "Family Loader"
-            window.lbl_subtitle.Text = "Load Revit families from local folders"
+            if getattr(window, 'main_tab_control', None) is not None:
+                window.main_tab_control.SelectedIndex = 0
+            if getattr(window, 'nav_loader', None) is not None:
+                window.nav_loader.IsChecked = True
+            if getattr(window, 'nav_management', None) is not None:
+                window.nav_management.IsChecked = False
+            if getattr(window, 'lbl_title', None) is not None:
+                window.lbl_title.Text = "Family Loader"
+            if getattr(window, 'lbl_subtitle', None) is not None:
+                window.lbl_subtitle.Text = "Load Revit families from local folders"
         window.ShowDialog()
     except Exception as ex:
+        logger.error("Error running Family Manager:\n{}".format(traceback.format_exc()))
         forms.alert("Error running Family Manager:\n{}".format(ex))

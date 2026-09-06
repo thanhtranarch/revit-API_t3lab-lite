@@ -27,13 +27,13 @@ def override_graphics_region(doc, view, region,
     :return:                None """
     try:
         override_settings = OverrideGraphicSettings()
-        if fg_pattern_id != ElementId(-1):
+        if fg_pattern_id != ElementId.InvalidElementId:
             override_settings.SetSurfaceForegroundPatternId(fg_pattern_id)
             override_settings.SetSurfaceForegroundPatternColor(fg_color)
         else:
             override_settings.SetSurfaceForegroundPatternColor(Color(255, 255, 255))
 
-        if bg_pattern_id != ElementId(-1):
+        if bg_pattern_id != ElementId.InvalidElementId:
             override_settings.SetSurfaceBackgroundPatternId(bg_pattern_id)
             override_settings.SetSurfaceBackgroundPatternColor(bg_color)
         else:

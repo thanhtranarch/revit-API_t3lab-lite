@@ -72,7 +72,7 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.UI import TaskDialog, TaskDialogCommonButtons, TaskDialogResult
 from pyrevit import revit, forms, script
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 
 from Snippets._compat import eid_value
 
@@ -228,6 +228,8 @@ def save_workset_list(names):
 # ==================================================
 
 def get_user_worksets():
+    if not doc or not doc.IsWorkshared:
+        return []
     return list(
         FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset).ToWorksets()
     )
@@ -457,7 +459,7 @@ class WorksetManagerWindow(T3WPFWindow):
         active_id = get_active_workset_id()
         worksets = get_user_worksets()
         items = [WorksetItem(i + 1, ws, active_id) for i, ws in enumerate(worksets)]
-        self.ws_grid.ItemsSource = items
+        self.ws_grid.ItemsSource = to_items_source(items)
         count = len(items)
         self.ws_status.Text = "{} workset{}".format(count, "s" if count != 1 else "")
 
@@ -622,6 +624,9 @@ class WorksetManagerWindow(T3WPFWindow):
 
 # SHIFT+CLICK  ->  Quick remove unused worksets
 if __shiftclick__:
+    if not doc:
+        TaskDialog.Show("Workset Manager", "No active Revit document found.")
+        script.exit()
     if not doc.IsWorkshared:
         TaskDialog.Show("Workset Manager", "Document is not workshared.")
         script.exit()
@@ -662,4 +667,18 @@ if __shiftclick__:
 
 # NORMAL CLICK  ->  Open Workset Manager window
 else:
-    WorksetManagerWindow().ShowDialog()
+    if not doc:
+        TaskDialog.Show("Workset Manager", "No active Revit document found.")
+        script.exit()
+    if not doc.IsWorkshared:
+        res = TaskDialog.Show(
+            "Workset Manager",
+            "Document is not workshared.\n\nWould you like to enable worksharing now?",
+            TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No
+        )
+        if res == TaskDialogResult.Yes:
+            if enable_worksharing():
+                WorksetManagerWindow().ShowDialog()
+        script.exit()
+    else:
+        WorksetManagerWindow().ShowDialog()

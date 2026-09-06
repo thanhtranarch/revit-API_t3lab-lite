@@ -14,15 +14,23 @@ __title__   = "Sheets Snippets"
 
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI import UIDocument
-default_uidoc = __revit__.ActiveUIDocument
-default_doc = default_uidoc.Document
+try:
+    from Snippets._host import resolve_doc, host_uiapp
+    default_doc, _ = resolve_doc()
+    _uiapp = host_uiapp()
+    default_uidoc = _uiapp.ActiveUIDocument if _uiapp else None
+except Exception:
+    default_doc = None
+    default_uidoc = None
 
 
 
 
-def get_views_on_sheet(sheet, uidoc=default_uidoc):
+def get_views_on_sheet(sheet, uidoc=None):
     """Function to return all views found on the given sheet."""
-    doc = uidoc.Document
+    doc = (sheet.Document if sheet and hasattr(sheet, 'Document') else None) or (uidoc.Document if uidoc else default_doc)
+    if not doc:
+        return []
     viewports_ids   = sheet.GetAllViewports()
     viewports       = [doc.GetElement(viewport_id)  for viewport_id in viewports_ids]
     views_ids       = [viewport.ViewId              for viewport    in viewports]
@@ -30,12 +38,14 @@ def get_views_on_sheet(sheet, uidoc=default_uidoc):
     return views
 
 
-def get_titleblock_on_sheet(sheet, uidoc=default_uidoc):
+def get_titleblock_on_sheet(sheet, uidoc=None):
     """Function to get TitleBlock from given ViewSheet.
     It will not return any TitleBlocks if there are more than 1 on ViewSheet.
     :returns TitleBlock"""
     #TODO THIS FUNCTION IS OBSOLETE
-    doc = uidoc.Document
+    doc = (sheet.Document if sheet and hasattr(sheet, 'Document') else None) or (uidoc.Document if uidoc else default_doc)
+    if not doc:
+        return None
 
     all_TitleBlocks = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_TitleBlocks).WhereElementIsNotElementType().ToElements()
     title_blocks_on_sheet = []
@@ -54,23 +64,32 @@ def get_titleblock_on_sheet(sheet, uidoc=default_uidoc):
         return title_blocks_on_sheet[0]
 
 
-def get_titleblocks_from_sheet(sheet, uidoc):
+def get_titleblocks_from_sheet(sheet, uidoc=None):
     #type:(ViewSheet, UIDocument) -> list
     """Function to get TitleBlocks from the given ViewSheet.
     :param sheet: ViewSheet that has TitleBlock/
     :param uidoc: UIDocument of the Project
     :return:      list of TitleBlocks that are placed on the given Sheet."""
+    doc = (sheet.Document if sheet and hasattr(sheet, 'Document') else None) or (uidoc.Document if uidoc else default_doc)
+    if not doc:
+        return []
+
     # CREATE A RULE
     rule_value = sheet.SheetNumber
     param_sheet_number = ElementId(BuiltInParameter.SHEET_NUMBER)
     f_pvp = ParameterValueProvider(param_sheet_number)
     evaluator = FilterStringEquals()
-    f_rule = FilterStringRule(f_pvp, evaluator, rule_value, True)
+    try:
+        # Revit 2022+
+        f_rule = FilterStringRule(f_pvp, evaluator, rule_value)
+    except Exception:
+        # Revit 2021 and earlier
+        f_rule = FilterStringRule(f_pvp, evaluator, rule_value, True)
 
     # CREATE A FILTER
     tb_filter = ElementParameterFilter(f_rule)
 
-    tb = FilteredElementCollector(uidoc.Document).OfCategory(BuiltInCategory.OST_TitleBlocks) \
+    tb = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_TitleBlocks) \
         .WhereElementIsNotElementType().WherePasses(tb_filter).ToElements()
 
     return list(tb)

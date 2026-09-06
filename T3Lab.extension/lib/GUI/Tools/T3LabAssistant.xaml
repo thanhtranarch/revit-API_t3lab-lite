@@ -3,7 +3,8 @@
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         Title="T3Lab Assistant"
         Width="560" Height="720"
-        MinWidth="480" MinHeight="580"
+        MinWidth="380" MinHeight="580"
+        MaxWidth="720"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -660,6 +661,7 @@
           </Style>
 
           <Style x:Key="T3.DataGrid" TargetType="DataGrid">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
             <Setter Property="FontSize"   Value="{StaticResource T3.Size.Body}"/>
             <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
@@ -748,6 +750,9 @@
                     </Grid>
                   </Border>
                   <ControlTemplate.Triggers>
+                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.RowAlt}"/>
+                    </Trigger>
                     <Trigger Property="IsMouseOver" Value="True">
                       <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
                     </Trigger>
@@ -770,6 +775,7 @@
           </Style>
 
           <Style x:Key="T3.ListView" TargetType="ListView">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -911,7 +917,7 @@
             <Setter Property="Background"  Value="{StaticResource T3.SurfaceSunken}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
-            <Setter Property="Padding" Value="16,0,8,0"/>
+            <Setter Property="Padding" Value="12,0,8,0"/>
           </Style>
 
           <Style x:Key="T3.Panel" TargetType="Border">
@@ -967,16 +973,34 @@
           <!-- Zero-gap tab surface. WPF's stock TabControl carries Padding="2,2,2,2", a
                light Background and a 1px border, which render as a white gutter around
                every tab's content (rule 19 — bố cục liền mạch). Implicit so every tool
-               inherits it; a tool that sets these locally still wins. -->
+               inherits it; a tool that sets these locally still wins.
+               Template: stock TabPanel uses Margin="0,2,2,0" which creates a 2px gap above
+               content even when TabItems are collapsed. TabPanel Margin="0" eliminates this gap. -->
           <Style TargetType="TabControl">
             <Setter Property="Padding" Value="0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
-            <!-- NOTE: a content-only ControlTemplate here would also remove the stock
-                 HeaderPanel's Margin="2,2,2,0" (the last 2px strip above the content),
-                 but retemplating TabControl globally coincided with XAML load failures
-                 in Revit and was reverted 2026-09-03. Re-attempt only with a Revit test.
-                 Padding/BorderThickness/Background already remove the L/R/B gutter. -->
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                  <Grid KeyboardNavigation.TabNavigation="Local">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TabPanel Grid.Row="0" IsItemsHost="True" Margin="0"/>
+                    <Border Grid.Row="1"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            Background="{TemplateBinding Background}">
+                      <ContentPresenter x:Name="PART_SelectedContentHost"
+                                        Margin="{TemplateBinding Padding}"
+                                        ContentSource="SelectedContent"/>
+                    </Border>
+                  </Grid>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
           </Style>
 
           <Style x:Key="T3.TabItem.Hidden" TargetType="TabItem">
@@ -1000,15 +1024,15 @@
                           </Border>
                           <ControlTemplate.Triggers>
                               <Trigger Property="IsChecked" Value="True">
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Ink}"/>
-                                  <Setter Property="Foreground" Value="{StaticResource T3.Surface}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </Trigger>
                               <MultiTrigger>
                                   <MultiTrigger.Conditions>
                                       <Condition Property="IsChecked" Value="False"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Canvas}"/>
                                   <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                               <MultiTrigger>
@@ -1016,7 +1040,8 @@
                                       <Condition Property="IsChecked" Value="True"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Text}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.BorderStrong}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                           </ControlTemplate.Triggers>
                       </ControlTemplate>
@@ -1177,7 +1202,7 @@
             <Setter Property="Width"  Value="42"/>
             <Setter Property="Height" Value="42"/>
             <Setter Property="CornerRadius" Value="{StaticResource T3.R.Window}"/>
-            <Setter Property="Background"   Value="{StaticResource T3.Ink}"/>
+            <Setter Property="Background"   Value="{StaticResource T3.Border}"/>
           </Style>
 
           <!-- Pill 36px — dải trạng thái/đếm nằm ngang. Bo góc 18 = nửa chiều cao. -->
@@ -1373,6 +1398,7 @@
          script.py flattens this to CornerRadius 0 / no border so the assistant
          fills the Revit pane edge-to-edge. -->
     <Border x:Name="root_chrome"
+            MinWidth="380"
             Background="{StaticResource T3.Surface}"
             BorderBrush="{StaticResource T3.Border}"
             BorderThickness="1"
@@ -1380,62 +1406,244 @@
             ClipToBounds="True">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>    <!-- Row 0: Chat area -->
-                <RowDefinition Height="Auto"/> <!-- Row 1: Composer & Controls -->
+                <RowDefinition Height="Auto"/> <!-- Row 0: Top Navigation & Action Bar -->
+                <RowDefinition Height="*"/>    <!-- Row 1: Content Area (Chat View & History View) -->
+                <RowDefinition Height="Auto"/> <!-- Row 2: Composer & Controls -->
             </Grid.RowDefinitions>
 
-            <!-- ══════════════════ ROW 0: CHAT AREA ══════════════════ -->
-            <Grid Grid.Row="0">
-                <ScrollViewer x:Name="chat_scroll"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              Background="{StaticResource T3.Surface}"
-                              Padding="16,12,12,8">
-                    <StackPanel x:Name="chat_history_panel" Margin="0,0,0,4">
-                        <!-- Dynamic Welcome Greeting -->
-                        <Grid x:Name="welcome_greeting_panel" Margin="4,16,4,16" HorizontalAlignment="Left">
-                            <TextBlock x:Name="welcome_greeting_text" Text="Good afternoon, Thanh"
-                                       Style="{StaticResource T3.Display}"
-                                       VerticalAlignment="Center"/>
-                        </Grid>
+            <!-- ══════════════════ ROW 0: TOP NAVIGATION & ACTION BAR ══════════════════ -->
+            <Border x:Name="top_nav_bar" Grid.Row="0"
+                    Background="{StaticResource T3.SurfaceSunken}"
+                    BorderBrush="{StaticResource T3.Border}"
+                    BorderThickness="0,0,0,1"
+                    Padding="12,4,8,4"
+                    WindowChrome.IsHitTestVisibleInChrome="True">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/> <!-- Left tabs: Chat, History, Settings -->
+                        <ColumnDefinition Width="*"/>    <!-- Spacer / drag area -->
+                        <ColumnDefinition Width="Auto"/> <!-- Right controls: Tech Preview badge, New Chat (+), Float Window controls -->
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left tabs -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Current Chat Tab Button -->
+                        <Border x:Name="tab_chat_border"
+                                Background="{StaticResource T3.Surface}"
+                                BorderBrush="{StaticResource T3.Border}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Margin="0,0,4,0">
+                            <Button x:Name="btn_tab_chat"
+                                    Style="{StaticResource T3.Button.Ghost}"
+                                    Height="28" MinWidth="34" Padding="8,0"
+                                    Click="tab_chat_clicked"
+                                    ToolTip="Current conversation">
+                                <TextBlock x:Name="tab_chat_icon" Text="&#xE8BD;"
+                                           FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                           Foreground="{StaticResource T3.Ink}" VerticalAlignment="Center"/>
+                            </Button>
+                        </Border>
+
+                        <!-- History Tab Button -->
+                        <Border x:Name="tab_history_border"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Margin="0,0,4,0">
+                            <Button x:Name="btn_tab_history"
+                                    Style="{StaticResource T3.Button.Ghost}"
+                                    Height="28" MinWidth="34" Padding="8,0"
+                                    Click="tab_history_clicked"
+                                    ToolTip="Chat history &amp; past sessions">
+                                <Grid VerticalAlignment="Center">
+                                    <TextBlock x:Name="tab_history_icon" Text="&#xE81C;"
+                                               FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                               Foreground="{StaticResource T3.TextSecondary}" VerticalAlignment="Center"/>
+                                    <Ellipse x:Name="history_badge_dot" Width="6" Height="6"
+                                             Fill="{StaticResource T3.Warning.Accent}"
+                                             HorizontalAlignment="Right" VerticalAlignment="Top"
+                                             Visibility="Collapsed"/>
+                                </Grid>
+                            </Button>
+                        </Border>
+
+                        <!-- Settings Button -->
+                        <Border x:Name="tab_settings_border"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Margin="0,0,4,0">
+                            <Button x:Name="btn_top_settings"
+                                    Style="{StaticResource T3.Button.Ghost}"
+                                    Height="28" MinWidth="34" Padding="8,0"
+                                    Click="settings_btn_clicked"
+                                    ToolTip="Settings — AI provider, models, projects &amp; skills">
+                                <TextBlock Text="&#xE713;"
+                                           FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                           Foreground="{StaticResource T3.TextSecondary}" VerticalAlignment="Center"/>
+                            </Button>
+                        </Border>
                     </StackPanel>
-                </ScrollViewer>
 
-                <ProgressBar x:Name="top_loading_bar" Height="2"
-                             Style="{StaticResource T3.ProgressBar}"
-                             IsIndeterminate="True" Visibility="Collapsed"
-                             VerticalAlignment="Top"/>
+                    <!-- Right actions -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Saved Prompts & Skills Button -->
+                        <Border Background="{StaticResource T3.Surface}"
+                                BorderBrush="{StaticResource T3.Border}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Margin="0,0,8,0">
+                            <Button x:Name="btn_saved_prompts"
+                                    Style="{StaticResource T3.Button.Ghost}"
+                                    Height="26" MinWidth="0" Padding="8,0"
+                                    Click="saved_prompts_clicked"
+                                    ToolTip="Saved prompts &amp; skills library">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="&#xE74C;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                               Foreground="{StaticResource T3.Ink}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Prompts &amp; Skills" Style="{StaticResource T3.Caption}" FontWeight="SemiBold"
+                                               Foreground="{StaticResource T3.Ink}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </Border>
 
-                <!-- Floating-window chrome (min/max/close) — hidden when hosted in the dockable pane -->
-                <StackPanel x:Name="float_ctrls_panel"
-                            Orientation="Horizontal"
-                            HorizontalAlignment="Right" VerticalAlignment="Top"
-                            Margin="0,4,8,0" Panel.ZIndex="50"
-                            WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button x:Name="btn_minimize"
-                            Style="{StaticResource T3.WinCtrl}"
-                            ToolTip="Minimize" Click="minimize_clicked"
-                            WindowChrome.IsHitTestVisibleInChrome="True">
-                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
-                    </Button>
-                    <Button x:Name="btn_maximize"
-                            Style="{StaticResource T3.WinCtrl}"
-                            ToolTip="Maximize" Click="maximize_clicked"
-                            WindowChrome.IsHitTestVisibleInChrome="True">
-                        <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
-                    </Button>
-                    <Button x:Name="btn_close"
-                            Style="{StaticResource T3.WinClose}"
-                            ToolTip="Close" Click="close_clicked"
-                            IsCancel="True"
-                            WindowChrome.IsHitTestVisibleInChrome="True">
-                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
-                    </Button>
-                </StackPanel>
+                        <!-- New Chat (+) Button -->
+                        <Button x:Name="btn_new_chat"
+                                Style="{StaticResource T3.Button.Ghost}"
+                                Height="28" Width="28" MinWidth="0" Padding="0"
+                                Click="new_chat_clicked"
+                                ToolTip="New chat (Ctrl+N)">
+                            <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                       FontWeight="SemiBold" Foreground="{StaticResource T3.Ink}"
+                                       VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </Button>
+
+                        <!-- Floating Window Controls (minimize / maximize / close) -->
+                        <StackPanel x:Name="float_ctrls_panel" Orientation="Horizontal" Margin="4,0,0,0"
+                                    WindowChrome.IsHitTestVisibleInChrome="True">
+                            <Button x:Name="btn_minimize" Style="{StaticResource T3.WinCtrl}"
+                                    Height="28" Width="28" ToolTip="Minimize" Click="minimize_clicked"
+                                    WindowChrome.IsHitTestVisibleInChrome="True">
+                                <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
+                            </Button>
+                            <Button x:Name="btn_maximize" Style="{StaticResource T3.WinCtrl}"
+                                    Height="28" Width="28" ToolTip="Maximize" Click="maximize_clicked"
+                                    WindowChrome.IsHitTestVisibleInChrome="True">
+                                <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
+                            </Button>
+                            <Button x:Name="btn_close" Style="{StaticResource T3.WinClose}"
+                                    Height="28" Width="28" ToolTip="Close" Click="close_clicked"
+                                    IsCancel="True" WindowChrome.IsHitTestVisibleInChrome="True">
+                                <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ══════════════════ ROW 1: CONTENT AREA ══════════════════ -->
+            <Grid Grid.Row="1">
+                <!-- ─── CHAT VIEW ─── -->
+                <Grid x:Name="chat_view_grid" Visibility="Visible">
+                    <ScrollViewer x:Name="chat_scroll"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Background="{StaticResource T3.Surface}"
+                                  Padding="16,12,12,8">
+                        <StackPanel x:Name="chat_history_panel" Margin="0,0,0,4">
+                            <!-- Dynamic Welcome Greeting (shown when no messages) -->
+                            <StackPanel x:Name="welcome_greeting_panel" Margin="4,24,4,24" HorizontalAlignment="Center">
+                                <TextBlock x:Name="welcome_greeting_text" Text="Good afternoon, Thanh"
+                                           Style="{StaticResource T3.Display}" TextAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <ProgressBar x:Name="top_loading_bar" Height="2"
+                                 Style="{StaticResource T3.ProgressBar}"
+                                 IsIndeterminate="True" Visibility="Collapsed"
+                                 VerticalAlignment="Top"/>
+                </Grid>
+
+                <!-- ─── HISTORY VIEW ─── -->
+                <Grid x:Name="history_view_grid" Visibility="Collapsed" Background="{StaticResource T3.Surface}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Header -->
+                        <RowDefinition Height="*"/>    <!-- Session List -->
+                        <RowDefinition Height="Auto"/> <!-- Footer -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,0,1"
+                            Padding="16,12" Background="{StaticResource T3.SurfaceSunken}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Chat History" Style="{StaticResource T3.Title}"/>
+                                <TextBlock Text="Past sessions saved for this document"
+                                           Style="{StaticResource T3.Caption}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="btn_activity_log"
+                                        Style="{StaticResource T3.Button.Ghost}"
+                                        Height="26" MinWidth="0" Padding="8,0"
+                                        Margin="0,0,8,0"
+                                        Click="activity_log_clicked"
+                                        ToolTip="Today's activity log (daily log in the project folder)">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                                   Foreground="{StaticResource T3.TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Activity log" Style="{StaticResource T3.Caption}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="btn_clear_all_history"
+                                        Style="{StaticResource T3.Button.Ghost}"
+                                        Height="26" MinWidth="0" Padding="8,0"
+                                        Click="clear_all_history_clicked"
+                                        ToolTip="Delete all saved sessions">
+                                    <TextBlock Text="Clear all" Style="{StaticResource T3.Caption}"
+                                               Foreground="{StaticResource T3.Danger.Text}"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Padding="16,12,12,12">
+                        <StackPanel>
+                            <StackPanel x:Name="history_sessions_panel"/>
+
+                            <StackPanel x:Name="history_empty_state" Visibility="Collapsed"
+                                        Margin="0,32,0,0" HorizontalAlignment="Center">
+                                <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="19"
+                                           Foreground="{StaticResource T3.TextDisabled}"
+                                           HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                                <TextBlock Text="No chat history yet" Style="{StaticResource T3.BodyStrong}"
+                                           HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                <TextBlock Text="Click + above to start a conversation."
+                                           Style="{StaticResource T3.Caption}"
+                                           HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <Border Grid.Row="2" BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,0"
+                            Padding="16,8" Background="{StaticResource T3.SurfaceSunken}">
+                        <Button Style="{StaticResource T3.Button.Secondary}"
+                                Height="28" HorizontalAlignment="Right"
+                                Click="tab_chat_clicked" Content="Return to chat"/>
+                    </Border>
+                </Grid>
             </Grid>
 
-            <!-- ══════════════════ ROW 1: COMPOSER & ACTIONS ══════════════════ -->
-            <Border x:Name="composer_bar" Grid.Row="1"
+            <!-- ══════════════════ ROW 2: COMPOSER & ACTIONS ══════════════════ -->
+            <Border x:Name="composer_bar" Grid.Row="2"
                     Background="{StaticResource T3.SurfaceSunken}"
                     BorderBrush="{StaticResource T3.Border}"
                     BorderThickness="0,1,0,0"
@@ -1529,36 +1737,24 @@
                             <!-- Bottom toolbar inside composer card -->
                             <Grid Margin="8,4,8,8">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>  <!-- Attach (+) -->
-                                    <ColumnDefinition Width="Auto"/>  <!-- Settings (sliders) -->
+                                    <ColumnDefinition Width="Auto"/>  <!-- Attach (Paperclip) -->
                                     <ColumnDefinition Width="*"/>     <!-- spacer -->
                                     <ColumnDefinition Width="Auto"/>  <!-- Model chip -->
                                     <ColumnDefinition Width="Auto"/>  <!-- Send -->
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Attach button (+) -->
+                                <!-- Attach button (Paperclip) -->
                                 <Button Grid.Column="0" x:Name="btn_attach"
                                         Style="{StaticResource T3.Button.Ghost}"
                                         Width="32" Height="32" MinWidth="0" Padding="0"
                                         Click="attach_clicked"
                                         ToolTip="Attach PDF / images — or Ctrl+V / drag &amp; drop into the chat. Auto-saved to the project folder by date">
-                                    <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="13"
-                                               Foreground="{StaticResource T3.TextSecondary}"/>
-                                </Button>
-
-                                <!-- Settings button -->
-                                <Button Grid.Column="1" x:Name="btn_settings"
-                                        Style="{StaticResource T3.Button.Ghost}"
-                                        Width="32" Height="32" MinWidth="0" Padding="0"
-                                        Margin="4,0,0,0"
-                                        Click="settings_btn_clicked"
-                                        ToolTip="Settings — provider, model, projects, knowledge &amp; skills">
-                                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                    <TextBlock Text="&#xE723;" FontFamily="Segoe MDL2 Assets" FontSize="13"
                                                Foreground="{StaticResource T3.TextSecondary}"/>
                                 </Button>
 
                                 <!-- Model / provider chip -->
-                                <Button Grid.Column="3" x:Name="model_chip_btn"
+                                <Button Grid.Column="2" x:Name="model_chip_btn"
                                         Style="{StaticResource T3.Button.Ghost}"
                                         Height="32" MinWidth="0" Padding="8,0"
                                         Margin="0,0,8,0"
@@ -1577,7 +1773,7 @@
                                 </Button>
 
                                 <!-- Send button (Primary, IsDefault="True") -->
-                                <Button Grid.Column="4" x:Name="send_button"
+                                <Button Grid.Column="3" x:Name="send_button"
                                         Style="{StaticResource T3.Button.Primary}"
                                         IsDefault="True"
                                         Width="32" Height="32" MinWidth="0" Padding="0"
@@ -1643,33 +1839,19 @@
                             </Button>
                         </StackPanel>
 
-                        <!-- Chat actions -->
-                        <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <!-- Chat actions: Undo Revit action -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                             <Button x:Name="btn_undo"
                                     Style="{StaticResource T3.Button.Ghost}"
-                                    Width="28" Height="28" MinWidth="0" Padding="0"
+                                    Height="28" MinWidth="0" Padding="8,0"
                                     Click="undo_clicked"
                                     ToolTip="Undo last Revit action">
-                                <TextBlock Text="&#xE7A7;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                                           Foreground="{StaticResource T3.TextSecondary}"/>
-                            </Button>
-                            <Button x:Name="btn_reset_chat"
-                                    Style="{StaticResource T3.Button.Ghost}"
-                                    Width="28" Height="28" MinWidth="0" Padding="0"
-                                    Margin="4,0,0,0"
-                                    Click="reset_chat_clicked"
-                                    ToolTip="New conversation">
-                                <TextBlock Text="&#xE72D;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                                           Foreground="{StaticResource T3.TextSecondary}"/>
-                            </Button>
-                            <Button x:Name="btn_activity_log"
-                                    Style="{StaticResource T3.Button.Ghost}"
-                                    Width="28" Height="28" MinWidth="0" Padding="0"
-                                    Margin="4,0,0,0"
-                                    Click="activity_log_clicked"
-                                    ToolTip="Today's activity log (daily log in the project folder)">
-                                <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                                           Foreground="{StaticResource T3.TextSecondary}"/>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="&#xE7A7;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                               Foreground="{StaticResource T3.TextSecondary}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Undo" Style="{StaticResource T3.Caption}"
+                                               Foreground="{StaticResource T3.TextSecondary}" VerticalAlignment="Center"/>
+                                </StackPanel>
                             </Button>
                         </StackPanel>
                     </Grid>
@@ -1682,6 +1864,7 @@
                                    Margin="8,0,0,0"
                                    Text="·  T3Lab AI can make mistakes  ·  Shift+Enter = new line"
                                    Style="{StaticResource T3.Caption}"
+                                   Foreground="{StaticResource T3.TextDisabled}"
                                    TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
 
@@ -1705,6 +1888,101 @@
                                         Padding="12,8">
                                     <TextBlock Text="↑↓ navigate  ·  Enter/Tab use skill  ·  Esc close"
                                                Style="{StaticResource T3.Caption}"/>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+
+                    <!-- Saved Prompts & Skills popup -->
+                    <Popup x:Name="saved_prompts_popup"
+                           PlacementTarget="{Binding ElementName=btn_saved_prompts}"
+                           Placement="Bottom" VerticalOffset="4" HorizontalOffset="-200"
+                           AllowsTransparency="True" StaysOpen="False"
+                           PopupAnimation="Fade">
+                        <Border Background="{StaticResource T3.Surface}"
+                                BorderBrush="{StaticResource T3.Border}"
+                                BorderThickness="1" CornerRadius="8"
+                                MinWidth="320" MaxWidth="380">
+                            <StackPanel>
+                                <!-- Header -->
+                                <Border BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,0,1"
+                                        Padding="12,8" Background="{StaticResource T3.SurfaceSunken}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Saved Prompts &amp; Skills" Style="{StaticResource T3.BodyStrong}"/>
+                                            <TextBlock Text="Select a prompt to run or manage skills"
+                                                       Style="{StaticResource T3.Caption}" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" x:Name="btn_close_saved_prompts"
+                                                Style="{StaticResource T3.Button.Ghost}"
+                                                Height="24" Width="24" MinWidth="0" Padding="0"
+                                                Click="close_saved_prompts_clicked"
+                                                ToolTip="Close">
+                                            <TextBlock Text="✕" FontSize="11" Foreground="{StaticResource T3.TextMuted}"/>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Search box -->
+                                <Border BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,0,1"
+                                        Padding="8,4" Background="{StaticResource T3.Surface}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                                   Foreground="{StaticResource T3.TextMuted}" VerticalAlignment="Center" Margin="4,0,8,0"/>
+                                        <TextBox Grid.Column="1" x:Name="saved_prompts_search"
+                                                 Style="{StaticResource T3.TextBox}"
+                                                 Height="24" BorderThickness="0" Background="Transparent"
+                                                 Padding="0" VerticalContentAlignment="Center"
+                                                 TextChanged="saved_prompts_search_changed"
+                                                 ToolTip="Filter prompts &amp; skills..."/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Scrollable list of prompts/skills -->
+                                <ScrollViewer x:Name="saved_prompts_scroll" MaxHeight="300"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel x:Name="saved_prompts_list_panel" Margin="4"/>
+                                </ScrollViewer>
+
+                                <!-- Footer: Management Actions -->
+                                <Border BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,0"
+                                        Padding="12,8" Background="{StaticResource T3.SurfaceSunken}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" x:Name="btn_open_skills_folder"
+                                                Style="{StaticResource T3.Button.Ghost}"
+                                                Height="24" MinWidth="0" Padding="8,0"
+                                                Click="open_skills_folder_clicked"
+                                                ToolTip="Open folder to add custom prompt .md files">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,4,0"/>
+                                                <TextBlock Text="Open Folder" Style="{StaticResource T3.Caption}"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="2" x:Name="btn_manage_skills"
+                                                Style="{StaticResource T3.Button.Secondary}"
+                                                Height="24" MinWidth="0" Padding="8,0"
+                                                Click="manage_skills_clicked"
+                                                ToolTip="Open Skills Manager in Settings">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,4,0"/>
+                                                <TextBlock Text="Manage Skills" Style="{StaticResource T3.Caption}" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
                                 </Border>
                             </StackPanel>
                         </Border>
@@ -1752,7 +2030,7 @@
             <Border x:Name="onboarding_overlay" Visibility="Collapsed"
                     Grid.Row="0" Grid.RowSpan="99" Panel.ZIndex="997"
                     Background="{StaticResource T3.Ink}" Opacity="0.95">
-                <Border Width="400" VerticalAlignment="Center" HorizontalAlignment="Center"
+                <Border MaxWidth="380" Margin="16" VerticalAlignment="Center" HorizontalAlignment="Center"
                         Background="{StaticResource T3.Surface}" CornerRadius="12" Padding="24"
                         BorderBrush="{StaticResource T3.Border}" BorderThickness="1">
                     <StackPanel>
@@ -1805,7 +2083,7 @@
             <Border x:Name="project_panel_overlay" Visibility="Collapsed"
                     Grid.Row="0" Grid.RowSpan="99" Panel.ZIndex="996"
                     Background="{StaticResource T3.Ink}" Opacity="0.8">
-                <Border Width="440" MaxHeight="600" VerticalAlignment="Center"
+                <Border MaxWidth="440" Margin="16" MaxHeight="600" VerticalAlignment="Center"
                         HorizontalAlignment="Center" Background="{StaticResource T3.Surface}"
                         CornerRadius="12" BorderBrush="{StaticResource T3.Border}" BorderThickness="1">
                     <Grid>

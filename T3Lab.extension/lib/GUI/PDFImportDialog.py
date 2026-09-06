@@ -16,6 +16,7 @@ from System.Windows.Forms import OpenFileDialog, DialogResult
 
 from pyrevit import forms, DB, revit
 from GUI.WPF_Base import T3WPFWindow
+from Snippets._host import resolve_doc, get_revit_version
 
 
 RESOLUTION_MAP = {0: 150, 1: 300, 2: 600}
@@ -38,92 +39,22 @@ _MAX_PAGES = 300       # hard cap for the all-in-one page loop
 _MIN_VERSION_PDF   = 2020
 _MIN_VERSION_DPI   = 2021
 
-
-# ── Revit host / version compatibility ────────────────────────────────────────
-#
-# Everything below deliberately avoids `revit.doc` as the single source of
-# truth. `revit.doc` is HOST_APP.doc → uiapp.ActiveUIDocument.Document, which
-# is None whenever the code runs outside a plain ribbon-button engine — most
-# notably when the T3Lab Assistant launches this tool by exec'ing script.py
-# inside its modeless pane engine. On Revit 2026 that path reliably yields
-# None and the view collector then fails with:
-#   The input argument "document" of function FilteredElementCollector ... is null
-
-
-def _injected_uiapp():
-    """The UIApplication pyRevit injects as the `__revit__` builtin, or None."""
-    try:
-        import builtins as _b
-    except Exception:
-        _b = None
-    return getattr(_b, '__revit__', None)
-
-
-def _host_uiapp():
-    """Best available UIApplication: pyRevit HOST_APP first, then `__revit__`."""
-    try:
-        from pyrevit import HOST_APP
-        if HOST_APP.uiapp is not None:
-            return HOST_APP.uiapp
-    except Exception:
-        pass
-    return _injected_uiapp()
-
-
-def get_revit_version():
-    """Revit release year as int (e.g. 2026), or 0 when it cannot be read."""
-    uiapp = _host_uiapp()
-    try:
-        return int(uiapp.Application.VersionNumber)
-    except Exception:
-        pass
-    try:
-        return int(revit.doc.Application.VersionNumber)
-    except Exception:
-        return 0
-
-
-def resolve_doc():
-    """Return (doc, error_text) — the document this tool should work on.
-
-    Fallback chain, most-specific first:
-      1. pyrevit revit.doc          — correct inside a normal pushbutton engine
-      2. uiapp.ActiveUIDocument     — direct API read, works when HOST_APP is stale
-      3. the single open non-linked document — unambiguous, so safe to assume
-    Anything else is a genuine "no target" situation and gets an actionable
-    message instead of a null-document crash deeper in the call stack.
-    """
-    try:
-        doc = revit.doc
-        if doc is not None:
-            return doc, None
-    except Exception:
-        pass
-
-    uiapp = _host_uiapp()
-    if uiapp is None:
-        return None, (u"Cannot reach the Revit application from this engine. "
-                      u"Open PDF Import from the T3Lab ribbon button.")
-
-    try:
-        uidoc = uiapp.ActiveUIDocument
-        if uidoc is not None and uidoc.Document is not None:
-            return uidoc.Document, None
-    except Exception:
-        pass
-
-    try:
-        docs = [d for d in uiapp.Application.Documents if not d.IsLinked]
-    except Exception:
-        docs = []
-
-    if len(docs) == 1:
-        return docs[0], None
-    if not docs:
-        return None, u"No project is open — open a Revit project first."
-    return None, (u"No active document — {} projects are open but none has "
-                  u"focus. Click a project tab in Revit, then reopen PDF "
-                  u"Import.".format(len(docs)))
+# Mapping of supported 2D view types to display labels
+_VIEW_TYPE_MAP = {}
+for _attr, _label in [
+    ('FloorPlan', "Floor Plan"),
+    ('CeilingPlan', "Ceiling Plan"),
+    ('EngineeringPlan', "Structural Plan"),
+    ('AreaPlan', "Area Plan"),
+    ('DraftingView', "Drafting"),
+    ('Elevation', "Elevation"),
+    ('Section', "Section"),
+    ('Detail', "Detail"),
+    ('Legend', "Legend"),
+]:
+    _vt = getattr(DB.ViewType, _attr, None)
+    if _vt is not None:
+        _VIEW_TYPE_MAP[_vt] = _label
 
 
 def make_image_type_options(pdf_path, resolution, page_num, version):
@@ -166,7 +97,13 @@ def image_width_ft(img_type, resolution):
     return _FALLBACK_W_FT
 
 
-class ViewItem(INotifyPropertyChanged):
+try:
+    _Reactive = getattr(forms, 'Reactive', object)
+except Exception:
+    _Reactive = object
+
+
+class ViewItem(_Reactive):
     """One row in the view grid.
 
     Implements INotifyPropertyChanged so the checkbox and PAGE pill update
@@ -244,11 +181,9 @@ class PDFImportDialog(T3WPFWindow):
         self._mode      = _MODE_SEQUENTIAL
 
         # Resolve the target document and the Revit release ONCE, here — every
-        # later step reuses them. Reading revit.doc again at import time was
-        # the second half of the same bug: a dialog that managed to list views
-        # could still hand a null document to ImageType.Create.
-        self._version           = get_revit_version()
+        # later step reuses them.
         self._doc, self._doc_err = resolve_doc()
+        self._version           = get_revit_version(self._doc)
 
         T3WPFWindow.__init__(self, _XAML)
 
@@ -257,15 +192,6 @@ class PDFImportDialog(T3WPFWindow):
         # window has not yet rendered. This mirrors the proven pattern used by
         # every other working DataGrid dialog (ManaViews / ManaContains /
         # ManaSheets): load data in __init__, mutate one bound OC in place.
-        #
-        # Why not defer to Loaded/ContentRendered (the previous approach):
-        #   * ContentRendered does NOT fire reliably under a modal ShowDialog()
-        #     inside Revit — when it doesn't, _load_views() never runs and the
-        #     grid stays stuck on the "Loading views…" overlay (the reported
-        #     "opens but shows no information" symptom).
-        #   * Mutating a DataGrid-bound OC during the Loaded event happens
-        #     mid-layout and can hard-crash the Revit host (the reported crash).
-        # Populating before the window renders sidesteps both problems.
         self._oc = ObservableCollection[Object]()
         self.grid_views.ItemsSource = self._oc
         try:
@@ -292,41 +218,93 @@ class PDFImportDialog(T3WPFWindow):
             self._refresh_list()
             self.txt_status.Text = self._doc_err or u"No active Revit document."
             return
+
+        seen_ids = set()
         try:
-            for v in DB.FilteredElementCollector(doc).OfClass(DB.ViewPlan):
-                try:
-                    if v.IsTemplate: continue
-                    if v.ViewType == DB.ViewType.FloorPlan:
-                        items.append(ViewItem(v.Name or "Unnamed", "Floor Plan", v.Id, self._on_item_toggle))
-                    elif v.ViewType == DB.ViewType.CeilingPlan:
-                        items.append(ViewItem(v.Name or "Unnamed", "Ceiling Plan", v.Id, self._on_item_toggle))
-                except Exception:
-                    pass
-            for v in DB.FilteredElementCollector(doc).OfClass(DB.ViewDrafting):
-                try:
-                    if v.IsTemplate: continue
-                    items.append(ViewItem(v.Name or "Unnamed", "Drafting", v.Id, self._on_item_toggle))
-                except Exception:
-                    pass
+            # 1. Sheets (ViewSheet)
+            try:
+                sheet_col = DB.FilteredElementCollector(doc).OfClass(DB.ViewSheet).WhereElementIsNotElementType()
+                for s in sheet_col:
+                    try:
+                        if getattr(s, 'IsTemplate', False):
+                            continue
+                        sheet_num = getattr(s, 'SheetNumber', None)
+                        if not sheet_num:
+                            p = s.get_Parameter(DB.BuiltInParameter.SHEET_NUMBER)
+                            sheet_num = p.AsString() if p else ""
+                        sheet_name = getattr(s, 'Name', None) or ""
+                        if sheet_num and sheet_name:
+                            display_name = u"{} - {}".format(sheet_num, sheet_name)
+                        else:
+                            display_name = sheet_num or sheet_name or u"Unnamed Sheet"
+
+                        items.append(ViewItem(display_name, "Sheet", s.Id, self._on_item_toggle))
+                        seen_ids.add(s.Id)
+                    except Exception:
+                        pass
+            except Exception as ex_sheet:
+                load_error = str(ex_sheet)
+
+            # 2. 2D Views (Floor, Ceiling, Structural, Area, Drafting, Elevation, Section, Detail, Legend)
+            try:
+                view_col = DB.FilteredElementCollector(doc).OfClass(DB.View).WhereElementIsNotElementType()
+                for v in view_col:
+                    try:
+                        if v.Id in seen_ids:
+                            continue
+                        if getattr(v, 'IsTemplate', False):
+                            continue
+                        if isinstance(v, DB.ViewSheet):
+                            continue
+                        vt = getattr(v, 'ViewType', None)
+                        type_label = _VIEW_TYPE_MAP.get(vt)
+                        if not type_label:
+                            continue
+                        items.append(ViewItem(v.Name or u"Unnamed", type_label, v.Id, self._on_item_toggle))
+                        seen_ids.add(v.Id)
+                    except Exception:
+                        pass
+            except Exception as ex_view:
+                if not load_error:
+                    load_error = str(ex_view)
+
         except Exception as ex:
             load_error = str(ex)
         finally:
-            # Always clear the overlay — otherwise any failure above leaves the
-            # window stuck showing "Loading views…" forever.
             self.pnl_loading.Visibility = Visibility.Collapsed
 
         items.sort(key=lambda x: x.Name)
         self._all_items = items
         self._refresh_list()
-        if load_error:
-            # Version is part of the message on purpose — this tool has already
-            # behaved differently across Revit releases once.
-            self.txt_status.Text = u"Could not read views (Revit {}): {}".format(
+        if load_error and not items:
+            self.txt_status.Text = u"Could not read views/sheets (Revit {}): {}".format(
                 self._version or u"?", load_error)
 
     def _refresh_list(self):
-        q = self.txt_search.Text.strip().lower()
-        result = [i for i in self._all_items if not q or q in i.Name.lower()]
+        q = self.txt_search.Text.strip().lower() if self.txt_search.Text else ""
+        filter_idx = self.cmb_filter.SelectedIndex if hasattr(self, 'cmb_filter') and self.cmb_filter else 0
+
+        result = []
+        for i in self._all_items:
+            # Search query matching Name or Type
+            if q and (q not in i.Name.lower() and q not in i.Type.lower()):
+                continue
+
+            # Category filter (dropdown)
+            if filter_idx == 1:       # Sheets only
+                if i.Type != "Sheet":
+                    continue
+            elif filter_idx == 2:     # Views only
+                if i.Type == "Sheet":
+                    continue
+            elif filter_idx == 3:     # Drafting views only
+                if i.Type != "Drafting":
+                    continue
+            elif filter_idx == 4:     # Floor & Ceiling plans only
+                if i.Type not in ("Floor Plan", "Ceiling Plan"):
+                    continue
+
+            result.append(i)
 
         if self.cmb_sort.SelectedIndex == 1:
             result.sort(key=lambda i: (i.Type, i.Name))
@@ -344,6 +322,9 @@ class PDFImportDialog(T3WPFWindow):
         for item in self._items:
             self._oc.Add(item)
         self._loading = False
+
+        if hasattr(self, 'txt_empty') and self.txt_empty:
+            self.txt_empty.Visibility = Visibility.Visible if not result else Visibility.Collapsed
 
         self._update_status()
 
@@ -394,7 +375,7 @@ class PDFImportDialog(T3WPFWindow):
         selected = [i for i in self._items if i.IsSelected]
         n_sel    = len(selected)
 
-        self.txt_view_count.Text     = u"{} views".format(total)
+        self.txt_view_count.Text     = u"{} views / sheets".format(total)
         self.txt_selected_count.Text = u"{} selected".format(n_sel)
         self.btn_import.IsEnabled    = bool(self._doc and self._pdf_path and n_sel > 0)
 
@@ -403,9 +384,9 @@ class PDFImportDialog(T3WPFWindow):
             # sort must not overwrite it with a generic prompt.
             self.txt_status.Text = self._doc_err or u"No active Revit document."
         elif not self._pdf_path:
-            self.txt_status.Text = u"Select a PDF file and choose target views"
+            self.txt_status.Text = u"Select a PDF file and choose target views or sheets"
         elif n_sel == 0:
-            self.txt_status.Text = u"Select at least one target view"
+            self.txt_status.Text = u"Select at least one target view or sheet"
         elif self._mode == _MODE_ALL_IN_ONE:
             self.txt_status.Text = u"All PDF pages → '{}'".format(selected[0].Name)
         else:
@@ -417,6 +398,8 @@ class PDFImportDialog(T3WPFWindow):
         self.rb_all_in_one.IsEnabled     = enabled
         self.btn_browse.IsEnabled        = enabled
         self.cmb_resolution.IsEnabled    = enabled
+        if hasattr(self, 'cmb_filter') and self.cmb_filter:
+            self.cmb_filter.IsEnabled    = enabled
         self.cmb_sort.IsEnabled          = enabled
         self.txt_search.IsEnabled        = enabled
         self.btn_select_all.IsEnabled    = enabled and self._mode == _MODE_SEQUENTIAL
@@ -490,6 +473,11 @@ class PDFImportDialog(T3WPFWindow):
         self.pnl_file_info.Visibility = Visibility.Visible
         self._update_status()
 
+    def filter_changed(self, sender, args):
+        if self._oc is None or not self._all_items:
+            return
+        self._refresh_list()
+
     def sort_changed(self, sender, args):
         if self._all_items:
             self._refresh_list()
@@ -556,7 +544,7 @@ class PDFImportDialog(T3WPFWindow):
     def import_clicked(self, sender, args):
         selected = [i for i in self._items if i.IsSelected]
         if not selected:
-            forms.alert(u"No views selected.", title="PDF Import")
+            forms.alert(u"No views or sheets selected.", title="PDF Import")
             return
 
         # Re-resolve in case the user switched project tabs while the dialog

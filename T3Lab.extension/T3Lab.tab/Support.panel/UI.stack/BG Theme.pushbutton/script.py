@@ -74,6 +74,16 @@ import os
 import json
 import Autodesk.Revit.DB as DB
 
+try:
+    import clr
+    for _ref in ('System', 'WindowsBase', 'PresentationCore', 'PresentationFramework', 'System.Drawing'):
+        try:
+            clr.AddReference(_ref)
+        except Exception:
+            pass
+except Exception:
+    clr = None
+
 # Detect SHIFT+Click for quick-cycle (classic B/W/G behaviour)
 try:
     SHIFT_CLICK = __shiftclick__
@@ -356,27 +366,54 @@ def set_canvas_theme(name):
 # ------------------------------------------------------------------ main
 
 def main():
-    if SHIFT_CLICK:
-        quick_cycle()
-        return
+    try:
+        if SHIFT_CLICK:
+            quick_cycle()
+            return
 
-    config = load_config()
+        config = load_config()
 
-    # Import the custom WPF Dialog from lib/GUI
-    from GUI.BGThemeDialog import show_bg_theme_dialog
+        # Import the custom WPF Dialog from lib/GUI
+        from GUI.BGThemeDialog import show_bg_theme_dialog
 
-    callbacks = {
-        "apply_background": apply_background,
-        "save_config": save_config,
-        "get_3d_context": get_3d_context,
-        "apply_view_gradient": apply_view_gradient,
-        "clear_view_background": clear_view_background,
-        "get_theme_info": get_theme_info,
-        "set_ui_theme": set_ui_theme,
-        "set_canvas_theme": set_canvas_theme,
-    }
+        callbacks = {
+            "apply_background": apply_background,
+            "save_config": save_config,
+            "get_3d_context": get_3d_context,
+            "apply_view_gradient": apply_view_gradient,
+            "clear_view_background": clear_view_background,
+            "get_theme_info": get_theme_info,
+            "set_ui_theme": set_ui_theme,
+            "set_canvas_theme": set_canvas_theme,
+        }
 
-    show_bg_theme_dialog(config, PRESETS, callbacks)
+        show_bg_theme_dialog(config, PRESETS, callbacks)
+    except Exception as ex:
+        import traceback
+        tb = traceback.format_exc()
+        try:
+            log_dir = os.path.join(os.path.expanduser('~'), 'T3Lab_AI_Data')
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
+            log_file = os.path.join(log_dir, 'bgtheme_error.log')
+            with open(log_file, 'w', encoding='utf-8') as f:
+                f.write(tb)
+        except Exception:
+            pass
+
+        try:
+            from pyrevit import forms
+            forms.alert(
+                "Background Theme error:\n\n{}\n\nTraceback saved to ~/T3Lab_AI_Data/bgtheme_error.log".format(ex),
+                title="Background Theme",
+                warn_icon=True
+            )
+        except Exception:
+            try:
+                from System.Windows import MessageBox
+                MessageBox.Show(str(ex), "Background Theme Error")
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

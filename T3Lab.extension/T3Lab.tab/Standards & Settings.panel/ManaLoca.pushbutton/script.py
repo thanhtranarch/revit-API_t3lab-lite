@@ -64,6 +64,7 @@ clr.AddReference('PresentationFramework')
 clr.AddReference('RevitAPI')
 clr.AddReference('RevitAPIUI')
 
+from System import Action
 from System.Collections.Generic import List
 from System.Windows import WindowState, Visibility
 
@@ -88,7 +89,7 @@ from Autodesk.Revit.UI import IExternalEventHandler, ExternalEvent
 from Autodesk.Revit.UI.Selection import ObjectType
 
 from pyrevit import forms
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 
 # ==================================================
 # PATH SETUP
@@ -294,13 +295,10 @@ _T = _TypeCache()
 # EXTERNAL EVENT HANDLER
 # ==================================================
 
+import uuid
+
 class LocationManagerHandler(IExternalEventHandler):
-    # IronPython only: __namespace__ pins the generated CLR type
-    # name, so re-running this script.py on the next click raises
-    # "Duplicate type name within an assembly". pythonnet
-    # auto-uniquifies when it is absent, which is what we want.
-    if sys.version_info[0] < 3:
-        __namespace__ = "T3Lab.ManaLoca"
+    __namespace__ = "T3Lab.ManaLoca_" + uuid.uuid4().hex[:8]
     """All Revit API work happens here — runs on the Revit execution thread."""
 
     def __init__(self, window):
@@ -350,6 +348,14 @@ class LocationManagerHandler(IExternalEventHandler):
     def GetName(self):
         return "Location Manager Handler"
 
+    def _invoke(self, fn):
+        """Invoke a callable on the WPF UI thread via System.Action delegate (PythonNet/CPython 3)."""
+        try:
+            if self.window and self.window.Dispatcher:
+                self.window.Dispatcher.Invoke(Action(fn))
+        except Exception as ex:
+            print("LocationManager _invoke error: {}".format(ex))
+
     def _report_error(self, msg):
         """Surface a handler-side failure both to the pyRevit console and the
         tool's own status bar — without this, exceptions raised inside the
@@ -358,10 +364,7 @@ class LocationManagerHandler(IExternalEventHandler):
         like it silently loaded nothing."""
         full = "LocationManager error [{}]: {}".format(self.action, msg)
         print(full)
-        try:
-            self.window.Dispatcher.Invoke(lambda: self.window._set_status(full))
-        except Exception:
-            pass
+        self._invoke(lambda: self.window._set_status(full))
 
     # ── private helpers ───────────────────────────────────────────────────────
 
@@ -422,16 +425,13 @@ class LocationManagerHandler(IExternalEventHandler):
             )
             if first_error:
                 diag_msg += " | Error: " + first_error[:80].replace("\n", " ")
-            try:
-                self.window.Dispatcher.Invoke(lambda: self.window._set_status(diag_msg))
-            except Exception:
-                pass
+            self._invoke(lambda: self.window._set_status(diag_msg))
 
         data_list.sort(key=lambda x: (x.level_elev, x.category, x.id_val))
         return data_list
 
     def _send_data(self, data_list):
-        self.window.Dispatcher.Invoke(lambda: self.window._set_data(data_list))
+        self._invoke(lambda: self.window._set_data(data_list))
 
     # ── actions ───────────────────────────────────────────────────────────────
 
@@ -444,7 +444,7 @@ class LocationManagerHandler(IExternalEventHandler):
             # Not every view type supports a view-scoped collector
             # (schedules, legends, some sheets) — guide the user instead
             # of failing silently.
-            self.window.Dispatcher.Invoke(
+            self._invoke(
                 lambda: self.window._set_status(
                     "Active view ({}) doesn't support element listing — "
                     "switch to a plan/section/3D view, or use 'By Level' mode."
@@ -465,7 +465,7 @@ class LocationManagerHandler(IExternalEventHandler):
         t   = self._t
         ids = uidoc.Selection.GetElementIds()
         if not ids:
-            self.window.Dispatcher.Invoke(
+            self._invoke(
                 lambda: self.window._set_status("No elements selected in Revit."))
             return
         elements = [doc.GetElement(i) for i in ids]
@@ -475,7 +475,7 @@ class LocationManagerHandler(IExternalEventHandler):
         t      = self._t
         raw    = t.FEC(doc).OfClass(t.Level).WhereElementIsNotElementType()
         levels = sorted([t.LevelItem(l) for l in raw], key=lambda l: l.Elevation)
-        self.window.Dispatcher.Invoke(lambda: self.window._set_level_items(levels))
+        self._invoke(lambda: self.window._set_level_items(levels))
 
     def _show_element(self, uidoc):
         t   = self._t
@@ -494,7 +494,7 @@ class LocationManagerHandler(IExternalEventHandler):
         t       = self._t
         changed = [item for item in self.window.all_elements if item.has_changed()]
         if not changed:
-            self.window.Dispatcher.Invoke(
+            self._invoke(
                 lambda: self.window._set_status("No coordinate changes detected."))
             return
 
@@ -527,7 +527,7 @@ class LocationManagerHandler(IExternalEventHandler):
         except Exception as tx_ex:
             msg = "Revit API Error: " + str(tx_ex)
 
-        self.window.Dispatcher.Invoke(
+        self._invoke(
             lambda: self.window._set_status(msg))
 
     def _pick_elements(self, uidoc, doc):
@@ -541,7 +541,7 @@ class LocationManagerHandler(IExternalEventHandler):
         except Exception:
             pass
         finally:
-            self.window.Dispatcher.Invoke(lambda: self.window.Show())
+            self._invoke(lambda: self.window.Show())
 
     # ── odd-coordinate override ───────────────────────────────────────────────
 
@@ -567,7 +567,7 @@ class LocationManagerHandler(IExternalEventHandler):
         view = uidoc.ActiveView
         odd  = [item for item in self.window.all_elements if self._is_odd(item)]
         if not odd:
-            self.window.Dispatcher.Invoke(
+            self._invoke(
                 lambda: self.window._set_status(
                     "No elements with fractional mm coordinates found."))
             return
@@ -607,7 +607,7 @@ class LocationManagerHandler(IExternalEventHandler):
 
         msg = "Overridden {}/{} elements with fractional coordinates (red).".format(
             count, len(odd))
-        self.window.Dispatcher.Invoke(lambda: self.window._set_status(msg))
+        self._invoke(lambda: self.window._set_status(msg))
 
     def _clear_overrides(self, uidoc, doc):
         t         = self._t
@@ -624,7 +624,7 @@ class LocationManagerHandler(IExternalEventHandler):
                     continue
             tx.Commit()
         msg = "Cleared overrides for {} elements.".format(count)
-        self.window.Dispatcher.Invoke(lambda: self.window._set_status(msg))
+        self._invoke(lambda: self.window._set_status(msg))
 
 
 # ==================================================
@@ -676,7 +676,7 @@ class LocationManagerWindow(T3WPFWindow):
 
     def _set_level_items(self, levels):
         self.cmb_level.ItemsSource = None
-        self.cmb_level.ItemsSource = levels
+        self.cmb_level.ItemsSource = to_items_source(levels)
         if levels:
             self.cmb_level.SelectedIndex = 0
 
@@ -724,7 +724,7 @@ class LocationManagerWindow(T3WPFWindow):
 
         self._category_items = new_items
         self.lst_categories.ItemsSource = None
-        self.lst_categories.ItemsSource = self._category_items
+        self.lst_categories.ItemsSource = to_items_source(self._category_items)
 
     def _get_active_categories(self):
         return set(c.Name for c in self._category_items if c.IsChecked)
@@ -749,7 +749,7 @@ class LocationManagerWindow(T3WPFWindow):
 
         self._updating = True
         try:
-            self.elem_datagrid.ItemsSource = filtered
+            self.elem_datagrid.ItemsSource = to_items_source(filtered)
         finally:
             self._updating = False
         self.status_count.Text = "{} / {} elements".format(len(filtered), len(self.all_elements))
@@ -879,7 +879,7 @@ class LocationManagerWindow(T3WPFWindow):
         for item in self._category_items:
             item.IsChecked = True
         self.lst_categories.ItemsSource = None
-        self.lst_categories.ItemsSource = self._category_items
+        self.lst_categories.ItemsSource = to_items_source(self._category_items)
         self._save_category_state()
         self._update_display()
 
@@ -887,7 +887,7 @@ class LocationManagerWindow(T3WPFWindow):
         for item in self._category_items:
             item.IsChecked = False
         self.lst_categories.ItemsSource = None
-        self.lst_categories.ItemsSource = self._category_items
+        self.lst_categories.ItemsSource = to_items_source(self._category_items)
         self._save_category_state()
         self._update_display()
 

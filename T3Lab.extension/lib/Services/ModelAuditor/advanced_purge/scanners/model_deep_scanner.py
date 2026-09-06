@@ -8,6 +8,9 @@ Copyright © 2025 Dang Quoc Truong (DQT)
 
 __author__ = "Dang Quoc Truong (DQT)"
 
+import os
+import sys
+
 try:
     from .base_scanner import BaseAdvancedScanner
 except ImportError:

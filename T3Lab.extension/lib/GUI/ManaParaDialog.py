@@ -34,7 +34,7 @@ from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventAr
 from System.Reflection import BindingFlags
 
 from pyrevit import revit, DB, forms, script
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 
 
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'ManaPara.xaml')
@@ -51,13 +51,11 @@ def _hex_brush(hex_color):
 # ============================================================================
 # VERSION HELPERS
 # ============================================================================
+from Snippets._compat import make_eid, eid_value
 
 def _eid_int(element_id):
-    """ElementId integer value — compatible across Revit 2024/2025/2026."""
-    try:
-        return element_id.Value
-    except AttributeError:
-        return element_id.IntegerValue
+    """ElementId integer value — compatible across Revit 2020-2027+."""
+    return eid_value(element_id)
 
 
 def _get_revit_version():
@@ -418,7 +416,13 @@ def _update_parameter_binding(param_name, new_binding_type):
 # PARAMETER DATA MODEL
 # ============================================================================
 
-class ParameterItem(INotifyPropertyChanged):
+try:
+    _Reactive = getattr(forms, 'Reactive', object)
+except Exception:
+    _Reactive = object
+
+
+class ParameterItem(_Reactive):
     """WPF-bindable parameter data model."""
 
     def __init__(self, name, param_type, data_type, group, group_id,
@@ -1606,7 +1610,7 @@ class ExcelColumnMapper(object):
 # LOADER GRID DATA ROW
 # ============================================================================
 
-class LoaderGridRow(INotifyPropertyChanged):
+class LoaderGridRow(_Reactive):
     """WPF-bindable row for dg_loader_params."""
 
     def __init__(self, req):
@@ -1855,7 +1859,7 @@ class ManaParaWindow(T3WPFWindow):
                     continue
                 filtered.append(item)
 
-            self.dg_parameters.ItemsSource = ObservableCollection[Object](filtered)
+            self.dg_parameters.ItemsSource = to_items_source(filtered)
             self._set_status("Showing {} of {} parameters.".format(
                 len(filtered), len(self._all_param_items)))
         except Exception as ex:
@@ -2214,7 +2218,7 @@ class ManaParaWindow(T3WPFWindow):
             except Exception:
                 continue
 
-        self.dg_transfer_preview.ItemsSource = rows
+        self.dg_transfer_preview.ItemsSource = to_items_source(rows)
         try:
             self.txt_transfer_preview_status.Text = "{} element(s) previewed".format(len(rows))
         except:
@@ -2331,7 +2335,7 @@ class ManaParaWindow(T3WPFWindow):
                     return False
             elif tgt_st == DB.StorageType.ElementId:
                 try:
-                    eid = DB.ElementId(int(float(src_str)))
+                    eid = make_eid(int(float(src_str)))
                     tgt_param.Set(eid)
                     return True
                 except Exception:
@@ -2467,9 +2471,8 @@ class ManaParaWindow(T3WPFWindow):
     def _refresh_loader_grid(self):
         """Populate dg_loader_params with current requirements."""
         try:
-            rows = ObservableCollection[Object](
+            self.dg_loader_params.ItemsSource = to_items_source(
                 [LoaderGridRow(r) for r in self._loader_requirements])
-            self.dg_loader_params.ItemsSource = rows
         except Exception as ex:
             self.txt_loader_status.Text = "Grid error: {}".format(str(ex))
 

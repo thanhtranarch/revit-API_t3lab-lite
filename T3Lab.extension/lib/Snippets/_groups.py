@@ -24,19 +24,37 @@ from pyrevit import forms
 from GUI.forms           import select_from_dict
 
 
-default_doc     = __revit__.ActiveUIDocument.Document
-default_uidoc   = __revit__.ActiveUIDocument
-default_app     = __revit__.Application
+try:
+    from Snippets._host import resolve_doc, host_uiapp
+    default_doc, _ = resolve_doc()
+    _uiapp = host_uiapp()
+    default_uidoc = _uiapp.ActiveUIDocument if _uiapp else None
+    default_app = _uiapp.Application if _uiapp else None
+except Exception:
+    default_doc = None
+    default_uidoc = None
+    default_app = None
 
 
 
-def select_group_types(given_groups = None, uidoc = default_uidoc ,title='__title__', version = 'Version 0.1' ,exit_if_none = False):
+def select_group_types(given_groups = None, uidoc = None, title='__title__', version = 'Version 0.1' ,exit_if_none = False):
     """Function to select group names from a list.
     :param given_groups: List of groups. If none then all groups in project will be used.
     :param uidoc:
     :param exit_if_none:
     :return: list of selected group types_names
     """
+    if uidoc is None:
+        uidoc = default_uidoc
+        if uidoc is None:
+            try:
+                from Snippets._host import host_uiapp
+                _u = host_uiapp()
+                uidoc = _u.ActiveUIDocument if _u else None
+            except Exception:
+                uidoc = None
+    if uidoc is None:
+        return []
 
     #TODO if given_groups , verify that all elements are Groups
     if not given_groups:
@@ -63,11 +81,23 @@ def select_group_types(given_groups = None, uidoc = default_uidoc ,title='__titl
 
 
 
-def select_attached_groups(list_of_groups, uidoc = default_uidoc, title="__title__", label = "Select Groups:", version = 'Version 0.1', exit_if_none = False):
+def select_attached_groups(list_of_groups, uidoc = None, title="__title__", label = "Select Groups:", version = 'Version 0.1', exit_if_none = False):
     """Function to select attached groups from given list of groups.
     :param list_of_groups: List containing groups from which to take attached groups.
     :return: List of selected attached groups
     """
+    if uidoc is None:
+        uidoc = default_uidoc
+        if uidoc is None:
+            try:
+                from Snippets._host import host_uiapp
+                _u = host_uiapp()
+                uidoc = _u.ActiveUIDocument if _u else None
+            except Exception:
+                uidoc = None
+    if uidoc is None:
+        return []
+
     dict_of_attached_group_names = {}
 
     for g in list_of_groups:
@@ -93,13 +123,25 @@ def select_attached_groups(list_of_groups, uidoc = default_uidoc, title="__title
 
 
 
-def show_attached_group(view, group, list_a_group_names_to_show, uidoc = default_uidoc):
+def show_attached_group(view, group, list_a_group_names_to_show, uidoc = None):
     """Function to show attached groups that match list_a_groups_to_show in the selected view for selected groups.
     :param view:
     :param group:
     :param list_a_group_names_to_show:
     :return:
     """
+    if uidoc is None:
+        uidoc = default_uidoc
+        if uidoc is None:
+            try:
+                from Snippets._host import host_uiapp
+                _u = host_uiapp()
+                uidoc = _u.ActiveUIDocument if _u else None
+            except Exception:
+                uidoc = None
+    if uidoc is None:
+        return
+
     all_attached_groups = group.GetAvailableAttachedDetailGroupTypeIds()
     attached_group_id = None
     # print("\n\nAtached Groups:")

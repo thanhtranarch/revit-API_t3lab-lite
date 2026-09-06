@@ -98,6 +98,8 @@ GROUPING_TOL = 500.0 * MM_TO_FEET
 
 
 class WarningSwallower(IFailuresPreprocessor):
+    __namespace__ = "T3Lab.AutoDimension"
+
     def PreprocessFailures(self, failuresAccessor):
         fail_list = failuresAccessor.GetFailureMessages()
         if fail_list.Count == 0:

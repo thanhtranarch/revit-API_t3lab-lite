@@ -45,11 +45,25 @@ if _lib not in sys.path:
     sys.path.insert(0, _lib)
 
 # Force reload GUI modules to prevent caching issues in pyRevit
-import GUI.FamiGenDialog
-reload(GUI.FamiGenDialog)
+try:
+    from importlib import reload as _reload
+    for _mod in ('GUI.WPF_Base', 'GUI.FamiGenDialog', 'FamiGenDialog'):
+        if _mod in sys.modules:
+            try:
+                _reload(sys.modules[_mod])
+            except Exception:
+                pass
+except Exception:
+    pass
 
-from pyrevit import revit
 from GUI.FamiGenDialog import show_family_creator
+from Snippets._host import resolve_doc
 
 if __name__ == '__main__':
-    show_family_creator(revit.doc, revit.doc.Application)
+    doc, err = resolve_doc()
+    if not doc:
+        from pyrevit import forms
+        forms.alert(err or "No active document found in Revit.", title="FamiGen")
+    else:
+        show_family_creator(doc, doc.Application)
+

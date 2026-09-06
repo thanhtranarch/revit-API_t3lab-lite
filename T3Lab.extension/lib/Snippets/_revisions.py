@@ -28,14 +28,12 @@ from Snippets._context_manager import try_except
 # module scope that kills the import outright. Resolve defensively; the entry
 # point reports the real problem (see Snippets._host.resolve_doc()).
 try:
-    doc = __revit__.ActiveUIDocument.Document
+    from Snippets._host import resolve_doc, get_revit_version
+    doc, _doc_err = resolve_doc()
+    rvt_year = get_revit_version()
 except Exception:
     doc = None
-try:
-    app = __revit__.Application
-except Exception:
-    app = None
-rvt_year = int(app.VersionNumber)
+    rvt_year = 2024
 
 
 def create_revision(description, date, revision_type=None):
@@ -56,7 +54,10 @@ def create_revision(description, date, revision_type=None):
         revision_type = getattr(RevisionNumberType, 'None', None)
 
     with try_except(debug=True):
-        new_rev              = Revision.Create(doc)
+        target_doc = doc or (resolve_doc()[0] if 'resolve_doc' in globals() else None)
+        if not target_doc:
+            return None
+        new_rev              = Revision.Create(target_doc)
         new_rev.Description  = description
         new_rev.RevisionDate = date
 

@@ -43,6 +43,22 @@ _lib = os.path.normpath(os.path.join(os.path.dirname(__file__), '../../../lib'))
 if _lib not in sys.path:
     sys.path.insert(0, _lib)
 
+try:
+    reload
+except NameError:
+    try:
+        from importlib import reload
+    except Exception:
+        reload = None
+
+if reload:
+    for _mod in ('GUI.WPF_Base', 'GUI.ManaFamiDialog', 'ManaFamiDialog'):
+        if _mod in sys.modules:
+            try:
+                reload(sys.modules[_mod])
+            except Exception:
+                pass
+
 from GUI.ManaFamiDialog import show_family_manager
 
 if __name__ == '__main__':

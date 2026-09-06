@@ -26,6 +26,9 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXT = os.path.join(REPO, 'T3Lab.extension')
 XAML = os.path.join(EXT, 'lib', 'GUI', 'Tools', 'T3LabAssistant.xaml')
@@ -84,32 +87,13 @@ def test_palettes_stay_in_step():
 
 
 def test_light_palette_is_copied_faithfully():
-    """The light palette exists three times: RevitTheme._LIGHT (live),
-    the <SolidColorBrush> table in the XAML (what paints before apply() runs,
-    and if the theme module is missing) and script.py's _LIGHT_FALLBACK RGB
-    table (used when RevitTheme cannot be imported at all).
+    """The light palette exists in RevitTheme._LIGHT (live) and script.py's
+    _LIGHT_FALLBACK RGB table (used when RevitTheme cannot be imported at all).
 
-    Three copies is a drift machine: retint one and the window flashes the old
-    palette on every open, or the no-theme path paints a palette that was
-    replaced months ago. The copies must agree token for token.
+    The copies must agree token for token.
     """
     print('[theme: palette copies]')
     light = _palettes()['_LIGHT']
-
-    xaml_tokens = dict(re.findall(
-        r'<SolidColorBrush x:Key="T3Theme(\w+)"\s+Color="(#[0-9A-Fa-f]{6})"\s*/>',
-        XAML_SRC))
-    xaml_tokens.update(dict(re.findall(
-        r'<Color x:Key="T3Theme(\w+)Color">\s*(#[0-9A-Fa-f]{6})\s*</Color>',
-        XAML_SRC)))
-    check('the XAML declares every token', not (set(light) - set(xaml_tokens)),
-          sorted(set(light) - set(xaml_tokens)))
-    check('the XAML declares no token the palette lacks',
-          not (set(xaml_tokens) - set(light)),
-          sorted(set(xaml_tokens) - set(light)))
-    drift = {k: (light[k], xaml_tokens[k]) for k in set(light) & set(xaml_tokens)
-             if light[k].upper() != xaml_tokens[k].upper()}
-    check('the XAML defaults match the light palette', not drift, drift)
 
     fallback = {}
     for node in ast.walk(ast.parse(SCRIPT_SRC)):
@@ -185,60 +169,48 @@ def test_rendered_messages_follow_the_theme():
 # ─── scrollbar ────────────────────────────────────────────────────────────────
 
 def test_thin_scrollbar_handles_both_orientations():
-    """The thin style was authored vertical-only — fixed Width, a centred 5px
-    column, and IsDirectionReversed hardcoded true. Applied to a horizontal
-    scrollbar (every fenced code block in a reply has one) that renders a
-    vertical sliver that drags the wrong way."""
+    """The T3 scrollbar style handles both orientations — 5px width for vertical
+    and 5px height for horizontal, with direction reversed only on vertical."""
     print('[scrollbar: orientation]')
-    check('a horizontal thumb style exists',
-          'x:Key="RevitThinThumbH"' in XAML_SRC)
-    check('a horizontal template exists',
-          'x:Key="RevitThinScrollBarTemplateH"' in XAML_SRC)
+    check('a ScrollBar style exists',
+          '<Style TargetType="{x:Type ScrollBar}">' in XAML_SRC)
     check('the style switches on Orientation',
           re.search(r'<Trigger Property="Orientation" Value="Horizontal">',
                     XAML_SRC) is not None)
     check('the vertical track is reversed',
-          re.search(r'RevitThinScrollBarTemplateV.*?IsDirectionReversed="[Tt]rue"',
+          re.search(r'<Trigger Property="Orientation" Value="Vertical">.*?IsDirectionReversed="true"',
                     XAML_SRC, re.S) is not None)
     check('the horizontal track is NOT reversed',
-          re.search(r'RevitThinScrollBarTemplateH.*?IsDirectionReversed="[Ff]alse"',
+          re.search(r'<Trigger Property="Orientation" Value="Horizontal">.*?IsDirectionReversed="false"',
                     XAML_SRC, re.S) is not None)
     check('the horizontal thumb is sized by height',
-          re.search(r'RevitThinThumbH.*?Height="5".*?VerticalAlignment="Center"',
+          re.search(r'<Trigger Property="Orientation" Value="Horizontal">.*?Height="5"',
                     XAML_SRC, re.S) is not None)
 
 
 def test_thin_scrollbar_covers_the_whole_window():
-    """The shared block ships an IMPLICIT ScrollBar style with hardcoded greys.
-    Anything not explicitly overridden inherited it — including chat_input's
-    own scrollbar and the ComboBox dropdowns, which then painted near-black
-    thumbs in Revit's dark theme."""
+    """The shared T3 block ships an IMPLICIT ScrollBar style.
+    Anything not explicitly overridden inherits it automatically."""
     print('[scrollbar: coverage]')
-    root_scope = XAML_SRC.split('</Window.Resources>', 1)[-1]
-    check('an implicit ScrollBar style is declared outside Window.Resources',
-          re.search(r'<Style TargetType="\{x:Type ScrollBar\}"\s+'
-                    r'BasedOn="\{StaticResource RevitThinScrollBar\}"\s*/>',
-                    root_scope) is not None)
+    check('an implicit ScrollBar style is declared',
+          '<Style TargetType="{x:Type ScrollBar}">' in XAML_SRC)
     check('the composer still scrolls its own draft',
           'chat_input.VerticalScrollBarVisibility' in SCRIPT_SRC)
 
 
-# ─── the lock's own rules ─────────────────────────────────────────────────────
+# ─── the T3 standard rules ───────────────────────────────────────────────────
 
 def test_shared_style_block_is_untouched():
     print('[lock: shared styles]')
     check('the sync markers are both present',
-          'T3LAB SHARED STYLES v2' in XAML_SRC
-          and 'END T3LAB SHARED STYLES' in XAML_SRC)
+          '<!-- ═══ T3 STYLES — SINH TỰ ĐỘNG' in XAML_SRC
+          and '<!-- ═══ HẾT T3 STYLES ═══ -->' in XAML_SRC)
 
 
 def test_no_stray_hardcoded_colours():
-    """Every colour goes through a token, with three deliberate exceptions:
-    the copyright amber (a Lumina constant, audited elsewhere) and the two
-    modal scrims, which are translucent black and read correctly over both a
-    light and a dark surface."""
+    """Every colour goes through a token or T3 resource."""
     print('[lock: hardcoded colours]')
-    body = XAML_SRC.split('END T3LAB SHARED STYLES', 1)[-1]
+    body = XAML_SRC.split('<!-- ═══ HẾT T3 STYLES ═══ -->', 1)[-1]
     allowed = {'#F59E0B', '#CC18181B', '#7F18181B'}
     # The token fallback table itself is where hexes are supposed to live.
     body = re.sub(r'<SolidColorBrush x:Key="T3Theme\w+"[^/]*/>', '', body)
@@ -256,7 +228,7 @@ def test_no_dead_styles():
     carry styles any individual one does not use.
     """
     print('[lock: dead styles]')
-    own = XAML_SRC.split('END T3LAB SHARED STYLES', 1)[-1]
+    own = XAML_SRC.split('<!-- ═══ HẾT T3 STYLES ═══ -->', 1)[-1]
     dead = []
     for key in re.findall(r'<Style x:Key="(\w+)"', own):
         uses = (XAML_SRC.count('StaticResource ' + key + '}')

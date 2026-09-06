@@ -1,4 +1,3 @@
-#! python3
 # -*- coding: utf-8 -*-
 """
 T3Lab Extension Startup Script
@@ -72,49 +71,126 @@ except Exception:
 
 # ─── Attempt DockablePane registration ─────────────────────────────────────────
 
+def _log_dockable(msg):
+    try:
+        import datetime
+        _dlog_path = os.path.join(os.path.expanduser("~"), "T3Lab_AI_Data", "dockable_pane_startup.log")
+        _d = os.path.dirname(_dlog_path)
+        if not os.path.isdir(_d):
+            os.makedirs(_d)
+        stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(_dlog_path, "a", encoding="utf-8") as f:
+            f.write(u"[{}] {}\n".format(stamp, msg))
+    except Exception:
+        pass
+
+
+def _get_uicontrolled_app():
+    """Resolve the genuine UIControlledApplication instance from pyRevit runtime."""
+    # 1. Inspect PyRevitLoaderApplication._uiControlledApplication static field
+    try:
+        import System
+        for assm in System.AppDomain.CurrentDomain.GetAssemblies():
+            try:
+                name = assm.GetName().Name
+                if name.startswith("pyRevitLoader"):
+                    t = assm.GetType("PyRevitLoader.PyRevitLoaderApplication")
+                    if t:
+                        f = t.GetField(
+                            "_uiControlledApplication",
+                            System.Reflection.BindingFlags.Public
+                            | System.Reflection.BindingFlags.NonPublic
+                            | System.Reflection.BindingFlags.Static,
+                        )
+                        if f:
+                            app = f.GetValue(None)
+                            if app is not None and type(app).__name__ == "UIControlledApplication":
+                                _log_dockable(u"Found UIControlledApplication via PyRevitLoaderApplication._uiControlledApplication")
+                                return app
+            except Exception:
+                continue
+    except Exception as ex:
+        _log_dockable(u"Error scanning PyRevitLoader assemblies: {}".format(ex))
+
+    # 2. Check pyrevit HOST_APP.uicontrolledapp
+    try:
+        from pyrevit import HOST_APP
+        app = getattr(HOST_APP, 'uicontrolledapp', None)
+        if app is not None and type(app).__name__ == "UIControlledApplication":
+            _log_dockable(u"Found UIControlledApplication via HOST_APP.uicontrolledapp")
+            return app
+    except Exception:
+        pass
+
+    # 3. Check __revit__ if it is UIControlledApplication
+    try:
+        if '__revit__' in globals():
+            app = globals()['__revit__']
+            if type(app).__name__ == "UIControlledApplication":
+                _log_dockable(u"Found UIControlledApplication via __revit__")
+                return app
+    except Exception:
+        pass
+
+    return None
+
+
 try:
+    import traceback
     import clr
     clr.AddReference('RevitAPIUI')
-    from Autodesk.Revit.UI import DockablePaneId
+    from Autodesk.Revit.UI import DockablePaneId, DockablePane
     from System import Guid
 
     from GUI.AssistantPaneControl import ASSISTANT_PANE_GUID, AssistantPaneProvider
 
     pane_id = DockablePaneId(ASSISTANT_PANE_GUID)
 
-    # __revit__ is UIControlledApplication during startup.py execution in pyRevit.
-    # Use it directly if available; otherwise fall back to pyrevit.HOST_APP.
-    _uictrld = None
-    try:
-        _uictrld = __revit__  # noqa: F821 — injected by pyRevit runtime
-    except NameError:
-        pass
-
-    if _uictrld is None:
-        try:
-            from pyrevit import HOST_APP
-            # HOST_APP.uiapp is UIApplication; HOST_APP.uicontrolledapp may exist
-            _uictrld = getattr(HOST_APP, 'uicontrolledapp', None)
-        except Exception:
-            pass
-
-    if _uictrld is not None and hasattr(_uictrld, 'RegisterDockablePane'):
-        provider = AssistantPaneProvider()
-        _uictrld.RegisterDockablePane(pane_id, 'T3Lab Assistant', provider)
+    if DockablePane.PaneExists(pane_id):
+        _log_dockable(u"DockablePane 'T3Lab Assistant' already registered.")
     else:
-        # Revit 2022+ fallback: try UIApplication.RegisterDockablePane
-        try:
-            from pyrevit import HOST_APP
-            uiapp = HOST_APP.uiapp
-            if hasattr(uiapp, 'RegisterDockablePane'):
-                provider = AssistantPaneProvider()
-                uiapp.RegisterDockablePane(pane_id, 'T3Lab Assistant', provider)
-        except Exception:
-            pass
+        _uictrld = _get_uicontrolled_app()
+        _registered = False
 
-except Exception:
-    # Never crash Revit startup — silently skip pane registration.
-    pass
+        if _uictrld is not None and hasattr(_uictrld, 'RegisterDockablePane'):
+            try:
+                provider = AssistantPaneProvider()
+                _uictrld.RegisterDockablePane(pane_id, 'T3Lab Assistant', provider)
+                _log_dockable(u"SUCCESS: RegisterDockablePane succeeded on UIControlledApplication")
+                _registered = True
+            except Exception as ex_reg:
+                _log_dockable(u"FAILED RegisterDockablePane on UIControlledApplication: {}\n{}".format(
+                    ex_reg, traceback.format_exc()))
+
+        if not _registered:
+            # Fallback: hook ApplicationInitialized event
+            def _on_app_initialized(sender, args):
+                try:
+                    if not DockablePane.PaneExists(pane_id):
+                        from Autodesk.Revit.UI import UIApplication
+                        uiapp = UIApplication(sender) if type(sender).__name__ != "UIApplication" else sender
+                        provider = AssistantPaneProvider()
+                        uiapp.RegisterDockablePane(pane_id, 'T3Lab Assistant', provider)
+                        _log_dockable(u"SUCCESS: RegisterDockablePane succeeded in ApplicationInitialized event")
+                except Exception as ex_init:
+                    _log_dockable(u"FAILED RegisterDockablePane in ApplicationInitialized: {}\n{}".format(
+                        ex_init, traceback.format_exc()))
+
+            try:
+                if _uictrld is not None and hasattr(_uictrld, 'ControlledApplication'):
+                    _uictrld.ControlledApplication.ApplicationInitialized += _on_app_initialized
+                    _log_dockable(u"Hooked ApplicationInitialized on uictrld.ControlledApplication")
+                else:
+                    from pyrevit import HOST_APP
+                    if hasattr(HOST_APP, 'app') and hasattr(HOST_APP.app, 'ApplicationInitialized'):
+                        HOST_APP.app.ApplicationInitialized += _on_app_initialized
+                        _log_dockable(u"Hooked ApplicationInitialized on HOST_APP.app")
+            except Exception as ex_hook:
+                _log_dockable(u"Could not hook ApplicationInitialized: {}".format(ex_hook))
+
+except Exception as ex_outer:
+    _log_dockable(u"Outer exception during DockablePane registration: {}\n{}".format(
+        ex_outer, traceback.format_exc()))
 
 # ─── Register right-click context-menu entry (Revit 2025+) ─────────────────────
 # Adds a "T3Lab Assistant" item to Revit's native right-click menu. No-op on

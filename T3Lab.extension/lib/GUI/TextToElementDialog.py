@@ -14,7 +14,7 @@ clr.AddReference('RevitAPI')
 clr.AddReference('RevitAPIUI')
 
 from pyrevit import forms
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 
 from Autodesk.Revit.DB import (
     FilteredElementCollector, BuiltInCategory, BuiltInParameter,
@@ -276,7 +276,7 @@ class TextToElementDialog(T3WPFWindow):
             return
 
         # Populate DataGrid
-        self.dg_preview.ItemsSource = rows
+        self.dg_preview.ItemsSource = to_items_source(rows)
 
         if rows:
             self.btn_run.IsEnabled = True

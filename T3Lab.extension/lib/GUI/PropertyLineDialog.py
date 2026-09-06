@@ -1488,15 +1488,17 @@ class PropertyLineDialog(T3WPFWindow):
 
 
 
-        # Load saved API key
+        # Load saved API key if UI element exists
         config = load_config()
         saved_key = config.get("lightbox_api_key", "")
-        if saved_key:
-            self.txt_api_key.Text = saved_key
-            self._update_api_status(True, "API key loaded from config")
-        else:
-            self._update_api_status(
-                True, "No API key — worldwide OpenStreetMap search still works")
+        txt_key = getattr(self, "txt_api_key", None)
+        if txt_key is not None:
+            if saved_key:
+                txt_key.Text = saved_key
+                self._update_api_status(True, "API key loaded from config")
+            else:
+                self._update_api_status(
+                    True, "No API key — worldwide OpenStreetMap search still works")
 
         # Restore the last used data source
         saved_source = config.get("data_source", SOURCE_AUTO)
@@ -1520,16 +1522,24 @@ class PropertyLineDialog(T3WPFWindow):
             self.DragMove()
 
     def btn_tab_search_Click(self, sender, e):
-        self.btn_tab_search.IsChecked = True
-        self.btn_tab_api.IsChecked = False
-        self.grid_search_tab.Visibility = Visibility.Visible
-        self.grid_api_tab.Visibility = Visibility.Collapsed
+        if getattr(self, "btn_tab_search", None) is not None:
+            self.btn_tab_search.IsChecked = True
+        if getattr(self, "btn_tab_api", None) is not None:
+            self.btn_tab_api.IsChecked = False
+        if getattr(self, "grid_search_tab", None) is not None:
+            self.grid_search_tab.Visibility = Visibility.Visible
+        if getattr(self, "grid_api_tab", None) is not None:
+            self.grid_api_tab.Visibility = Visibility.Collapsed
 
     def btn_tab_api_Click(self, sender, e):
-        self.btn_tab_search.IsChecked = False
-        self.btn_tab_api.IsChecked = True
-        self.grid_search_tab.Visibility = Visibility.Collapsed
-        self.grid_api_tab.Visibility = Visibility.Visible
+        if getattr(self, "btn_tab_search", None) is not None:
+            self.btn_tab_search.IsChecked = False
+        if getattr(self, "btn_tab_api", None) is not None:
+            self.btn_tab_api.IsChecked = True
+        if getattr(self, "grid_search_tab", None) is not None:
+            self.grid_search_tab.Visibility = Visibility.Collapsed
+        if getattr(self, "grid_api_tab", None) is not None:
+            self.grid_api_tab.Visibility = Visibility.Visible
 
     def btn_minimize_Click(self, sender, e):
         import System.Windows
@@ -1539,7 +1549,10 @@ class PropertyLineDialog(T3WPFWindow):
         self.Close()
 
     def btn_save_key_Click(self, sender, e):
-        api_key = self.txt_api_key.Text.strip()
+        txt_key = getattr(self, "txt_api_key", None)
+        if txt_key is None:
+            return
+        api_key = txt_key.Text.strip()
         if not api_key:
             self._update_api_status(False, "API key cannot be empty")
             return
@@ -1582,11 +1595,11 @@ class PropertyLineDialog(T3WPFWindow):
             pass
 
         source = self._selected_source()
-        api_key = self.txt_api_key.Text.strip()
+        txt_key = getattr(self, "txt_api_key", None)
+        api_key = txt_key.Text.strip() if txt_key is not None else load_config().get("lightbox_api_key", "")
         if source == SOURCE_LIGHTBOX and not api_key:
             self._set_status(
-                u"LightBox needs an API key — add one in the API tab, or "
-                u"switch the source to OpenStreetMap.", error=True)
+                u"LightBox needs an API key — switch the source to OpenStreetMap.", error=True)
             return
 
         save_config({"data_source": source})
@@ -2111,11 +2124,14 @@ class PropertyLineDialog(T3WPFWindow):
         return bool(chk.IsChecked)
 
     def _update_api_status(self, ok, msg):
-        self.txt_api_status.Text = msg
+        txt_status = getattr(self, "txt_api_status", None)
+        if txt_status is None:
+            return
+        txt_status.Text = msg
         if ok:
-            self.txt_api_status.Foreground = SolidColorBrush(Color.FromRgb(78, 201, 176))  # teal
+            txt_status.Foreground = SolidColorBrush(Color.FromRgb(78, 201, 176))  # teal
         else:
-            self.txt_api_status.Foreground = SolidColorBrush(Color.FromRgb(255, 107, 107))  # red
+            txt_status.Foreground = SolidColorBrush(Color.FromRgb(255, 107, 107))  # red
 
     def _set_status(self, msg, error=False, success=False, busy=False):
         self.txt_status.Text = msg

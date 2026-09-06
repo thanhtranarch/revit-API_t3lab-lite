@@ -18,7 +18,7 @@
         TextOptions.TextFormattingMode="Display">
 
     <WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="40"
+        <shell:WindowChrome CaptionHeight="48"
                             ResizeBorderThickness="6"
                             CornerRadius="0"
                             GlassFrameThickness="0"
@@ -664,6 +664,7 @@
           </Style>
 
           <Style x:Key="T3.DataGrid" TargetType="DataGrid">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
             <Setter Property="FontSize"   Value="{StaticResource T3.Size.Body}"/>
             <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
@@ -752,6 +753,9 @@
                     </Grid>
                   </Border>
                   <ControlTemplate.Triggers>
+                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.RowAlt}"/>
+                    </Trigger>
                     <Trigger Property="IsMouseOver" Value="True">
                       <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
                     </Trigger>
@@ -774,6 +778,7 @@
           </Style>
 
           <Style x:Key="T3.ListView" TargetType="ListView">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -915,7 +920,7 @@
             <Setter Property="Background"  Value="{StaticResource T3.SurfaceSunken}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
-            <Setter Property="Padding" Value="16,0,8,0"/>
+            <Setter Property="Padding" Value="12,0,8,0"/>
           </Style>
 
           <Style x:Key="T3.Panel" TargetType="Border">
@@ -971,16 +976,34 @@
           <!-- Zero-gap tab surface. WPF's stock TabControl carries Padding="2,2,2,2", a
                light Background and a 1px border, which render as a white gutter around
                every tab's content (rule 19 — bố cục liền mạch). Implicit so every tool
-               inherits it; a tool that sets these locally still wins. -->
+               inherits it; a tool that sets these locally still wins.
+               Template: stock TabPanel uses Margin="0,2,2,0" which creates a 2px gap above
+               content even when TabItems are collapsed. TabPanel Margin="0" eliminates this gap. -->
           <Style TargetType="TabControl">
             <Setter Property="Padding" Value="0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
-            <!-- NOTE: a content-only ControlTemplate here would also remove the stock
-                 HeaderPanel's Margin="2,2,2,0" (the last 2px strip above the content),
-                 but retemplating TabControl globally coincided with XAML load failures
-                 in Revit and was reverted 2026-09-03. Re-attempt only with a Revit test.
-                 Padding/BorderThickness/Background already remove the L/R/B gutter. -->
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                  <Grid KeyboardNavigation.TabNavigation="Local">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TabPanel Grid.Row="0" IsItemsHost="True" Margin="0"/>
+                    <Border Grid.Row="1"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            Background="{TemplateBinding Background}">
+                      <ContentPresenter x:Name="PART_SelectedContentHost"
+                                        Margin="{TemplateBinding Padding}"
+                                        ContentSource="SelectedContent"/>
+                    </Border>
+                  </Grid>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
           </Style>
 
           <Style x:Key="T3.TabItem.Hidden" TargetType="TabItem">
@@ -1004,15 +1027,15 @@
                           </Border>
                           <ControlTemplate.Triggers>
                               <Trigger Property="IsChecked" Value="True">
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Ink}"/>
-                                  <Setter Property="Foreground" Value="{StaticResource T3.Surface}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </Trigger>
                               <MultiTrigger>
                                   <MultiTrigger.Conditions>
                                       <Condition Property="IsChecked" Value="False"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Canvas}"/>
                                   <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                               <MultiTrigger>
@@ -1020,7 +1043,8 @@
                                       <Condition Property="IsChecked" Value="True"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Text}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.BorderStrong}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                           </ControlTemplate.Triggers>
                       </ControlTemplate>
@@ -1181,7 +1205,7 @@
             <Setter Property="Width"  Value="42"/>
             <Setter Property="Height" Value="42"/>
             <Setter Property="CornerRadius" Value="{StaticResource T3.R.Window}"/>
-            <Setter Property="Background"   Value="{StaticResource T3.Ink}"/>
+            <Setter Property="Background"   Value="{StaticResource T3.Border}"/>
           </Style>
 
           <!-- Pill 36px — dải trạng thái/đếm nằm ngang. Bo góc 18 = nửa chiều cao. -->
@@ -1377,120 +1401,14 @@
     <Border BorderBrush="{StaticResource T3.BorderStrong}" BorderThickness="1.5"
             CornerRadius="12" ClipToBounds="True" Background="{DynamicResource T3.Surface}">
         <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="58"/>  <!-- Col 0: Left Sidebar Rail -->
-                <ColumnDefinition Width="*"/>   <!-- Col 1: Main Work Area -->
-            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48"/>      <!-- Row 0: Full-width Title Bar -->
+                <RowDefinition Height="*"/>       <!-- Row 1: Main Body with Sidebar Rail -->
+                <RowDefinition Height="48"/>      <!-- Row 2: Full-width Footer Bar -->
+            </Grid.RowDefinitions>
 
-            <!-- ══════════════════ LEFT SIDEBAR RAIL (Col 0) ══════════════════ -->
-            <Border Grid.Column="0" Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- App Logo -->
-                        <RowDefinition Height="Auto"/> <!-- Wall -->
-                        <RowDefinition Height="Auto"/> <!-- Floor -->
-                        <RowDefinition Height="Auto"/> <!-- Beam -->
-                        <RowDefinition Height="Auto"/> <!-- Divider -->
-                        <RowDefinition Height="Auto"/> <!-- Duct -->
-                        <RowDefinition Height="Auto"/> <!-- Pipe -->
-                        <RowDefinition Height="Auto"/> <!-- Tray -->
-                        <RowDefinition Height="Auto"/> <!-- Conduit -->
-                        <RowDefinition Height="*"/>    <!-- Spacer -->
-                    </Grid.RowDefinitions>
-
-                    <!-- Rail Logo -->
-                    <Border Grid.Row="0" Style="{StaticResource T3.Rail.Logo}" Margin="0,8,0,16">
-                        <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16"
-                              Stroke="{StaticResource T3.Ink}" StrokeThickness="1.8" StrokeLineJoin="Round"
-                              Width="19" Height="19" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-
-                    <!-- Wall button -->
-                    <Button x:Name="btn_type_wall" Grid.Row="1" Style="{StaticResource T3.Button.Ghost}"
-                            Width="42" Height="42" Padding="0" Margin="0,0,0,8" ToolTip="Wall">
-                        <Path Data="M4 4 h7 v7 h-7 z M13 4 h7 v7 h-7 z M4 13 h7 v7 h-7 z M13 13 h7 v7 h-7 z"
-                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              Width="19" Height="19" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Button>
-
-                    <!-- Floor button -->
-                    <Button x:Name="btn_type_floor" Grid.Row="2" Style="{StaticResource T3.Button.Ghost}"
-                            Width="42" Height="42" Padding="0" Margin="0,0,0,8" ToolTip="Floor">
-                        <Path Data="M4 8 L12 4 L20 8 L12 12 Z M4 8 V16 L12 20 L12 12 M20 8 V16 L12 20"
-                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              Width="19" Height="19" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Button>
-
-                    <!-- Beam button -->
-                    <Button x:Name="btn_type_beam" Grid.Row="3" Style="{StaticResource T3.Button.Ghost}"
-                            Width="42" Height="42" Padding="0" Margin="0,0,0,8" ToolTip="Beam">
-                        <Path Data="M4 6 h16 M4 6 v3 M20 6 v3 M4 18 h16 M4 18 v-3 M20 18 v-3 M7 9 h10 v6 h-10 z"
-                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              Width="19" Height="19" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Button>
-
-                    <!-- MEP group divider -->
-                    <Border Grid.Row="4" Height="1" Width="28" Background="{StaticResource T3.Border}" Margin="0,4,0,8" HorizontalAlignment="Center"/>
-
-                    <!-- Duct button -->
-                    <Button x:Name="btn_type_duct" Grid.Row="5" Style="{StaticResource T3.Button.Ghost}"
-                            Width="42" Height="42" Padding="0" Margin="0,0,0,8" ToolTip="Duct">
-                        <Path Data="M4 7 h16 v10 h-16 z M8 10 l3 2 -3 2 M14 10 l3 2 -3 2"
-                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              Width="19" Height="19" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Button>
-
-                    <!-- Pipe button -->
-                    <Button x:Name="btn_type_pipe" Grid.Row="6" Style="{StaticResource T3.Button.Ghost}"
-                            Width="42" Height="42" Padding="0" Margin="0,0,0,8" ToolTip="Pipe">
-                        <Path Data="M4 8 h9 a7 7 0 0 1 7 7 v5 M4 12 h8 a3 3 0 0 1 3 3 v5"
-                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              Width="19" Height="19" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Button>
-
-                    <!-- Cable Tray button -->
-                    <Button x:Name="btn_type_tray" Grid.Row="7" Style="{StaticResource T3.Button.Ghost}"
-                            Width="42" Height="42" Padding="0" Margin="0,0,0,8" ToolTip="Cable Tray">
-                        <Path Data="M5 5 v14 M19 5 v14 M5 9 h14 M5 15 h14"
-                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              Width="19" Height="19" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Button>
-
-                    <!-- Conduit button -->
-                    <Button x:Name="btn_type_conduit" Grid.Row="8" Style="{StaticResource T3.Button.Ghost}"
-                            Width="42" Height="42" Padding="0" Margin="0,0,0,8" ToolTip="Conduit">
-                        <Path Data="M4 12 h6 M14 12 h6 M12 12 m-2.5 0 a2.5 2.5 0 1 0 5 0 a2.5 2.5 0 1 0 -5 0"
-                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              Width="19" Height="19" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Button>
-                </Grid>
-            </Border>
-
-            <!-- ══════════════════ WORK AREA (Col 1) ══════════════════ -->
-            <Grid Grid.Column="1">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="48"/> <!-- Title Bar -->
-                    <RowDefinition Height="*"/>  <!-- Main Content Area -->
-                    <RowDefinition Height="48"/> <!-- Footer Bar -->
-                </Grid.RowDefinitions>
-
-                <!-- ROW 0: TITLE BAR -->
-                <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
+            <!-- ══════════════════ ROW 0: FULL-WIDTH TITLE BAR ══════════════════ -->
+            <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -1498,14 +1416,19 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Title and Subtitle -->
-                        <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="16,0,0,0"
-                                shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                        <TextBlock Text="CAD to Elements" Style="{StaticResource T3.Title}"/>
-                        <TextBlock Text="Convert CAD linework into walls, floors, beams or MEP runs" Style="{StaticResource T3.Subtitle}"/>
-                    </StackPanel>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,0"
+                                    shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                            <Image x:Name="logo_image" Height="28" Margin="0,0,12,0"
+                                   VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                <TextBlock Text="CAD to Elements" Style="{StaticResource T3.Title}"/>
+                                <TextBlock Text="Convert CAD linework into walls, floors, beams or MEP runs" Style="{StaticResource T3.Subtitle}"/>
+                            </StackPanel>
+                        </StackPanel>
 
                         <!-- Window controls -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal"
                                     shell:WindowChrome.IsHitTestVisibleInChrome="True">
                             <Button x:Name="btn_minimize" Style="{StaticResource T3.WinCtrl}" ToolTip="Minimize">
                                 <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
@@ -1520,8 +1443,113 @@
                     </Grid>
                 </Border>
 
+            <!-- ══════════════════ ROW 1: WORKSPACE WITH REFINED SIDEBAR ══════════════════ -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="58"/>    <!-- Col 0: Left Navigation Icon Rail -->
+                    <ColumnDefinition Width="*"/>     <!-- Col 1: Main Content Work Area -->
+                </Grid.ColumnDefinitions>
+
+                <!-- ══════════════════ COL 0: LEFT NAVIGATION ICON RAIL ══════════════════ -->
+                <Border Grid.Column="0" Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
+                <Grid Margin="0,12,0,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Wall -->
+                        <RowDefinition Height="Auto"/> <!-- Floor -->
+                        <RowDefinition Height="Auto"/> <!-- Beam -->
+                        <RowDefinition Height="Auto"/> <!-- Divider -->
+                        <RowDefinition Height="Auto"/> <!-- Duct -->
+                        <RowDefinition Height="Auto"/> <!-- Pipe -->
+                        <RowDefinition Height="Auto"/> <!-- Tray -->
+                        <RowDefinition Height="Auto"/> <!-- Conduit -->
+                        <RowDefinition Height="*"/>    <!-- Spacer -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Wall button -->
+                    <ToggleButton x:Name="btn_type_wall" Grid.Row="0"
+                                  Style="{StaticResource T3.Rail.Tile}"
+                                  Margin="0,0,0,8" IsChecked="True" ToolTip="Wall">
+                        <Path Data="M4 4 h7 v7 h-7 z M13 4 h7 v7 h-7 z M4 13 h7 v7 h-7 z M13 13 h7 v7 h-7 z"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Floor button -->
+                    <ToggleButton x:Name="btn_type_floor" Grid.Row="1"
+                                  Style="{StaticResource T3.Rail.Tile}"
+                                  Margin="0,0,0,8" ToolTip="Floor">
+                        <Path Data="M4 8 L12 4 L20 8 L12 12 Z M4 8 V16 L12 20 L12 12 M20 8 V16 L12 20"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Beam button -->
+                    <ToggleButton x:Name="btn_type_beam" Grid.Row="2"
+                                  Style="{StaticResource T3.Rail.Tile}"
+                                  Margin="0,0,0,8" ToolTip="Beam">
+                        <Path Data="M4 6 h16 M4 6 v3 M20 6 v3 M4 18 h16 M4 18 v-3 M20 18 v-3 M7 9 h10 v6 h-10 z"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- MEP group divider -->
+                    <Border Grid.Row="3" Height="1" Width="28" Background="{StaticResource T3.Border}" Margin="0,4,0,8" HorizontalAlignment="Center"/>
+
+                    <!-- Duct button -->
+                    <ToggleButton x:Name="btn_type_duct" Grid.Row="4"
+                                  Style="{StaticResource T3.Rail.Tile}"
+                                  Margin="0,0,0,8" ToolTip="Duct">
+                        <Path Data="M4 7 h16 v10 h-16 z M8 10 l3 2 -3 2 M14 10 l3 2 -3 2"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Pipe button -->
+                    <ToggleButton x:Name="btn_type_pipe" Grid.Row="5"
+                                  Style="{StaticResource T3.Rail.Tile}"
+                                  Margin="0,0,0,8" ToolTip="Pipe">
+                        <Path Data="M4 8 h9 a7 7 0 0 1 7 7 v5 M4 12 h8 a3 3 0 0 1 3 3 v5"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Cable Tray button -->
+                    <ToggleButton x:Name="btn_type_tray" Grid.Row="6"
+                                  Style="{StaticResource T3.Rail.Tile}"
+                                  Margin="0,0,0,8" ToolTip="Cable Tray">
+                        <Path Data="M5 5 v14 M19 5 v14 M5 9 h14 M5 15 h14"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Conduit button -->
+                    <ToggleButton x:Name="btn_type_conduit" Grid.Row="7"
+                                  Style="{StaticResource T3.Rail.Tile}"
+                                  ToolTip="Conduit">
+                        <Path Data="M4 12 h6 M14 12 h6 M12 12 m-2.5 0 a2.5 2.5 0 1 0 5 0 a2.5 2.5 0 1 0 -5 0"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                </Grid>
+            </Border>
+
+                <!-- ══════════════════ COL 1: MAIN WORKSPACE ══════════════════ -->
                 <!-- ROW 1: MAIN CONTENT -->
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,12">
+                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="16,12">
                     <StackPanel>
 
                         <!-- ─── CAD SOURCE & LEVEL (always visible) ─── -->
@@ -2449,45 +2477,45 @@
                 </ScrollViewer>
 
                 <!-- ROW 2: FOOTER BAR -->
-                <Border Grid.Row="2" Style="{StaticResource T3.FooterBar}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="8"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="8"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+            </Grid>
 
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Style="{StaticResource T3.Copyright}"/>
-                            <Border Width="1" Height="16" Background="{StaticResource T3.Border}" Margin="12,0"/>
-                            <TextBlock x:Name="txt_status" Text="Select a CAD file and click Refresh"
-                                       Style="{StaticResource T3.Body.Secondary}" VerticalAlignment="Center"/>
-                        </StackPanel>
+            <!-- ══════════════════ ROW 2: UNIFIED FOOTER BAR ══════════════════ -->
+            <Border Grid.Row="2" Style="{StaticResource T3.FooterBar}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                        <Button x:Name="btn_refresh" Grid.Column="1"
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource T3.Copyright}"/>
+                        <Border Width="1" Height="16" Background="{StaticResource T3.Border}" Margin="12,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="txt_status" Text="Select a CAD file and click Refresh"
+                                   Style="{StaticResource T3.Body.Secondary}" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="btn_refresh"
                                 Content="Refresh"
                                 Style="{StaticResource T3.Button.Secondary}"
-                                Height="28" Padding="16,0"
+                                Height="28" Padding="16,0" Margin="0,0,8,0"
                                 ToolTip="Reload CAD files and layers"/>
 
-                        <Button x:Name="btn_run" Grid.Column="3"
+                        <Button x:Name="btn_run"
                                 Content="Run"
                                 Style="{StaticResource T3.Button.Primary}"
-                                Height="28" Padding="16,0"
+                                Height="28" Padding="16,0" Margin="0,0,8,0"
                                 IsDefault="True"
                                 ToolTip="Run conversion"/>
 
-                        <Button x:Name="btn_close_bar" Grid.Column="5"
+                        <Button x:Name="btn_close_bar"
                                 Content="Close"
                                 Style="{StaticResource T3.Button.Secondary}"
                                 Height="28" Padding="16,0"
                                 ToolTip="Close"/>
-                    </Grid>
-                </Border>
-            </Grid>
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
     </Border>
 </Window>

@@ -54,24 +54,16 @@ from pyrevit.api import AdWindows
 import codecs
 from System import DateTime
 
-# General info
-# `__revit__` members are unavailable when no UIDocument is active, and at
-# module scope that kills the import outright. Resolve defensively; the entry
-# point reports the real problem (see Snippets._host.resolve_doc()).
-try:
-    uidoc = __revit__.ActiveUIDocument
-except Exception:
-    uidoc = None
+from Snippets._host import get_revit_version
+
 try:
     app = __revit__.Application
 except Exception:
     app = None
-doc = uidoc.Document
-activeView = doc.ActiveView
-date = DateTime.Now.ToString("yyMMdd")
-revit_version = int(app.VersionNumber)
 
-userName = app.Username
+date = DateTime.Now.ToString("yyMMdd")
+revit_version = get_revit_version() or 2024
+userName = getattr(app, "Username", None) or os.environ.get("USERNAME", "User")
 
 def TempMemory(tool_name, bool):
     output = []

@@ -59,6 +59,14 @@ except Exception:
         Collapsed = 2
 
 try:
+    from System import Action
+    from System.Windows.Threading import DispatcherFrame, DispatcherPriority
+except Exception:
+    Action = None
+    DispatcherFrame = None
+    DispatcherPriority = None
+
+try:
     from System.Windows.Input import Key
 except Exception:
     Key = None
@@ -126,6 +134,48 @@ _EVENT_NAMES = {
 }
 
 
+def to_items_source(items):
+    """Convert a Python sequence into a .NET collection compatible with WPF ItemsSource under CPython 3 / PythonNet.
+
+    In IronPython 2, Python lists coerced automatically to System.Collections.IEnumerable.
+    In PythonNet (CPython 3), assigning a Python list to ItemsSource raises:
+    TypeError: 'list' value cannot be converted to System.Collections.IEnumerable.
+    This helper returns an ObservableCollection[Object] (or List[Object]) that WPF recognizes.
+    """
+    if items is None:
+        return None
+    if not isinstance(items, (list, tuple, set)):
+        try:
+            from System.Collections import IEnumerable
+            if isinstance(items, IEnumerable):
+                return items
+        except Exception:
+            pass
+    try:
+        from System.Collections.ObjectModel import ObservableCollection
+        from System import Object
+        coll = ObservableCollection[Object]()
+        for item in items:
+            coll.Add(item)
+        return coll
+    except Exception:
+        try:
+            from System.Collections.Generic import List
+            from System import Object
+            net_list = List[Object]()
+            for item in items:
+                net_list.Add(item)
+            return net_list
+        except Exception:
+            return items
+
+
+def set_items_source(control, items):
+    """Safely assign items to control.ItemsSource under both CPython 3 and IronPython."""
+    if control is not None:
+        control.ItemsSource = to_items_source(items)
+
+
 def _sanitize_xaml(xaml_content):
     """
     Sanitize XAML for CPython XamlReader:
@@ -175,6 +225,58 @@ def _sanitize_xaml(xaml_content):
     return clean_xaml, event_bindings, named_elements
 
 
+def setup_window_logo(win_or_elem):
+    """Auto-bind T3Lab logo to logo_image and window Icon if present on any Window or FrameworkElement."""
+    try:
+        logo_elem = getattr(win_or_elem, 'logo_image', None)
+        if logo_elem is None and hasattr(win_or_elem, 'FindName'):
+            try:
+                logo_elem = win_or_elem.FindName('logo_image')
+            except Exception:
+                logo_elem = None
+        if logo_elem is None and hasattr(win_or_elem, 'Content') and win_or_elem.Content is not None and hasattr(win_or_elem.Content, 'FindName'):
+            try:
+                logo_elem = win_or_elem.Content.FindName('logo_image')
+            except Exception:
+                logo_elem = None
+
+        _gui_dir = os.path.dirname(os.path.abspath(__file__))
+        _logo_path = None
+        for _cand in ('T3Lab_logo_tight.png', 'T3Lab_logo.png'):
+            _p = os.path.join(_gui_dir, _cand)
+            if os.path.exists(_p):
+                _logo_path = _p
+                break
+        if not _logo_path:
+            _alt_dir = os.path.join(os.path.dirname(_gui_dir), 'lib', 'GUI')
+            for _cand in ('T3Lab_logo_tight.png', 'T3Lab_logo.png'):
+                _p = os.path.join(_alt_dir, _cand)
+                if os.path.exists(_p):
+                    _logo_path = _p
+                    break
+
+        if _logo_path and os.path.exists(_logo_path):
+            from System.Windows.Media.Imaging import BitmapImage, BitmapCacheOption
+            from System import Uri, UriKind
+            bitmap = BitmapImage()
+            bitmap.BeginInit()
+            bitmap.CacheOption = BitmapCacheOption.OnLoad
+            bitmap.UriSource = Uri(_logo_path, UriKind.Absolute)
+            bitmap.EndInit()
+            bitmap.Freeze()
+            if logo_elem is not None:
+                logo_elem.Source = bitmap
+            try:
+                if hasattr(win_or_elem, 'Icon') and (not win_or_elem.Icon):
+                    win_or_elem.Icon = bitmap
+            except Exception:
+                pass
+            return bitmap
+    except Exception:
+        pass
+    return None
+
+
 class T3WPFWindow(Window):
     """
     Universal WPF Window base class supporting both CPython 3 and IronPython.
@@ -188,6 +290,33 @@ class T3WPFWindow(Window):
         self._xaml_source = xaml_source
         self.load_xaml(xaml_source, literal_string=literal_string,
                        handle_esc=handle_esc, set_owner=set_owner)
+
+    def FindName(self, name):
+        """
+        Finds a named element across native WPF NameScope, instance attributes,
+        and the visual Content tree.
+        """
+        try:
+            elem = super(T3WPFWindow, self).FindName(name)
+            if elem is not None:
+                return elem
+        except Exception:
+            pass
+
+        elem = getattr(self, name, None)
+        if elem is not None:
+            return elem
+
+        try:
+            content = getattr(self, 'Content', None)
+            if content is not None and hasattr(content, 'FindName'):
+                elem = content.FindName(name)
+                if elem is not None:
+                    return elem
+        except Exception:
+            pass
+
+        return None
 
     def load_xaml(self, xaml_source, literal_string=False, handle_esc=True, set_owner=True):
         """Loads XAML and wires named elements + event handlers."""
@@ -299,9 +428,26 @@ class T3WPFWindow(Window):
                      'WindowStyle', 'AllowsTransparency', 'Background',
                      'ResizeMode', 'ShowInTaskbar', 'FontFamily', 'FontSize'):
             try:
-                setattr(self, prop, getattr(loaded_win, prop))
-            except Exception:
-                pass
+                val = getattr(loaded_win, prop, None)
+                if val is not None:
+                    setattr(self, prop, val)
+            except BaseException:
+                # If setting property failed due to WPF property system state (e.g. LocalValueEnumerationInvalidated),
+                # try deferring Title set via Dispatcher once the window is idle.
+                if prop == 'Title':
+                    try:
+                        disp = getattr(self, 'Dispatcher', None)
+                        if disp is not None and Action is not None:
+                            val = getattr(loaded_win, 'Title', None)
+                            if val:
+                                def _set_title(t=val):
+                                    try:
+                                        self.Title = t
+                                    except BaseException:
+                                        pass
+                                disp.BeginInvoke(Action(_set_title))
+                    except BaseException:
+                        pass
 
         # Copy WindowChrome if present
         try:
@@ -309,45 +455,57 @@ class T3WPFWindow(Window):
             chrome = WindowChrome.GetWindowChrome(loaded_win)
             if chrome is not None:
                 WindowChrome.SetWindowChrome(self, chrome)
-        except Exception:
+        except BaseException:
             pass
 
         try:
             self.Resources = loaded_win.Resources
-        except Exception:
+        except BaseException:
             pass
 
         # Transfer NameScope so FindName works on self
         try:
-            from System.Windows.Markup import NameScope
-            scope = NameScope.GetNameScope(loaded_win)
-            if scope is not None:
-                NameScope.SetNameScope(self, scope)
-        except Exception:
+            NameScope_cls = None
+            try:
+                from System.Windows import NameScope as NameScope_cls
+            except BaseException:
+                pass
+            if NameScope_cls is None:
+                try:
+                    from System.Windows.Markup import NameScope as NameScope_cls
+                except BaseException:
+                    pass
+            if NameScope_cls is not None:
+                scope = NameScope_cls.GetNameScope(loaded_win)
+                if scope is not None:
+                    NameScope_cls.SetNameScope(self, scope)
+                else:
+                    NameScope_cls.SetNameScope(self, NameScope_cls())
+        except BaseException:
             pass
+
+        # Bind all named elements as instance attributes before detaching content
+        for name in named_elements:
+            try:
+                elem = loaded_win.FindName(name)
+                if elem is None and hasattr(loaded_win, 'Content') and loaded_win.Content is not None and hasattr(loaded_win.Content, 'FindName'):
+                    elem = loaded_win.Content.FindName(name)
+                if elem is not None:
+                    setattr(self, name, elem)
+                    try:
+                        self.RegisterName(name, elem)
+                    except BaseException:
+                        pass
+            except BaseException:
+                pass
 
         # Move content to self
         try:
             content = loaded_win.Content
             loaded_win.Content = None
             self.Content = content
-        except Exception:
+        except BaseException:
             pass
-
-        # Bind all named elements as instance attributes
-        for name in named_elements:
-            try:
-                elem = loaded_win.FindName(name)
-                if elem is None:
-                    elem = self.FindName(name)
-                if elem is not None:
-                    setattr(self, name, elem)
-                    try:
-                        self.RegisterName(name, elem)
-                    except Exception:
-                        pass
-            except Exception:
-                pass
 
         # Bind event handlers dynamically
         for elem_name, event_name, handler_name in event_bindings:
@@ -365,7 +523,7 @@ class T3WPFWindow(Window):
                     evt = getattr(ctrl, event_name, None)
                     if evt is not None:
                         evt += handler
-            except Exception:
+            except BaseException:
                 pass
 
         # Wire title bar drag if an element named 'title_bar' or similar exists
@@ -374,8 +532,154 @@ class T3WPFWindow(Window):
             if tb is not None:
                 try:
                     tb.MouseLeftButtonDown += self._on_title_bar_mouse_down
-                except Exception:
+                except BaseException:
                     pass
+
+        # Auto-load logo if logo_image exists or set window Icon
+        self._auto_load_logo()
+
+        # Auto-wire window chrome controls (minimize, maximize, close)
+        self._wire_window_controls()
+
+    def _wire_window_controls(self):
+        """Auto-wires and standardizes window chrome buttons (minimize, maximize, close)."""
+        try:
+            from System.Windows import Visibility, ResizeMode, WindowState
+
+            # 1. Close Button
+            close_btn = None
+            for name in ('btn_close', 'btn_close_chrome', 'btn_close_x',
+                         'button_close', 'cancel_btn_top', 'btnCancelTop'):
+                close_btn = getattr(self, name, None) or (self.FindName(name) if hasattr(self, 'FindName') else None)
+                if close_btn is not None:
+                    break
+
+            if close_btn is not None:
+                try:
+                    close_btn.Click -= self.close_button_clicked
+                except BaseException:
+                    pass
+                try:
+                    close_btn.Click += self.close_button_clicked
+                    close_btn.IsCancel = True
+                    if not getattr(close_btn, 'ToolTip', None):
+                        close_btn.ToolTip = "Close"
+                except BaseException:
+                    pass
+
+            # 2. Minimize Button
+            min_btn = None
+            for name in ('btn_minimize', 'btn_min'):
+                min_btn = getattr(self, name, None) or (self.FindName(name) if hasattr(self, 'FindName') else None)
+                if min_btn is not None:
+                    break
+
+            if min_btn is not None:
+                try:
+                    min_btn.Click -= self.minimize_button_clicked
+                except BaseException:
+                    pass
+                try:
+                    min_btn.Click += self.minimize_button_clicked
+                    if not getattr(min_btn, 'ToolTip', None):
+                        min_btn.ToolTip = "Minimize"
+                except BaseException:
+                    pass
+
+            # 3. Maximize Button
+            max_btn = None
+            for name in ('btn_maximize', 'btn_max'):
+                max_btn = getattr(self, name, None) or (self.FindName(name) if hasattr(self, 'FindName') else None)
+                if max_btn is not None:
+                    break
+
+            if max_btn is not None:
+                try:
+                    if getattr(self, 'ResizeMode', None) == ResizeMode.NoResize:
+                        max_btn.Visibility = Visibility.Collapsed
+                    else:
+                        try:
+                            max_btn.Click -= self.maximize_button_clicked
+                        except BaseException:
+                            pass
+                        max_btn.Click += self.maximize_button_clicked
+                        if not getattr(max_btn, 'ToolTip', None):
+                            max_btn.ToolTip = "Maximize"
+                except BaseException:
+                    pass
+
+            # 4. StateChanged Listener for Maximize / Restore icon & tooltip
+            try:
+                self.StateChanged -= self._on_window_state_changed
+            except BaseException:
+                pass
+            try:
+                self.StateChanged += self._on_window_state_changed
+            except BaseException:
+                pass
+
+            # Run once initially to sync state
+            self._update_maximize_icon()
+        except BaseException:
+            pass
+
+    def _on_window_state_changed(self, sender, e):
+        self._update_maximize_icon()
+
+    def _update_maximize_icon(self):
+        try:
+            from System.Windows import WindowState
+            max_btn = None
+            for name in ('btn_maximize', 'btn_max'):
+                max_btn = getattr(self, name, None) or (self.FindName(name) if hasattr(self, 'FindName') else None)
+                if max_btn is not None:
+                    break
+            if max_btn is None:
+                return
+
+            is_max = (self.WindowState == WindowState.Maximized)
+            glyph = u"\uE923" if is_max else u"\uE922"   # E923 = ChromeRestore, E922 = ChromeMaximize
+            tooltip = "Restore" if is_max else "Maximize"
+
+            try:
+                max_btn.ToolTip = tooltip
+            except BaseException:
+                pass
+
+            # Update icon inside button if TextBlock is present
+            tb = None
+            content = getattr(max_btn, 'Content', None)
+            if content is not None and hasattr(content, 'Text'):
+                tb = content
+            elif hasattr(max_btn, 'FindName'):
+                try:
+                    tb = max_btn.FindName('maximize_icon') or max_btn.FindName('btn_maximize_icon')
+                except BaseException:
+                    tb = None
+
+            if tb is None:
+                try:
+                    from System.Windows.Media import VisualTreeHelper
+                    count = VisualTreeHelper.GetChildrenCount(max_btn)
+                    for i in range(count):
+                        child = VisualTreeHelper.GetChild(max_btn, i)
+                        if hasattr(child, 'Text'):
+                            tb = child
+                            break
+                except BaseException:
+                    pass
+
+            if tb is not None:
+                try:
+                    tb.Text = glyph
+                except BaseException:
+                    pass
+        except BaseException:
+            pass
+
+    def _auto_load_logo(self):
+        """Auto-bind T3Lab logo to logo_image and window Icon if present."""
+        return setup_window_logo(self)
 
     def setup_owner(self):
         """Sets host Revit application window as owner."""
@@ -383,15 +687,16 @@ class T3WPFWindow(Window):
             from pyrevit.api import AdWindows
             wih = WindowInteropHelper(self)
             wih.Owner = AdWindows.ComponentManager.ApplicationWindow
-        except Exception:
+        except BaseException:
             pass
 
     def setup_default_handlers(self):
         """Binds Escape key to close window."""
         try:
             self.PreviewKeyDown += self._handle_esc_key
-        except Exception:
+        except BaseException:
             pass
+        self._wire_window_controls()
 
     def _handle_esc_key(self, sender, args):
         try:
@@ -403,7 +708,12 @@ class T3WPFWindow(Window):
     def _on_title_bar_mouse_down(self, sender, e):
         try:
             from System.Windows.Input import MouseButtonState
+            from System.Windows import ResizeMode
             if e.LeftButton == MouseButtonState.Pressed:
+                if getattr(e, 'ClickCount', 1) == 2:
+                    if getattr(self, 'ResizeMode', None) != ResizeMode.NoResize:
+                        self.maximize_button_clicked(sender, e)
+                        return
                 self.DragMove()
         except Exception:
             pass
@@ -430,20 +740,30 @@ class T3WPFWindow(Window):
 
     # ── Common Event Handlers ──────────────────────────────────────────────
 
-    def button_close(self, sender, e):
+    def button_close(self, sender=None, e=None):
         self.Close()
 
-    def close_button_clicked(self, sender, e):
+    def close_button_clicked(self, sender=None, e=None):
         self.Close()
 
-    def minimize_button_clicked(self, sender, e):
+    def minimize_button_clicked(self, sender=None, e=None):
         self.WindowState = WindowState.Minimized
 
-    def maximize_button_clicked(self, sender, e):
+    def maximize_button_clicked(self, sender=None, e=None):
         if self.WindowState == WindowState.Maximized:
             self.WindowState = WindowState.Normal
         else:
             self.WindowState = WindowState.Maximized
+        self._update_maximize_icon()
+
+    # Aliases so any subclass / event wiring works consistently
+    _minimize = minimize_button_clicked
+    _maximize = maximize_button_clicked
+    _on_minimize = minimize_button_clicked
+    _on_maximize = maximize_button_clicked
+    _close_chrome = close_button_clicked
+    _on_close = close_button_clicked
+    _close = close_button_clicked
 
     def Hyperlink_RequestNavigate(self, sender, e):
         try:
@@ -457,6 +777,211 @@ class T3WPFWindow(Window):
     def _apply_theme(self):
         pass
 
+    # ── Progress / Pause / Stop Support (ProgressPauseMixin built-in) ────────
+    PP_PANEL      = "progress_panel"
+    PP_BAR        = "pb_run"
+    PP_PAUSE      = "btn_pause"
+    PP_STOP       = "btn_stop"
+    PP_STATUS     = "status_text"
+
+    PP_PAUSE_LABEL  = u"⏸  Pause"
+    PP_RESUME_LABEL = u"▶  Resume"
+    PP_STOP_MSG     = u"Stopping… finishing current item"
+    PP_PAUSED_MSG   = u"Paused — click Resume to continue"
+
+    PP_PAUSE_ICON   = "btn_pause_icon"
+    PP_PAUSE_TEXT   = "btn_pause_label"
+    PP_PAUSE_GLYPH  = u"\uE769"   # MDL2 Pause
+    PP_RESUME_GLYPH = u"\uE768"   # MDL2 Play
+    PP_PAUSE_PLAIN  = u"Pause"
+    PP_RESUME_PLAIN = u"Resume"
+
+    def _pp_el(self, name):
+        """XAML element lookup by x:Name; None when the window lacks it."""
+        elem = getattr(self, name, None)
+        if elem is not None:
+            return elem
+        try:
+            return self.FindName(name)
+        except Exception:
+            return None
+
+    def _pp_ensure_state(self):
+        """Lazy flag init so handlers are safe even before begin_progress()."""
+        if getattr(self, "_pause_requested", None) is None:
+            self._pause_requested = False
+        if getattr(self, "_cancel_requested", None) is None:
+            self._cancel_requested = False
+        if getattr(self, "_pp_disabled", None) is None:
+            self._pp_disabled = []
+
+    def _pp_show_paused(self, paused):
+        """Reflect pause state on the Pause/Resume button."""
+        try:
+            icon  = self._pp_el(self.PP_PAUSE_ICON)
+            label = self._pp_el(self.PP_PAUSE_TEXT)
+            if icon is not None or label is not None:
+                if icon is not None:
+                    icon.Text = self.PP_RESUME_GLYPH if paused else self.PP_PAUSE_GLYPH
+                if label is not None:
+                    label.Text = self.PP_RESUME_PLAIN if paused else self.PP_PAUSE_PLAIN
+            else:
+                btn = self._pp_el(self.PP_PAUSE)
+                if btn is not None:
+                    btn.Content = self.PP_RESUME_LABEL if paused else self.PP_PAUSE_LABEL
+        except Exception:
+            pass
+
+    def _pp_set_status(self, text):
+        """Write to the window's status area."""
+        upd = getattr(self, "_update_status", None)
+        if callable(upd):
+            try:
+                upd(text)
+                return
+            except Exception:
+                pass
+        st = self._pp_el(self.PP_STATUS)
+        if st is not None:
+            try:
+                st.Text = text
+            except Exception:
+                pass
+
+    def _pp_dispatcher(self):
+        """The WPF Dispatcher to pump."""
+        disp = getattr(self, "Dispatcher", None)
+        if disp is not None:
+            return disp
+        win = getattr(self, "window", None)
+        return getattr(win, "Dispatcher", None) if win is not None else None
+
+    def _do_events(self):
+        """Pump the WPF dispatcher so the window repaints and buttons click."""
+        try:
+            disp = self._pp_dispatcher()
+            if disp is None or DispatcherFrame is None or Action is None:
+                return
+            frame = DispatcherFrame()
+            def _stop(f=frame):
+                f.Continue = False
+            priority = DispatcherPriority.Background if DispatcherPriority is not None else 4
+            disp.BeginInvoke(priority, Action(_stop))
+            disp.PushFrame(frame)
+        except Exception:
+            pass
+
+    def _update_progress(self, value, maximum=None):
+        """Set bar value (and Maximum), show the panel, pump events."""
+        self._pp_ensure_state()
+        try:
+            bar = self._pp_el(self.PP_BAR)
+            if bar is not None:
+                if maximum is not None:
+                    bar.Maximum = maximum
+                bar.Value = value
+            panel = self._pp_el(self.PP_PANEL)
+            if panel is not None:
+                panel.Visibility = Visibility.Visible
+        except Exception:
+            pass
+        self._do_events()
+        while self._pause_requested and not self._cancel_requested:
+            self._do_events()
+
+    def _hide_progress(self):
+        """Hide the panel and reset flags + Pause/Stop button states."""
+        self._pp_ensure_state()
+        try:
+            panel = self._pp_el(self.PP_PANEL)
+            if panel is not None:
+                panel.Visibility = Visibility.Collapsed
+            bar = self._pp_el(self.PP_BAR)
+            if bar is not None:
+                bar.Value = 0
+            self._cancel_requested = False
+            self._pause_requested  = False
+            self._pp_show_paused(False)
+            btn_pause = self._pp_el(self.PP_PAUSE)
+            if btn_pause is not None:
+                btn_pause.IsEnabled = True
+            btn_stop = self._pp_el(self.PP_STOP)
+            if btn_stop is not None:
+                btn_stop.IsEnabled = True
+        except Exception:
+            pass
+
+    @property
+    def is_cancelled(self):
+        """True once the user pressed Stop. Reset by end_progress()."""
+        self._pp_ensure_state()
+        return self._cancel_requested
+
+    def begin_progress(self, maximum=100, disable=None):
+        """Reset flags, show the panel at 0/<maximum>, disable action controls."""
+        self._pp_ensure_state()
+        self._cancel_requested = False
+        self._pause_requested  = False
+        self._pp_disabled = []
+        for ctrl in (disable or []):
+            try:
+                if ctrl.IsEnabled:
+                    ctrl.IsEnabled = False
+                    self._pp_disabled.append(ctrl)
+            except Exception:
+                pass
+        self._update_progress(0, maximum)
+
+    def step_progress(self, value, message=None):
+        """Per-item update: bar + optional status message."""
+        if message is not None:
+            self._pp_set_status(message)
+        self._update_progress(value)
+        return not self._cancel_requested
+
+    def end_progress(self):
+        """Hide the panel and re-enable controls disabled by begin_progress()."""
+        self._pp_ensure_state()
+        for ctrl in self._pp_disabled:
+            try:
+                ctrl.IsEnabled = True
+            except Exception:
+                pass
+        self._pp_disabled = []
+        self._hide_progress()
+
+    def stop_clicked(self, sender=None, e=None):
+        """Click handler for btn_stop — cooperative cancel."""
+        self._pp_ensure_state()
+        self._cancel_requested = True
+        self._pause_requested  = False
+        try:
+            btn_stop = self._pp_el(self.PP_STOP)
+            if btn_stop is not None:
+                btn_stop.IsEnabled = False
+        except Exception:
+            pass
+        self._pp_set_status(self.PP_STOP_MSG)
+
+    def pause_resume_clicked(self, sender=None, e=None):
+        """Click handler for btn_pause — toggles pause/resume."""
+        self._pp_ensure_state()
+        if self._pause_requested:
+            self._pause_requested = False
+            self._pp_show_paused(False)
+        else:
+            self._pause_requested = True
+            self._pp_show_paused(True)
+            self._pp_set_status(self.PP_PAUSED_MSG)
+
+    def to_items_source(self, items):
+        """Convert a Python list/iterable into a .NET collection compatible with WPF ItemsSource."""
+        return to_items_source(items)
+
+    def set_items_source(self, control, items):
+        """Safely assign items to control.ItemsSource under both CPython 3 and IronPython."""
+        set_items_source(control, items)
+
 
 class my_WPF(T3WPFWindow):
     """Legacy alias for backward compatibility."""
@@ -466,10 +991,12 @@ class my_WPF(T3WPFWindow):
 WPFWindow = T3WPFWindow
 
 
-# ── Monkeypatch pyrevit.forms.WPFWindow for CPython ─────────────────────────
+# ── Monkeypatch pyrevit.forms for CPython ─────────────────────────────────────
 try:
     from pyrevit import forms
     if not getattr(forms, 'IRONPY', False):
         forms.WPFWindow = T3WPFWindow
+    forms.to_items_source = to_items_source
+    forms.set_items_source = set_items_source
 except Exception:
     pass

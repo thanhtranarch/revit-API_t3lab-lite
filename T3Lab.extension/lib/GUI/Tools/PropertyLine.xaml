@@ -18,7 +18,7 @@
         TextOptions.TextFormattingMode="Display">
 
     <WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="40"
+        <shell:WindowChrome CaptionHeight="48"
                             ResizeBorderThickness="6"
                             CornerRadius="0"
                             GlassFrameThickness="0"
@@ -664,6 +664,7 @@
           </Style>
 
           <Style x:Key="T3.DataGrid" TargetType="DataGrid">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
             <Setter Property="FontSize"   Value="{StaticResource T3.Size.Body}"/>
             <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
@@ -752,6 +753,9 @@
                     </Grid>
                   </Border>
                   <ControlTemplate.Triggers>
+                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.RowAlt}"/>
+                    </Trigger>
                     <Trigger Property="IsMouseOver" Value="True">
                       <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
                     </Trigger>
@@ -774,6 +778,7 @@
           </Style>
 
           <Style x:Key="T3.ListView" TargetType="ListView">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -915,7 +920,7 @@
             <Setter Property="Background"  Value="{StaticResource T3.SurfaceSunken}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
-            <Setter Property="Padding" Value="16,0,8,0"/>
+            <Setter Property="Padding" Value="12,0,8,0"/>
           </Style>
 
           <Style x:Key="T3.Panel" TargetType="Border">
@@ -971,16 +976,34 @@
           <!-- Zero-gap tab surface. WPF's stock TabControl carries Padding="2,2,2,2", a
                light Background and a 1px border, which render as a white gutter around
                every tab's content (rule 19 — bố cục liền mạch). Implicit so every tool
-               inherits it; a tool that sets these locally still wins. -->
+               inherits it; a tool that sets these locally still wins.
+               Template: stock TabPanel uses Margin="0,2,2,0" which creates a 2px gap above
+               content even when TabItems are collapsed. TabPanel Margin="0" eliminates this gap. -->
           <Style TargetType="TabControl">
             <Setter Property="Padding" Value="0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
-            <!-- NOTE: a content-only ControlTemplate here would also remove the stock
-                 HeaderPanel's Margin="2,2,2,0" (the last 2px strip above the content),
-                 but retemplating TabControl globally coincided with XAML load failures
-                 in Revit and was reverted 2026-09-03. Re-attempt only with a Revit test.
-                 Padding/BorderThickness/Background already remove the L/R/B gutter. -->
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                  <Grid KeyboardNavigation.TabNavigation="Local">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TabPanel Grid.Row="0" IsItemsHost="True" Margin="0"/>
+                    <Border Grid.Row="1"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            Background="{TemplateBinding Background}">
+                      <ContentPresenter x:Name="PART_SelectedContentHost"
+                                        Margin="{TemplateBinding Padding}"
+                                        ContentSource="SelectedContent"/>
+                    </Border>
+                  </Grid>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
           </Style>
 
           <Style x:Key="T3.TabItem.Hidden" TargetType="TabItem">
@@ -1004,15 +1027,15 @@
                           </Border>
                           <ControlTemplate.Triggers>
                               <Trigger Property="IsChecked" Value="True">
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Ink}"/>
-                                  <Setter Property="Foreground" Value="{StaticResource T3.Surface}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </Trigger>
                               <MultiTrigger>
                                   <MultiTrigger.Conditions>
                                       <Condition Property="IsChecked" Value="False"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Canvas}"/>
                                   <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                               <MultiTrigger>
@@ -1020,7 +1043,8 @@
                                       <Condition Property="IsChecked" Value="True"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Text}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.BorderStrong}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                           </ControlTemplate.Triggers>
                       </ControlTemplate>
@@ -1181,7 +1205,7 @@
             <Setter Property="Width"  Value="42"/>
             <Setter Property="Height" Value="42"/>
             <Setter Property="CornerRadius" Value="{StaticResource T3.R.Window}"/>
-            <Setter Property="Background"   Value="{StaticResource T3.Ink}"/>
+            <Setter Property="Background"   Value="{StaticResource T3.Border}"/>
           </Style>
 
           <!-- Pill 36px — dải trạng thái/đếm nằm ngang. Bo góc 18 = nửa chiều cao. -->
@@ -1377,81 +1401,32 @@
     <Border BorderBrush="{StaticResource T3.BorderStrong}" BorderThickness="1.5"
             CornerRadius="12" ClipToBounds="True" Background="{DynamicResource T3.Surface}">
         <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="58"/>  <!-- Col 0: Left Sidebar Rail -->
-                <ColumnDefinition Width="*"/>   <!-- Col 1: Main Work Area -->
-            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48"/>      <!-- Row 0: Full-width Title Bar -->
+                <RowDefinition Height="*"/>       <!-- Row 1: Main Body with Sidebar Rail -->
+                <RowDefinition Height="48"/>      <!-- Row 2: Full-width Footer Bar -->
+            </Grid.RowDefinitions>
 
-            <!-- ══════════════════ LEFT SIDEBAR RAIL (Col 0) ══════════════════ -->
-            <Border Grid.Column="0" Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- App Logo / Icon -->
-                        <RowDefinition Height="Auto"/> <!-- Search Tab -->
-                        <RowDefinition Height="Auto"/> <!-- API Tab -->
-                        <RowDefinition Height="*"/>    <!-- Spacer -->
-                    </Grid.RowDefinitions>
-
-                    <!-- Rail Logo -->
-                    <Border Grid.Row="0" Style="{StaticResource T3.Rail.Logo}" Margin="0,8,0,16">
-                        <Path Data="M6 14 L12 4 L22 8 L18 20 L8 18 Z"
-                              Stroke="{StaticResource T3.Ink}" StrokeThickness="1.6" StrokeLineJoin="Round"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                              Width="16" Height="16" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-
-                    <!-- Tab: Search -->
-                    <ToggleButton x:Name="btn_tab_search" Grid.Row="1"
-                                  Style="{StaticResource T3.Rail.Tile}"
-                                  Margin="0,0,0,8" IsChecked="True"
-                                  ToolTip="Search Parcels" Click="btn_tab_search_Click">
-                        <Path Data="M12 4 A6 6 0 1 0 12 16 A6 6 0 1 0 12 4 M18 18 L15 15"
-                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                              Width="16" Height="16" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </ToggleButton>
-
-                    <!-- Tab: API Settings -->
-                    <ToggleButton x:Name="btn_tab_api" Grid.Row="2"
-                                  Style="{StaticResource T3.Rail.Tile}"
-                                  Margin="0,0,0,8"
-                                  ToolTip="API Settings" Click="btn_tab_api_Click">
-                        <Path Data="M8 12 A3 3 0 1 0 8 6 A3 3 0 1 0 8 12 M11 9 L17 9 M15 9 L15 12 M17 9 L17 12"
-                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                              Width="16" Height="16" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </ToggleButton>
-                </Grid>
-            </Border>
-
-            <!-- ══════════════════ WORK AREA (Col 1) ══════════════════ -->
-            <Grid Grid.Column="1">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="48"/> <!-- Title Bar -->
-                    <RowDefinition Height="*"/>  <!-- Main Content -->
-                    <RowDefinition Height="48"/> <!-- Footer Bar -->
-                </Grid.RowDefinitions>
-
-                <!-- ROW 0: TITLE BAR -->
-                <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
+            <!-- ══════════════════ ROW 0: FULL-WIDTH TITLE BAR ══════════════════ -->
+            <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="16,0,0,0"
-                                shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                        <TextBlock Text="Property Line" Style="{StaticResource T3.Title}"/>
-                        <TextBlock Text="Generate property boundaries and site coordinate data" Style="{StaticResource T3.Subtitle}"/>
-                    </StackPanel>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,0"
+                                    shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                            <Image x:Name="logo_image" Height="28" Margin="0,0,12,0"
+                                   VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                <TextBlock Text="Property Line" Style="{StaticResource T3.Title}"/>
+                                <TextBlock Text="Generate property boundaries and site coordinate data" Style="{StaticResource T3.Subtitle}"/>
+                            </StackPanel>
+                        </StackPanel>
 
-                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal"
                                     shell:WindowChrome.IsHitTestVisibleInChrome="True">
                             <Button x:Name="btn_minimize" Style="{StaticResource T3.WinCtrl}" ToolTip="Minimize"
                                     Click="btn_minimize_Click">
@@ -1469,14 +1444,12 @@
                     </Grid>
                 </Border>
 
-                <!-- ROW 1: MAIN CONTENT -->
-                <Grid Grid.Row="1">
-                    <!-- SEARCH TAB -->
-                    <Grid x:Name="grid_search_tab" Visibility="Visible">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+            <!-- ══════════════════ ROW 1: MAIN WORKSPACE ══════════════════ -->
+            <Grid Grid.Row="1" x:Name="grid_search_tab">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
                         <!-- LEFT COLUMN: Search, Results & Revit Options -->
                         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Padding="16,12">
@@ -1819,64 +1792,10 @@
                                 </Border>
                             </StackPanel>
                         </ScrollViewer>
-                    </Grid>
+            </Grid>
 
-                    <!-- API TAB -->
-                    <Grid x:Name="grid_api_tab" Visibility="Collapsed">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,16">
-                            <StackPanel MaxWidth="640" HorizontalAlignment="Left">
-                                <TextBlock Text="API Settings &amp; Providers" Style="{StaticResource T3.Title}" Margin="0,0,0,8"/>
-                                <TextBlock Text="Worldwide search works without any key. A LightBox RE key is optional for US surveyed cadastral parcels."
-                                           Style="{StaticResource T3.Body.Secondary}" TextWrapping="Wrap" Margin="0,0,0,16"/>
-
-                                <!-- OSM Info -->
-                                <Border Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}"
-                                        BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
-                                    <StackPanel>
-                                        <TextBlock Text="OPENSTREETMAP (WORLDWIDE — NO KEY REQUIRED)" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
-                                        <TextBlock Text="Every address resolves through OpenStreetMap Nominatim and Overpass APIs without registration."
-                                                   Style="{StaticResource T3.Caption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                        <TextBlock Text="Data © OpenStreetMap contributors, ODbL 1.0" Style="{StaticResource T3.Caption}" FontStyle="Italic"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <!-- LightBox RE Key -->
-                                <Border Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}"
-                                        BorderThickness="1" CornerRadius="4" Padding="12">
-                                    <StackPanel>
-                                        <TextBlock Text="LIGHTBOX RE API KEY (OPTIONAL — US ONLY)" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="8"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBox x:Name="txt_api_key" Style="{StaticResource T3.TextBox}" Height="28"/>
-                                            <Button x:Name="btn_save_key" Grid.Column="2" Content="Save Key"
-                                                    Style="{StaticResource T3.Button.Secondary}" Height="28" Padding="16,0"
-                                                    Click="btn_save_key_Click"/>
-                                        </Grid>
-
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock x:Name="txt_api_status" Text="No API key configured"
-                                                       Style="{StaticResource T3.Caption}" Foreground="{StaticResource T3.Danger.Text}"
-                                                       VerticalAlignment="Center"/>
-                                            <Button x:Name="btn_get_api_key" Grid.Column="1" Content="Get API Key →"
-                                                    Style="{StaticResource T3.Button.Ghost}" Height="26" Padding="8,0" Click="btn_get_api_key_Click"/>
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-                        </ScrollViewer>
-                    </Grid>
-                </Grid>
-
-                <!-- ROW 2: FOOTER BAR -->
-                <Border Grid.Row="2" Style="{StaticResource T3.FooterBar}">
+            <!-- ══════════════════ ROW 2: UNIFIED FOOTER BAR ══════════════════ -->
+            <Border Grid.Row="2" Style="{StaticResource T3.FooterBar}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -1886,14 +1805,15 @@
                         <!-- Left status -->
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource T3.Copyright}"/>
-                            <Border Width="1" Height="16" Background="{StaticResource T3.Border}" Margin="12,0"/>
+                            <Border Width="1" Height="16" Background="{StaticResource T3.Border}" Margin="12,0" VerticalAlignment="Center"/>
                             <Ellipse x:Name="dot_status" Width="6" Height="6" Fill="{StaticResource T3.TextMuted}"
                                      VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock x:Name="txt_status" Text="Ready. Enter an address to begin."
                                        Style="{StaticResource T3.Body.Secondary}" VerticalAlignment="Center"/>
+                            <Border Width="1" Height="16" Background="{StaticResource T3.Border}" Margin="12,0" VerticalAlignment="Center"/>
                             <TextBlock x:Name="txt_status_label" Text="Idle"
                                        Style="{StaticResource T3.Caption}" FontWeight="SemiBold"
-                                       VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
 
                         <!-- Right primary button -->
@@ -1904,7 +1824,6 @@
                         </StackPanel>
                     </Grid>
                 </Border>
-            </Grid>
         </Grid>
     </Border>
 </Window>

@@ -4,7 +4,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="ManaLoca"
         Width="1200" Height="740"
-        MinWidth="900" MinHeight="520"
+        MinWidth="1000" MinHeight="520"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         AllowsTransparency="False"
@@ -17,7 +17,7 @@
         TextOptions.TextFormattingMode="Display">
 
     <WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="40"
+        <shell:WindowChrome CaptionHeight="48"
                            ResizeBorderThickness="6"
                            GlassFrameThickness="0"
                            CornerRadius="0"/>
@@ -662,6 +662,7 @@
           </Style>
 
           <Style x:Key="T3.DataGrid" TargetType="DataGrid">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
             <Setter Property="FontSize"   Value="{StaticResource T3.Size.Body}"/>
             <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
@@ -750,6 +751,9 @@
                     </Grid>
                   </Border>
                   <ControlTemplate.Triggers>
+                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.RowAlt}"/>
+                    </Trigger>
                     <Trigger Property="IsMouseOver" Value="True">
                       <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
                     </Trigger>
@@ -772,6 +776,7 @@
           </Style>
 
           <Style x:Key="T3.ListView" TargetType="ListView">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -913,7 +918,7 @@
             <Setter Property="Background"  Value="{StaticResource T3.SurfaceSunken}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
-            <Setter Property="Padding" Value="16,0,8,0"/>
+            <Setter Property="Padding" Value="12,0,8,0"/>
           </Style>
 
           <Style x:Key="T3.Panel" TargetType="Border">
@@ -969,16 +974,34 @@
           <!-- Zero-gap tab surface. WPF's stock TabControl carries Padding="2,2,2,2", a
                light Background and a 1px border, which render as a white gutter around
                every tab's content (rule 19 — bố cục liền mạch). Implicit so every tool
-               inherits it; a tool that sets these locally still wins. -->
+               inherits it; a tool that sets these locally still wins.
+               Template: stock TabPanel uses Margin="0,2,2,0" which creates a 2px gap above
+               content even when TabItems are collapsed. TabPanel Margin="0" eliminates this gap. -->
           <Style TargetType="TabControl">
             <Setter Property="Padding" Value="0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
-            <!-- NOTE: a content-only ControlTemplate here would also remove the stock
-                 HeaderPanel's Margin="2,2,2,0" (the last 2px strip above the content),
-                 but retemplating TabControl globally coincided with XAML load failures
-                 in Revit and was reverted 2026-09-03. Re-attempt only with a Revit test.
-                 Padding/BorderThickness/Background already remove the L/R/B gutter. -->
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                  <Grid KeyboardNavigation.TabNavigation="Local">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TabPanel Grid.Row="0" IsItemsHost="True" Margin="0"/>
+                    <Border Grid.Row="1"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            Background="{TemplateBinding Background}">
+                      <ContentPresenter x:Name="PART_SelectedContentHost"
+                                        Margin="{TemplateBinding Padding}"
+                                        ContentSource="SelectedContent"/>
+                    </Border>
+                  </Grid>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
           </Style>
 
           <Style x:Key="T3.TabItem.Hidden" TargetType="TabItem">
@@ -1002,15 +1025,15 @@
                           </Border>
                           <ControlTemplate.Triggers>
                               <Trigger Property="IsChecked" Value="True">
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Ink}"/>
-                                  <Setter Property="Foreground" Value="{StaticResource T3.Surface}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </Trigger>
                               <MultiTrigger>
                                   <MultiTrigger.Conditions>
                                       <Condition Property="IsChecked" Value="False"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Canvas}"/>
                                   <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                               <MultiTrigger>
@@ -1018,7 +1041,8 @@
                                       <Condition Property="IsChecked" Value="True"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Text}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.BorderStrong}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                           </ControlTemplate.Triggers>
                       </ControlTemplate>
@@ -1179,7 +1203,7 @@
             <Setter Property="Width"  Value="42"/>
             <Setter Property="Height" Value="42"/>
             <Setter Property="CornerRadius" Value="{StaticResource T3.R.Window}"/>
-            <Setter Property="Background"   Value="{StaticResource T3.Ink}"/>
+            <Setter Property="Background"   Value="{StaticResource T3.Border}"/>
           </Style>
 
           <!-- Pill 36px — dải trạng thái/đếm nằm ngang. Bo góc 18 = nửa chiều cao. -->
@@ -1375,76 +1399,15 @@
     <!-- ═══ Outer Window Border (Zero-Gap Grid) ═══ -->
     <Border BorderBrush="{StaticResource T3.BorderStrong}" BorderThickness="1.5"
             Background="{StaticResource T3.Surface}" CornerRadius="12" ClipToBounds="True">
-        <Grid Margin="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="58"/>  <!-- Col 0: Left Navigation Icon Rail -->
-                <ColumnDefinition Width="*"/>   <!-- Col 1: Main Content Work Area -->
-            </Grid.ColumnDefinitions>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48"/>      <!-- Row 0: Full-width Title Bar -->
+                <RowDefinition Height="*"/>       <!-- Row 1: Main Body with Sidebar Rail -->
+                <RowDefinition Height="48"/>      <!-- Row 2: Full-width Footer Bar -->
+            </Grid.RowDefinitions>
 
-            <!-- ══════════════════ COL 0: LEFT NAVIGATION ICON RAIL ══════════════════ -->
-            <Border Grid.Column="0"
-                    Background="{StaticResource T3.SurfaceSunken}"
-                    BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
-                <Grid Margin="0,12,0,12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- Logo -->
-                        <RowDefinition Height="Auto"/> <!-- Current View Nav -->
-                        <RowDefinition Height="Auto"/> <!-- By Level Nav -->
-                        <RowDefinition Height="*"/>    <!-- Spacer -->
-                    </Grid.RowDefinitions>
-
-                    <!-- App Logo Tile -->
-                    <Border Grid.Row="0" Style="{StaticResource T3.Rail.Logo}" Margin="0,0,0,16">
-                        <Path Data="M12 2 C8 2 4 6 4 10 C4 16 12 22 12 22 C12 22 20 16 20 10 C20 6 16 2 12 2 Z M12 13 A3 3 0 1 1 12 7 A3 3 0 1 1 12 13 Z"
-                              Stroke="{StaticResource T3.Ink}" StrokeThickness="1.8" StrokeLineJoin="Round"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                              Width="19" Height="19" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-
-                    <!-- Mode: Current View -->
-                    <RadioButton x:Name="rb_current_view" Grid.Row="1"
-                                 GroupName="SourceMode" IsChecked="True"
-                                 Checked="mode_changed"
-                                 Style="{StaticResource T3.Rail.Tile}"
-                                 ToolTip="Current View: Load all elements from the active view"
-                                 HorizontalAlignment="Center" Margin="0,0,0,8">
-                        <Path Data="M4 7 H20 M4 12 H20 M4 17 H20"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                              Width="19" Height="19" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </RadioButton>
-
-                    <!-- Mode: By Level -->
-                    <RadioButton x:Name="rb_by_level" Grid.Row="2"
-                                 GroupName="SourceMode" IsChecked="False"
-                                 Checked="mode_changed"
-                                 Style="{StaticResource T3.Rail.Tile}"
-                                 ToolTip="By Level: Load elements by level"
-                                 HorizontalAlignment="Center" Margin="0,0,0,8">
-                        <Path Data="M4 4 H20 M12 4 V20 M4 12 H20 M4 20 H20"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                              Width="19" Height="19" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </RadioButton>
-                </Grid>
-            </Border>
-
-            <!-- ══════════════════ COL 1: WORK AREA ══════════════════ -->
-            <Grid Grid.Column="1">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="48"/> <!-- Row 0: Title Bar -->
-                    <RowDefinition Height="44"/> <!-- Row 1: Action Toolbar -->
-                    <RowDefinition Height="*"/>  <!-- Row 2: Content Split (Categories + Elements) -->
-                    <RowDefinition Height="48"/> <!-- Row 3: Unified Bottom Footer Bar -->
-                </Grid.RowDefinitions>
-
-                <!-- ══════════════════ ROW 0: TITLE BAR ══════════════════ -->
-                <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
+            <!-- ══════════════════ ROW 0: FULL-WIDTH TITLE BAR ══════════════════ -->
+            <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -1453,14 +1416,19 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Title and Subtitle -->
-                        <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="16,0,0,0"
-                                shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                        <TextBlock Text="Location Manager" Style="{StaticResource T3.Title}"/>
-                        <TextBlock Text="Review and adjust element coordinates and locations" Style="{StaticResource T3.Subtitle}"/>
-                    </StackPanel>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,0"
+                                    shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                            <Image x:Name="logo_image" Height="28" Margin="0,0,12,0"
+                                   VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                <TextBlock Text="Location Manager" Style="{StaticResource T3.Title}"/>
+                                <TextBlock Text="Review and adjust element coordinates and locations" Style="{StaticResource T3.Subtitle}"/>
+                            </StackPanel>
+                        </StackPanel>
 
                         <!-- Search Box in Title Bar -->
-                        <TextBox x:Name="txt_search" Grid.Column="1"
+                        <TextBox Grid.Column="1" x:Name="txt_search"
                                  Style="{StaticResource T3.Search}"
                                  Tag="Search by category, type, level or ID..."
                                  HorizontalAlignment="Center" Width="320"
@@ -1486,8 +1454,64 @@
                     </Grid>
                 </Border>
 
-                <!-- ══════════════════ ROW 1: ACTION TOOLBAR ══════════════════ -->
-                <Border Grid.Row="1" Background="{StaticResource T3.SurfaceSunken}"
+            <!-- ══════════════════ ROW 1: WORKSPACE WITH REFINED SIDEBAR ══════════════════ -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="58"/>    <!-- Col 0: Left Navigation Icon Rail -->
+                    <ColumnDefinition Width="*"/>     <!-- Col 1: Main Content Work Area -->
+                </Grid.ColumnDefinitions>
+
+                <!-- ══════════════════ COL 0: LEFT NAVIGATION ICON RAIL ══════════════════ -->
+                <Border Grid.Column="0"
+                    Background="{StaticResource T3.SurfaceSunken}"
+                    BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
+                <Grid Margin="0,12,0,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Current View Nav -->
+                        <RowDefinition Height="Auto"/> <!-- By Level Nav -->
+                        <RowDefinition Height="*"/>    <!-- Spacer -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Mode: Current View -->
+                    <RadioButton x:Name="rb_current_view" Grid.Row="0"
+                                 GroupName="SourceMode" IsChecked="True"
+                                 Checked="mode_changed"
+                                 Style="{StaticResource T3.Rail.Tile}"
+                                 ToolTip="Current View: Load all elements from the active view"
+                                 HorizontalAlignment="Center" Margin="0,0,0,8">
+                        <Path Data="M4 7 H20 M4 12 H20 M4 17 H20"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                              StrokeThickness="1.8" StrokeLineJoin="Round"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </RadioButton>
+
+                    <!-- Mode: By Level -->
+                    <RadioButton x:Name="rb_by_level" Grid.Row="1"
+                                 GroupName="SourceMode" IsChecked="False"
+                                 Checked="mode_changed"
+                                 Style="{StaticResource T3.Rail.Tile}"
+                                 ToolTip="By Level: Load elements by level"
+                                 HorizontalAlignment="Center" Margin="0,0,0,8">
+                        <Path Data="M4 4 H20 M12 4 V20 M4 12 H20 M4 20 H20"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                              StrokeThickness="1.8" StrokeLineJoin="Round"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </RadioButton>
+                </Grid>
+            </Border>
+
+                <!-- ══════════════════ COL 1: MAIN WORKSPACE ══════════════════ -->
+                <Grid Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" MinHeight="44"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <!-- ══════════════════ ROW 1: ACTION TOOLBAR ══════════════════ -->
+                <Border Grid.Row="0" Background="{StaticResource T3.SurfaceSunken}"
                         BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,0,1"
                         Padding="16,8">
                     <Grid>
@@ -1497,7 +1521,7 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Left Buttons -->
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                             <Button x:Name="btn_refresh" Content="Refresh"
                                     Style="{StaticResource T3.Button.Secondary}" Margin="0,0,8,0"
                                     Click="refresh_clicked" ToolTip="Reload elements for the current source mode"/>
@@ -1511,7 +1535,7 @@
                                     Style="{StaticResource T3.Button.Secondary}" Margin="0,0,8,0"
                                     Click="sync_selection_clicked" ToolTip="Select highlighted rows in Revit"/>
 
-                            <Border Width="1" Height="16" Background="{StaticResource T3.Border}" Margin="4,0,12,0"/>
+                            <Border Width="1" Height="16" Background="{StaticResource T3.Border}" Margin="4,0,12,0" VerticalAlignment="Center"/>
 
                             <Button x:Name="btn_round_5mm" Content="Round 5mm"
                                     Style="{StaticResource T3.Button.Secondary}" Margin="0,0,8,0"
@@ -1531,19 +1555,20 @@
                                       Width="180" Margin="4,0,0,0"
                                       SelectionChanged="level_selection_changed"
                                       ToolTip="Select a level to load elements from"/>
-                        </StackPanel>
+                        </WrapPanel>
 
                         <!-- Right Action -->
                         <Button Grid.Column="1" x:Name="btn_apply" Content="Apply Changes"
                                 Style="{StaticResource T3.Button.Primary}" IsDefault="True"
+                                VerticalAlignment="Center"
                                 Click="apply_clicked" ToolTip="Move elements to edited coordinates"/>
                     </Grid>
                 </Border>
 
                 <!-- ══════════════════ ROW 2: CONTENT SPLIT ══════════════════ -->
-                <Grid Grid.Row="2" Background="{StaticResource T3.Surface}">
+                <Grid Grid.Row="1" Background="{StaticResource T3.Surface}">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="220" MinWidth="160" MaxWidth="320"/>
+                        <ColumnDefinition Width="260" MinWidth="200" MaxWidth="340"/>
                         <ColumnDefinition Width="1"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
@@ -1560,19 +1585,20 @@
                                 Padding="12,8">
                             <Grid>
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="CATEGORIES" Style="{StaticResource T3.Label}"
+                                <TextBlock Grid.Column="0" Text="CATEGORIES" Style="{StaticResource T3.Label}"
                                            VerticalAlignment="Center"/>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <StackPanel Grid.Column="2" Orientation="Horizontal">
                                     <Button x:Name="btn_select_all_cats" Content="All"
                                             Style="{StaticResource T3.Button.Secondary}"
-                                            Height="26" Padding="8,0" Margin="0,0,4,0"
+                                            Height="24" Padding="8,0" Margin="0,0,4,0"
                                             Click="select_all_categories_clicked" ToolTip="Show all categories"/>
                                     <Button x:Name="btn_clear_cats" Content="None"
                                             Style="{StaticResource T3.Button.Secondary}"
-                                            Height="26" Padding="8,0"
+                                            Height="24" Padding="8,0"
                                             Click="clear_all_categories_clicked" ToolTip="Hide all categories"/>
                                 </StackPanel>
                             </Grid>
@@ -1580,6 +1606,7 @@
 
                         <ListBox x:Name="lst_categories" Grid.Row="1"
                                  Style="{StaticResource T3.ListBox}"
+                                 BorderThickness="0"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  Padding="8">
                             <ListBox.ItemTemplate>
@@ -1593,8 +1620,8 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{Binding Name}" Style="{StaticResource T3.Body}"
-                                                       MaxWidth="110" TextTrimming="CharacterEllipsis"
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" Style="{StaticResource T3.Body}"
+                                                       MaxWidth="160" TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding Name}"/>
                                             <TextBlock Grid.Column="1" Text="{Binding CountText}"
                                                        Style="{StaticResource T3.Caption}" Margin="4,0,0,0"
@@ -1631,12 +1658,17 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="140" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Type / Name" Binding="{Binding Type}" Width="*" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Level" Binding="{Binding Level}" Width="120" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="X (mm)" Binding="{Binding X, StringFormat={}{0:F2}, Mode=TwoWay}" Width="100"/>
-                                <DataGridTextColumn Header="Y (mm)" Binding="{Binding Y, StringFormat={}{0:F2}, Mode=TwoWay}" Width="100"/>
-                                <DataGridTextColumn Header="Z (mm)" Binding="{Binding Z, StringFormat={}{0:F2}, Mode=TwoWay}" Width="100"/>
+                                <DataGridTextColumn Header="CATEGORY" Binding="{Binding Category}" Width="140" IsReadOnly="True"
+                                                    ElementStyle="{StaticResource T3.Body.Secondary}"/>
+                                <DataGridTextColumn Header="TYPE / NAME" Binding="{Binding Type}" Width="*" MinWidth="130" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="LEVEL" Binding="{Binding Level}" Width="120" IsReadOnly="True"
+                                                    ElementStyle="{StaticResource T3.Cell.Muted}"/>
+                                <DataGridTextColumn Header="X (MM)" Binding="{Binding X, StringFormat={}{0:F2}, Mode=TwoWay}" Width="100"
+                                                    ElementStyle="{StaticResource T3.Cell.Mono}"/>
+                                <DataGridTextColumn Header="Y (MM)" Binding="{Binding Y, StringFormat={}{0:F2}, Mode=TwoWay}" Width="100"
+                                                    ElementStyle="{StaticResource T3.Cell.Mono}"/>
+                                <DataGridTextColumn Header="Z (MM)" Binding="{Binding Z, StringFormat={}{0:F2}, Mode=TwoWay}" Width="100"
+                                                    ElementStyle="{StaticResource T3.Cell.Mono}"/>
                             </DataGrid.Columns>
                         </DataGrid>
                         <TextBlock x:Name="elem_datagrid_empty" Style="{StaticResource T3.Empty}"
@@ -1645,31 +1677,29 @@
                 </Grid>
 
                 <!-- ══════════════════ ROW 3: UNIFIED FOOTER BAR ══════════════════ -->
-                <Border Grid.Row="3" Style="{StaticResource T3.FooterBar}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="1"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Left: Single Copyright -->
-                        <TextBlock Grid.Column="0" Style="{StaticResource T3.Copyright}" VerticalAlignment="Center"/>
-
-                        <!-- Divider -->
-                        <Border Grid.Column="1" Width="1" Height="16" Background="{StaticResource T3.Border}" Margin="12,0"/>
-
-                        <!-- Status Message -->
-                        <TextBlock Grid.Column="2" x:Name="status_text" Text="Ready"
-                                   Style="{StaticResource T3.Body.Secondary}" VerticalAlignment="Center"/>
-
-                        <!-- Element Count -->
-                        <TextBlock Grid.Column="3" x:Name="status_count" Text="0 elements"
-                                   Style="{StaticResource T3.Caption}" VerticalAlignment="Center"/>
-                    </Grid>
-                </Border>
+                </Grid>
             </Grid>
+
+            <!-- ══════════════════ ROW 2: UNIFIED FOOTER BAR ══════════════════ -->
+            <Border Grid.Row="2" Style="{StaticResource T3.FooterBar}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource T3.Copyright}"/>
+                        <Border Width="1" Height="16" Margin="12,0"
+                                Background="{StaticResource T3.Border}" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="status_text" Text="Ready"
+                                   Style="{StaticResource T3.Body.Secondary}" VerticalAlignment="Center"/>
+                        <Border Width="1" Height="16" Margin="12,0"
+                                Background="{StaticResource T3.Border}" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="status_count" Text="0 elements"
+                                   Style="{StaticResource T3.Caption}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
     </Border>
 </Window>

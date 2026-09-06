@@ -22,7 +22,7 @@ __author__ = "Dang Quoc Truong"
 __persistentengine__ = True
 
 # ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
-import sys
+import os, sys
 
 for _env in ('APPDATA', 'PROGRAMDATA'):
     _base = os.environ.get(_env, '')
@@ -109,8 +109,8 @@ from Autodesk.Revit.UI import TaskDialog, IExternalEventHandler, ExternalEvent
 # pyRevit
 # ---------------------------------------------------------------------------
 from pyrevit import revit, script
-from GUI.WPF_Base import T3WPFWindow
-from pyrevit.forms import WPFWindow
+from GUI.WPF_Base import T3WPFWindow, setup_window_logo
+from GUI.forms import WPFWindow
 
 # `revit.doc` / `revit.uidoc` RAISE AttributeError (not return None) when no
 # UIDocument is active. At module scope that kills the import outright, so the
@@ -218,25 +218,18 @@ def _get_revit_author():
         return "unknown"
 
 
+import uuid
+_bcf_ns = "T3Lab.BCFReader_" + uuid.uuid4().hex[:8]
+
 class WarningSwallower(IFailuresPreprocessor):
-    # IronPython only: __namespace__ pins the generated CLR type
-    # name, so re-running this script.py on the next click raises
-    # "Duplicate type name within an assembly". pythonnet
-    # auto-uniquifies when it is absent, which is what we want.
-    if sys.version_info[0] < 3:
-        __namespace__ = "T3Lab.BCFReader"
+    __namespace__ = _bcf_ns
     def PreprocessFailures(self, failuresAccessor):
         failuresAccessor.DeleteAllWarnings()
         return FailureProcessingResult.Continue
 
 
 class ActionHandler(IExternalEventHandler):
-    # IronPython only: __namespace__ pins the generated CLR type
-    # name, so re-running this script.py on the next click raises
-    # "Duplicate type name within an assembly". pythonnet
-    # auto-uniquifies when it is absent, which is what we want.
-    if sys.version_info[0] < 3:
-        __namespace__ = "T3Lab.BCFReader"
+    __namespace__ = _bcf_ns
     """Queues a callable to run on Revit API thread. Required for modeless
     WPF windows since WPF event handlers are outside Revit API context."""
     def __init__(self):
@@ -714,6 +707,7 @@ class BCFManagerWindow(WPFWindow):
 
     def __init__(self, xaml_file):
         WPFWindow.__init__(self, xaml_file)
+        setup_window_logo(self)
 
         # Bind helpers as instance attributes so WPF event closures
         # don't lose them via IronPython 2.7 module-globals lookup

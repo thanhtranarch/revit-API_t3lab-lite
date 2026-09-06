@@ -664,6 +664,7 @@
           </Style>
 
           <Style x:Key="T3.DataGrid" TargetType="DataGrid">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
             <Setter Property="FontSize"   Value="{StaticResource T3.Size.Body}"/>
             <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
@@ -752,6 +753,9 @@
                     </Grid>
                   </Border>
                   <ControlTemplate.Triggers>
+                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.RowAlt}"/>
+                    </Trigger>
                     <Trigger Property="IsMouseOver" Value="True">
                       <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
                     </Trigger>
@@ -774,6 +778,7 @@
           </Style>
 
           <Style x:Key="T3.ListView" TargetType="ListView">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -915,7 +920,7 @@
             <Setter Property="Background"  Value="{StaticResource T3.SurfaceSunken}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
-            <Setter Property="Padding" Value="16,0,8,0"/>
+            <Setter Property="Padding" Value="12,0,8,0"/>
           </Style>
 
           <Style x:Key="T3.Panel" TargetType="Border">
@@ -971,16 +976,34 @@
           <!-- Zero-gap tab surface. WPF's stock TabControl carries Padding="2,2,2,2", a
                light Background and a 1px border, which render as a white gutter around
                every tab's content (rule 19 — bố cục liền mạch). Implicit so every tool
-               inherits it; a tool that sets these locally still wins. -->
+               inherits it; a tool that sets these locally still wins.
+               Template: stock TabPanel uses Margin="0,2,2,0" which creates a 2px gap above
+               content even when TabItems are collapsed. TabPanel Margin="0" eliminates this gap. -->
           <Style TargetType="TabControl">
             <Setter Property="Padding" Value="0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
-            <!-- NOTE: a content-only ControlTemplate here would also remove the stock
-                 HeaderPanel's Margin="2,2,2,0" (the last 2px strip above the content),
-                 but retemplating TabControl globally coincided with XAML load failures
-                 in Revit and was reverted 2026-09-03. Re-attempt only with a Revit test.
-                 Padding/BorderThickness/Background already remove the L/R/B gutter. -->
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                  <Grid KeyboardNavigation.TabNavigation="Local">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TabPanel Grid.Row="0" IsItemsHost="True" Margin="0"/>
+                    <Border Grid.Row="1"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            Background="{TemplateBinding Background}">
+                      <ContentPresenter x:Name="PART_SelectedContentHost"
+                                        Margin="{TemplateBinding Padding}"
+                                        ContentSource="SelectedContent"/>
+                    </Border>
+                  </Grid>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
           </Style>
 
           <Style x:Key="T3.TabItem.Hidden" TargetType="TabItem">
@@ -1004,15 +1027,15 @@
                           </Border>
                           <ControlTemplate.Triggers>
                               <Trigger Property="IsChecked" Value="True">
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Ink}"/>
-                                  <Setter Property="Foreground" Value="{StaticResource T3.Surface}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </Trigger>
                               <MultiTrigger>
                                   <MultiTrigger.Conditions>
                                       <Condition Property="IsChecked" Value="False"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Canvas}"/>
                                   <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                               <MultiTrigger>
@@ -1020,7 +1043,8 @@
                                       <Condition Property="IsChecked" Value="True"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Text}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.BorderStrong}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                           </ControlTemplate.Triggers>
                       </ControlTemplate>
@@ -1181,7 +1205,7 @@
             <Setter Property="Width"  Value="42"/>
             <Setter Property="Height" Value="42"/>
             <Setter Property="CornerRadius" Value="{StaticResource T3.R.Window}"/>
-            <Setter Property="Background"   Value="{StaticResource T3.Ink}"/>
+            <Setter Property="Background"   Value="{StaticResource T3.Border}"/>
           </Style>
 
           <!-- Pill 36px — dải trạng thái/đếm nằm ngang. Bo góc 18 = nửa chiều cao. -->
@@ -1377,90 +1401,32 @@
     <Border BorderBrush="{StaticResource T3.BorderStrong}" BorderThickness="1.5"
             CornerRadius="12" ClipToBounds="True" Background="{DynamicResource T3.Surface}">
         <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="58"/>  <!-- Col 0: Left Sidebar Rail -->
-                <ColumnDefinition Width="*"/>   <!-- Col 1: Main Content Area -->
-            </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="48"/>    <!-- Row 0: Title Bar -->
-                <RowDefinition Height="*"/>     <!-- Row 1: Wizard Content -->
-                <RowDefinition Height="48"/>    <!-- Row 2: Action Bar -->
-                <RowDefinition Height="48"/>    <!-- Row 3: Footer Bar -->
+                <RowDefinition Height="48"/>      <!-- Row 0: Full-width Title Bar -->
+                <RowDefinition Height="*"/>       <!-- Row 1: Main Body with Sidebar Rail -->
+                <RowDefinition Height="48"/>      <!-- Row 2: Full-width Footer Bar -->
             </Grid.RowDefinitions>
 
-            <!-- ═══════════════ LEFT SIDEBAR RAIL (spans all 4 rows) ═══════════════ -->
-            <Border Grid.Column="0" Grid.RowSpan="4"
-                    Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
-                <Grid Margin="0,8,0,8">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- Logo -->
-                        <RowDefinition Height="Auto"/> <!-- Step 1 -->
-                        <RowDefinition Height="Auto"/> <!-- Step 2 -->
-                        <RowDefinition Height="Auto"/> <!-- Step 3 -->
-                        <RowDefinition Height="*"/>    <!-- Spacer -->
-                    </Grid.RowDefinitions>
-
-                    <!-- Logo -->
-                    <Border Grid.Row="0" Style="{StaticResource T3.Rail.Logo}" Margin="0,4,0,16">
-                        <Path Data="M3 3 H21 V21 H3 Z M3 9 H21 M3 15 H21 M9 3 V21 M15 3 V21"
-                              Stroke="{StaticResource T3.Ink}" StrokeThickness="1.4" StrokeLineJoin="Round"
-                              Width="18" Height="18" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-
-                    <!-- Step 1: Boundaries -->
-                    <ToggleButton x:Name="step1_toggle" Grid.Row="1"
-                                  Style="{StaticResource T3.Rail.Tile}"
-                                  Margin="0,0,0,8" IsChecked="True"
-                                  ToolTip="Step 1 — Boundaries" Click="step_nav_clicked">
-                        <Path Data="M4 20 L4 8 L12 4 L20 8 L20 20 Z"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
-                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                              Width="18" Height="18" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </ToggleButton>
-
-                    <!-- Step 2: Pattern -->
-                    <ToggleButton x:Name="step2_toggle" Grid.Row="2"
-                                  Style="{StaticResource T3.Rail.Tile}"
-                                  Margin="0,0,0,8" IsEnabled="False"
-                                  ToolTip="Step 2 — Pattern" Click="step_nav_clicked">
-                        <Path Data="M4 4 H20 V20 H4 Z M4 12 H20 M12 4 V20"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
-                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                              Width="18" Height="18" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </ToggleButton>
-
-                    <!-- Step 3: Concepts -->
-                    <ToggleButton x:Name="step3_toggle" Grid.Row="3"
-                                  Style="{StaticResource T3.Rail.Tile}"
-                                  Margin="0,0,0,8" IsEnabled="False"
-                                  ToolTip="Step 3 — Concepts" Click="step_nav_clicked">
-                        <Path Data="M4 12 L9 17 L20 5"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
-                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                              Width="18" Height="18" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </ToggleButton>
-                </Grid>
-            </Border>
-
-            <!-- ═══════════════ ROW 0: TITLE BAR (Col 1) ═══════════════ -->
-            <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource T3.TitleBar}">
+            <!-- ══════════════════ ROW 0: FULL-WIDTH TITLE BAR ══════════════════ -->
+            <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="16,0,0,0"
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,0"
                                 shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                        <TextBlock Text="Tile Layout" Style="{StaticResource T3.Title}"/>
-                        <TextBlock Text="Calculate grid patterns and tile placement layouts" Style="{StaticResource T3.Subtitle}"/>
+                        <Image x:Name="logo_image" Height="28" Margin="0,0,12,0"
+                               VerticalAlignment="Center"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                        <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                            <TextBlock Text="Tile Layout" Style="{StaticResource T3.Title}"/>
+                            <TextBlock Text="Calculate grid patterns and tile placement layouts" Style="{StaticResource T3.Subtitle}"/>
+                        </StackPanel>
                     </StackPanel>
 
-                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal"
                                 shell:WindowChrome.IsHitTestVisibleInChrome="True">
                         <Button x:Name="btn_minimize" Style="{StaticResource T3.WinCtrl}" ToolTip="Minimize"
                                 Click="minimize_button_clicked">
@@ -1478,8 +1444,70 @@
                 </Grid>
             </Border>
 
-            <!-- ═══════════════ ROW 1: CONTENT WIZARD (Col 1) ═══════════════ -->
-            <TabControl Grid.Row="1" Grid.Column="1" x:Name="wizard_tabs"
+            <!-- ══════════════════ ROW 1: WORKSPACE WITH REFINED SIDEBAR ══════════════════ -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="58"/>    <!-- Col 0: Left Sidebar Rail -->
+                    <ColumnDefinition Width="*"/>     <!-- Col 1: Main Content Views -->
+                </Grid.ColumnDefinitions>
+
+                <!-- ── Col 0: Left Sidebar Rail ── -->
+                <Border Grid.Column="0"
+                    Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
+                <Grid Margin="0,12,0,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Step 1 -->
+                        <RowDefinition Height="Auto"/> <!-- Step 2 -->
+                        <RowDefinition Height="Auto"/> <!-- Step 3 -->
+                        <RowDefinition Height="*"/>    <!-- Spacer -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Step 1: Boundaries -->
+                    <ToggleButton x:Name="step1_toggle" Grid.Row="0"
+                                  Style="{StaticResource T3.Rail.Tile}"
+                                  Margin="0,0,0,8" IsChecked="True"
+                                  ToolTip="Step 1 — Boundaries" Click="step_nav_clicked">
+                        <Path Data="M4 20 L4 8 L12 4 L20 8 L20 20 Z"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Step 2: Pattern -->
+                    <ToggleButton x:Name="step2_toggle" Grid.Row="1"
+                                  Style="{StaticResource T3.Rail.Tile}"
+                                  Margin="0,0,0,8" IsEnabled="False"
+                                  ToolTip="Step 2 — Pattern" Click="step_nav_clicked">
+                        <Path Data="M4 4 H20 V20 H4 Z M4 12 H20 M12 4 V20"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Step 3: Concepts -->
+                    <ToggleButton x:Name="step3_toggle" Grid.Row="2"
+                                  Style="{StaticResource T3.Rail.Tile}"
+                                  Margin="0,0,0,8" IsEnabled="False"
+                                  ToolTip="Step 3 — Concepts" Click="step_nav_clicked">
+                        <Path Data="M4 12 L9 17 L20 5"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                </Grid>
+            </Border>
+
+                <!-- ── Col 1: Main Content Views ── -->
+                <Grid Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="48"/>
+                    </Grid.RowDefinitions>
+                    <!-- ═══════════════ ROW 1: CONTENT WIZARD (Col 1) ═══════════════ -->
+            <TabControl Grid.Row="0" x:Name="wizard_tabs"
                         BorderThickness="0" Background="{DynamicResource T3.Surface}" Padding="0">
                 <TabControl.ItemContainerStyle>
                     <Style TargetType="TabItem" BasedOn="{StaticResource T3.TabItem.Hidden}"/>
@@ -1535,22 +1563,48 @@
                         <!-- ListView (Zero-Gap) -->
                         <Grid Grid.Row="2">
                             <ListView x:Name="floors_listview"
+                                      Style="{StaticResource T3.ListView}"
                                       BorderThickness="0" Background="Transparent"
                                       VirtualizingPanel.IsVirtualizing="True"
                                       VirtualizingPanel.VirtualizationMode="Recycling"
                                       ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                 <ListView.View>
                                     <GridView>
-                                        <GridViewColumn Header="Floor" Width="260"
-                                                        DisplayMemberBinding="{Binding Name}"/>
-                                        <GridViewColumn Header="Level" Width="120"
-                                                        DisplayMemberBinding="{Binding LevelName}"/>
-                                        <GridViewColumn Header="Dimensions (mm)" Width="160"
-                                                        DisplayMemberBinding="{Binding Dimensions}"/>
-                                        <GridViewColumn Header="Area (m²)" Width="100"
-                                                        DisplayMemberBinding="{Binding AreaM2}"/>
-                                        <GridViewColumn Header="Vertices" Width="80"
-                                                        DisplayMemberBinding="{Binding VertexCount}"/>
+                                        <GridViewColumn Header="FLOOR" Width="260">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Name}" Style="{StaticResource T3.Body}"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="LEVEL" Width="120">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding LevelName}" Style="{StaticResource T3.Cell.Muted}"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="DIMENSIONS (MM)" Width="160">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Dimensions}" Style="{StaticResource T3.Cell.Mono}"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="AREA (M²)" Width="100">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding AreaM2}" Style="{StaticResource T3.Cell.Number}"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="VERTICES" Width="80">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding VertexCount}" Style="{StaticResource T3.Cell.Number}"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
                                     </GridView>
                                 </ListView.View>
                             </ListView>
@@ -1649,7 +1703,7 @@
             </TabControl>
 
             <!-- ═══════════════ ROW 2: ACTION BAR (Col 1) ═══════════════ -->
-            <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource T3.SurfaceSunken}"
+            <Border Grid.Row="1" Background="{StaticResource T3.SurfaceSunken}"
                     BorderBrush="{StaticResource T3.Border}" BorderThickness="0,1,0,1" Padding="16,0">
                 <Grid VerticalAlignment="Center">
                     <Grid.ColumnDefinitions>
@@ -1691,7 +1745,11 @@
             </Border>
 
             <!-- ═══════════════ ROW 3: FOOTER BAR (Col 1) ═══════════════ -->
-            <Border Grid.Row="3" Grid.Column="1" Style="{StaticResource T3.FooterBar}">
+                </Grid>
+            </Grid>
+
+            <!-- ══════════════════ ROW 2: FULL-WIDTH FOOTER BAR ══════════════════ -->
+            <Border Grid.Row="2" Style="{StaticResource T3.FooterBar}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -1708,7 +1766,7 @@
                     </StackPanel>
 
                     <!-- Progress panel: bar + Pause + Stop (hidden when idle) -->
-                    <Grid x:Name="tl_progress_panel" Grid.Column="1" Visibility="Collapsed" VerticalAlignment="Center">
+                    <Grid x:Name="tl_progress_panel" Visibility="Collapsed" VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="140"/>
                             <ColumnDefinition Width="12"/>
@@ -1735,7 +1793,6 @@
                     </Grid>
                 </Grid>
             </Border>
-
         </Grid>
     </Border>
 </Window>

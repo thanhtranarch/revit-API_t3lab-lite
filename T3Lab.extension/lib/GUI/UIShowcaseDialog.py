@@ -28,7 +28,7 @@ from System.Collections.ObjectModel import ObservableCollection
 from System import Object
 
 from pyrevit import revit, DB, forms
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 
 # Revit light/dark palette bridge
 try:
@@ -109,9 +109,35 @@ class UIShowcaseWindow(T3WPFWindow):
         self._filtered_items = []
         self._adopt_host_font()
         self._apply_theme()
+        self._load_logo()
         self._load_sample_data()
         self._setup_event_handlers()
         self._update_selection_summary()
+
+    def _load_logo(self):
+        """Ensure logo image and window icon are bound."""
+        try:
+            logo_path = None
+            for _cand in ('T3Lab_logo_tight.png', 'T3Lab_logo.png'):
+                _p = os.path.join(GUI_DIR, _cand)
+                if os.path.exists(_p):
+                    logo_path = _p
+                    break
+
+            if logo_path and os.path.exists(logo_path):
+                from System.Windows.Media.Imaging import BitmapImage, BitmapCacheOption
+                from System import Uri, UriKind
+                bitmap = BitmapImage()
+                bitmap.BeginInit()
+                bitmap.CacheOption = BitmapCacheOption.OnLoad
+                bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
+                bitmap.EndInit()
+                bitmap.Freeze()
+                if hasattr(self, 'logo_image') and self.logo_image:
+                    self.logo_image.Source = bitmap
+                self.Icon = bitmap
+        except Exception:
+            pass
 
         try:
             self.Activated += self._window_activated
@@ -325,7 +351,7 @@ class UIShowcaseWindow(T3WPFWindow):
 
         self._filtered_items = filtered
         try:
-            self.sample_grid.ItemsSource = ObservableCollection[Object](self._filtered_items)
+            self.sample_grid.ItemsSource = to_items_source(self._filtered_items)
             if len(self._filtered_items) == 0:
                 self.grid_empty.Visibility = Visibility.Visible
             else:

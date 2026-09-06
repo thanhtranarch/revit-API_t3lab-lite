@@ -65,11 +65,29 @@ def _eid_int(element_id):
 def _get_invalid_element_id():
     return ElementId.InvalidElementId
 
+def _make_double_collection(values):
+    """Safely create a System.Windows.Media.DoubleCollection from an iterable of numbers in PythonNet."""
+    if not values:
+        return None
+    try:
+        dc = DoubleCollection()
+        for v in values:
+            dc.Add(float(v))
+        return dc
+    except Exception:
+        return None
+
 # ============================================================================
 # STYLE MANAGER WORKER ENTITIES
 # ============================================================================
 
-class FillPatternItem(INotifyPropertyChanged):
+try:
+    _Reactive = getattr(forms, 'Reactive', object)
+except Exception:
+    _Reactive = object
+
+
+class FillPatternItem(_Reactive):
     def __init__(self, element):
         self._handlers = []
         self._element = element
@@ -179,7 +197,7 @@ class FillPatternItem(INotifyPropertyChanged):
         for h in self._handlers: h(self, PropertyChangedEventArgs(prop))
 
 
-class LineStyleItem(INotifyPropertyChanged):
+class LineStyleItem(_Reactive):
     def __init__(self, category):
         self._handlers = []
         self._category = category
@@ -245,20 +263,20 @@ class LineStyleItem(INotifyPropertyChanged):
                                 val = float(seg.Length * 304.8) # mm
                                 val = max(1.0, val * 1.5)
                                 dash_list.append(val)
-                            self._dash_array = DoubleCollection(dash_list)
+                            self._dash_array = _make_double_collection(dash_list)
         except:
             pass
             
         if not self._dash_array and self._pattern != "Solid":
             p = self._pattern.lower()
             if "dash dot dot" in p:
-                self._dash_array = DoubleCollection([4.0, 2.0, 1.0, 2.0, 1.0, 2.0])
+                self._dash_array = _make_double_collection([4.0, 2.0, 1.0, 2.0, 1.0, 2.0])
             elif "dash dot" in p:
-                self._dash_array = DoubleCollection([4.0, 2.0, 1.0, 2.0])
+                self._dash_array = _make_double_collection([4.0, 2.0, 1.0, 2.0])
             elif "dash" in p:
-                self._dash_array = DoubleCollection([4.0, 2.0])
+                self._dash_array = _make_double_collection([4.0, 2.0])
             elif "dot" in p:
-                self._dash_array = DoubleCollection([1.0, 2.0])
+                self._dash_array = _make_double_collection([1.0, 2.0])
 
     @property
     def wpf_brush(self): return self._wpf_brush
@@ -311,7 +329,7 @@ class LineStyleItem(INotifyPropertyChanged):
         for h in self._handlers: h(self, PropertyChangedEventArgs(prop))
 
 
-class LinePatternItem(INotifyPropertyChanged):
+class LinePatternItem(_Reactive):
     SYSTEM_PATTERNS = ["Solid", "Dash", "Dot", "Dash dot", "Dash dot dot"]
     
     def __init__(self, element):
@@ -362,7 +380,7 @@ class LinePatternItem(INotifyPropertyChanged):
                             val = float(seg.Length * 304.8) # mm
                             val = max(1.0, val * 1.5)
                             dash_list.append(val)
-                        self._dash_array = DoubleCollection(dash_list)
+                        self._dash_array = _make_double_collection(dash_list)
             except:
                 pass
 

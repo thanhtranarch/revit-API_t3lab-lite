@@ -25,6 +25,8 @@ Author: Tran Tien Thanh
 __author__ = "Tran Tien Thanh"
 __title__ = "Host"
 
+import sys
+
 # Oldest release this codebase supports; used only when every probe fails, so
 # that a version read can never be the thing that stops a tool from opening.
 FALLBACK_VERSION = 2023
@@ -93,12 +95,63 @@ def host_uiapp():
     return None
 
 
-def get_revit_version(default=FALLBACK_VERSION):
+class DocResult(tuple):
+    """2-tuple (doc, error_text) that safely proxies attribute access to `doc`.
+
+    Supports unpacking:
+        doc, err = resolve_doc()
+    as well as direct single-variable assignment:
+        doc = resolve_doc()
+        if doc: ...
+        doc.ActiveView
+        hasattr(doc, 'Application')
+    """
+    def __new__(cls, doc, err):
+        return super(DocResult, cls).__new__(cls, (doc, err))
+
+    @property
+    def doc(self):
+        return self[0]
+
+    @property
+    def error(self):
+        return self[1]
+
+    def __getattr__(self, name):
+        doc = self[0]
+        if doc is not None:
+            return getattr(doc, name)
+        raise AttributeError("'DocResult' (no active document) has no attribute '%s'" % name)
+
+    def __bool__(self):
+        return self[0] is not None
+
+    __nonzero__ = __bool__
+
+
+def get_revit_version(doc_or_default=None, default=FALLBACK_VERSION):
     """Revit release year as an int (e.g. 2026). Never raises.
 
-    Order matters: the Application is document-independent, so it answers
-    even with no project open — which is the whole point of this helper.
+    Supports:
+        get_revit_version()
+        get_revit_version(default=2024)
+        get_revit_version(doc)
+        get_revit_version(doc, default=2024)
     """
+    candidate_doc = None
+    target_default = default
+    if doc_or_default is not None:
+        if isinstance(doc_or_default, int):
+            target_default = doc_or_default
+        else:
+            candidate_doc = doc_or_default
+
+    if candidate_doc is not None:
+        try:
+            return int(candidate_doc.Application.VersionNumber)
+        except Exception:
+            pass
+
     uiapp = host_uiapp()
     try:
         return int(uiapp.Application.VersionNumber)
@@ -113,48 +166,97 @@ def get_revit_version(default=FALLBACK_VERSION):
         from pyrevit import revit
         return int(revit.doc.Application.VersionNumber)
     except Exception:
-        return default
+        return target_default
 
 
-def resolve_doc():
+def resolve_doc(candidate=None):
     """(doc, error_text) — the document a tool should act on.
 
+    Returns a DocResult(doc, error_text) 2-tuple that also delegates attribute
+    lookups directly to `doc` if assigned to a single variable.
+
     Fallback chain, most specific first:
-      1. pyrevit `revit.doc`        — correct inside a normal pushbutton engine
-      2. uiapp.ActiveUIDocument     — direct API read, works when HOST_APP is stale
-      3. the single open non-linked document — unambiguous, so safe to assume
+      1. Valid candidate Document passed in
+      2. pyrevit `revit.doc`        — correct inside a normal pushbutton engine
+      3. uiapp.ActiveUIDocument     — direct API read, works when HOST_APP is stale
+      4. the single open non-linked document — unambiguous, so safe to assume
 
     Anything else is a genuine "no target" situation and returns an actionable
     message rather than a null-document crash deeper in the call stack.
     """
+    if candidate is not None:
+        try:
+            if isinstance(candidate, tuple) and len(candidate) > 0:
+                candidate = candidate[0]
+            if candidate is not None and hasattr(candidate, 'Application') and candidate.Application is not None:
+                return DocResult(candidate, None)
+        except Exception:
+            pass
+
     try:
         from pyrevit import revit
         doc = revit.doc
         if doc is not None:
-            return doc, None
+            return DocResult(doc, None)
     except Exception:
         pass
 
     uiapp = host_uiapp()
     if uiapp is None:
-        return None, (u"Cannot reach the Revit application from this engine. "
-                      u"Open this tool from the T3Lab ribbon button.")
+        return DocResult(None, (u"Cannot reach the Revit application from this engine. "
+                                u"Open this tool from the T3Lab ribbon button."))
 
     try:
         uidoc = uiapp.ActiveUIDocument
         if uidoc is not None and uidoc.Document is not None:
-            return uidoc.Document, None
+            return DocResult(uidoc.Document, None)
     except Exception:
         pass
 
     try:
         docs = [d for d in uiapp.Application.Documents if not d.IsLinked]
         if len(docs) == 1:
-            return docs[0], None
+            return DocResult(docs[0], None)
         if len(docs) > 1:
-            return None, (u"Several models are open and none is active. "
-                          u"Click the model you want, then run this again.")
+            return DocResult(None, (u"Several models are open and none is active. "
+                                    u"Click the model you want, then run this again."))
     except Exception:
         pass
 
-    return None, u"No Revit model is open. Open a project and try again."
+    return DocResult(None, u"No Revit model is open. Open a project and try again.")
+
+
+def resolve_uidoc(candidate=None):
+    """Best available UIDocument; None when no view context exists.
+
+    Accepts an optional candidate UIDocument to support `uidoc = resolve_uidoc(uidoc)`.
+    Fallback chain, most specific first:
+      1. Valid candidate UIDocument passed in
+      2. pyrevit `revit.uidoc`      — correct inside a normal pushbutton engine
+      3. host_uiapp().ActiveUIDocument — direct API read when pyrevit uidoc is unset
+    """
+    if candidate is not None:
+        try:
+            if hasattr(candidate, 'Document') and candidate.Document is not None:
+                return candidate
+        except Exception:
+            pass
+
+    try:
+        from pyrevit import revit
+        uidoc = revit.uidoc
+        if uidoc is not None:
+            return uidoc
+    except Exception:
+        pass
+
+    uiapp = host_uiapp()
+    if uiapp is not None:
+        try:
+            uidoc = uiapp.ActiveUIDocument
+            if uidoc is not None:
+                return uidoc
+        except Exception:
+            pass
+
+    return None

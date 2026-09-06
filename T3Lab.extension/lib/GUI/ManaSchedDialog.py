@@ -50,12 +50,11 @@ _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'ManaSched.xaml')
 # ============================================================
 # REVIT VERSION HELPER
 # ============================================================
+from Snippets._compat import make_eid, eid_value
+
 def _eid_int(element_id):
-    """ElementId integer value - compatible across Revit 2024/2025/2026."""
-    try:
-        return element_id.Value
-    except AttributeError:
-        return element_id.IntegerValue
+    """ElementId integer value - compatible across Revit 2020-2027+."""
+    return eid_value(element_id)
 
 
 # ============================================================
@@ -717,7 +716,7 @@ def _apply_changes(changes, doc):
                 skipped += 1
                 continue
             try:
-                elem = doc.GetElement(DB.ElementId(eid))
+                elem = doc.GetElement(make_eid(eid))
             except Exception:
                 elem = None
             if not elem:
@@ -851,11 +850,14 @@ def _render_preview(container, all_data):
             brd.Background      = _b('#F4F4F6') if is_header else _b('#FFFFFF')
             brd.Padding         = System.Windows.Thickness(6, 3, 6, 3)
             tb = TextBlock()
-            tb.Text       = str(text) if text is not None else ""
+            cell_str      = str(text) if text is not None else ""
+            tb.Text       = cell_str
             tb.FontSize   = 11
             tb.FontWeight = (System.Windows.FontWeights.SemiBold
                              if is_header else System.Windows.FontWeights.Normal)
             tb.Foreground = _b('#18181B')
+            tb.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
+            tb.ToolTip      = cell_str
             brd.Child = tb
             WPFGrid.SetRow(brd, row)
             WPFGrid.SetColumn(brd, col)

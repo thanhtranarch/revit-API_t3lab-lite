@@ -1235,7 +1235,7 @@ def save_binary_bmp(bmp_path, binary_bytes, w, h, stride):
 # WPF WINDOW
 # ══════════════════════════════════════════════════════════════════════════════
 
-class ImageToDraftingWindow(T3WPFWindow, ProgressPauseMixin):
+class ImageToDraftingWindow(T3WPFWindow):
 
     # ProgressPauseMixin — ImageToDrafting.xaml footer progress panel
     PP_PANEL      = "i2d_progress_panel"

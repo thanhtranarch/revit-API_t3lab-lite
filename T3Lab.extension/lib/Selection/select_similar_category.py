@@ -31,9 +31,6 @@ from Autodesk.Revit.DB import ( FilteredElementCollector,
 
                                 )
 
-default_uidoc = __revit__.ActiveUIDocument
-default_doc = default_uidoc.Document
-
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> FUNCTIONS
 def create_filter(key_parameter, element_value):
     """Function to create a RevitAPI filter."""
@@ -44,8 +41,18 @@ def create_filter(key_parameter, element_value):
     return filter
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> MAIN
 
-def select(mode, uidoc = default_uidoc ):
+def select(mode, uidoc = None):
     """Run Super Select: all in model/view based on given mode."""
+    if uidoc is None:
+        try:
+            from Snippets._host import host_uiapp
+            _u = host_uiapp()
+            uidoc = _u.ActiveUIDocument if _u else None
+        except Exception:
+            uidoc = None
+    if not uidoc:
+        return
+
     doc = uidoc.Document
     #>>>>>>>>>> FILTERS CONTAINER
     list_of_filters = List[ElementFilter]()
@@ -56,6 +63,8 @@ def select(mode, uidoc = default_uidoc ):
     #>>>>>>>>>> LOOP THROUGH SELECTION
     for id in current_selection_ids:
         element = uidoc.Document.GetElement(id)
+        if not element or not element.Category:
+            continue
 
         #>>>>>>>>>> CREATE CATEGORY FILTER
         filter = create_filter(key_parameter=BuiltInParameter.ELEM_CATEGORY_PARAM,

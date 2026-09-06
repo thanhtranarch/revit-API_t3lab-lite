@@ -4,7 +4,7 @@ __title__ = "Schedule\nManager"
 __author__ = "Tran Tien Thanh"
 __doc__ = "Schedule Manager — unified Export/Import Excel and Schedule Duplication tool."
 
-import sys
+import os, sys
 # ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
 for _env in ('APPDATA', 'PROGRAMDATA'):
     _base = os.environ.get(_env, '')
@@ -38,13 +38,29 @@ try:
 except Exception:
     pass
 # ──────────────────────────────────────────────────────────────────────────────
-import os
 
 _ext_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 _lib = os.path.join(_ext_dir, 'lib')
 if _lib not in sys.path:
     sys.path.insert(0, _lib)
 
+try:
+    reload
+except NameError:
+    try:
+        from importlib import reload
+    except Exception:
+        reload = None
+
+if reload:
+    for _mod in ('GUI.WPF_Base', 'GUI.ManaSchedDialog', 'ManaSchedDialog'):
+        if _mod in sys.modules:
+            try:
+                reload(sys.modules[_mod])
+            except Exception:
+                pass
+
 from GUI.ManaSchedDialog import show_schedule_manager
 
-show_schedule_manager(os.path.dirname(__file__), __revit__)
+if __name__ == '__main__':
+    show_schedule_manager(os.path.dirname(__file__), __revit__)

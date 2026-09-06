@@ -28,7 +28,7 @@ from System.Collections.ObjectModel import ObservableCollection
 from System import Object
 
 from pyrevit import forms, revit, DB
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 from Autodesk.Revit.DB import (
     FilteredElementCollector, View, ViewType, ElementId,
     BuiltInParameter, ViewDetailLevel, StorageType, Transaction
@@ -218,8 +218,8 @@ class AdvancedViewManagerWindow(T3WPFWindow):
         
         # Bind items for standard combo columns
         self.template_items = self._get_all_templates()
-        self.col_template.ItemsSource = self.template_items
-        self.col_detail.ItemsSource = ["Coarse", "Medium", "Fine"]
+        self.col_template.ItemsSource = to_items_source(self.template_items)
+        self.col_detail.ItemsSource = to_items_source(["Coarse", "Medium", "Fine"])
         
         # Then load data (will update summary cards)
         self._load_all_views()

@@ -20,27 +20,31 @@ def init_cpython_paths():
     engine_dirs = []
     candidates = []
 
-    # APPDATA & PROGRAMDATA paths
-    for env_var in ('APPDATA', 'PROGRAMDATA'):
-        base = os.environ.get(env_var, '')
-        if base:
+    # Only inject pyRevit CPY3123 paths if running under Python 3.12 (pyRevit CPython engine).
+    # Injecting Python 3.12 bytecode zip into a different Python version (e.g. host Python 3.14 test runner)
+    # causes "bad magic number in 'json'" because .pyc magic numbers differ across Python minor versions.
+    if sys.version_info[:2] == (3, 12):
+        # APPDATA & PROGRAMDATA paths
+        for env_var in ('APPDATA', 'PROGRAMDATA'):
+            base = os.environ.get(env_var, '')
+            if base:
+                for clone in ('pyRevit-Master', 'pyRevit'):
+                    ceng = os.path.join(base, clone, 'bin', 'cengines', 'CPY3123')
+                    if os.path.isdir(ceng):
+                        engine_dirs.append(ceng)
+                        candidates.append(ceng)                       # .pyd files (_sqlite3.pyd, etc.)
+                        candidates.append(os.path.join(ceng, 'Lib'))  # stdlib (.pyc files: csv, json, configparser)
+                        candidates.append(os.path.join(ceng, 'python312.zip'))
+
+        # Program Files paths
+        for pf in (r'C:\Program Files', r'C:\Program Files (x86)'):
             for clone in ('pyRevit-Master', 'pyRevit'):
-                ceng = os.path.join(base, clone, 'bin', 'cengines', 'CPY3123')
+                ceng = os.path.join(pf, clone, 'bin', 'cengines', 'CPY3123')
                 if os.path.isdir(ceng):
                     engine_dirs.append(ceng)
-                    candidates.append(ceng)                       # .pyd files (_sqlite3.pyd, etc.)
-                    candidates.append(os.path.join(ceng, 'Lib'))  # stdlib (.pyc files: csv, json, configparser)
+                    candidates.append(ceng)
+                    candidates.append(os.path.join(ceng, 'Lib'))
                     candidates.append(os.path.join(ceng, 'python312.zip'))
-
-    # Program Files paths
-    for pf in (r'C:\Program Files', r'C:\Program Files (x86)'):
-        for clone in ('pyRevit-Master', 'pyRevit'):
-            ceng = os.path.join(pf, clone, 'bin', 'cengines', 'CPY3123')
-            if os.path.isdir(ceng):
-                engine_dirs.append(ceng)
-                candidates.append(ceng)
-                candidates.append(os.path.join(ceng, 'Lib'))
-                candidates.append(os.path.join(ceng, 'python312.zip'))
 
     # Configure DLL search path for C extensions (e.g. sqlite3.dll, libffi-8.dll, libssl-3.dll)
     for ed in engine_dirs:
@@ -68,7 +72,7 @@ def init_cpython_paths():
     # Force reload of GUI.WPF_Base if cached, and monkeypatch forms.WPFWindow
     try:
         import importlib
-        for _mod_name in ('GUI.WPF_Base', 'WPF_Base', 'GUI.forms', 'pyrevit.forms._cpy'):
+        for _mod_name in ('GUI.WPF_Base', 'WPF_Base', 'GUI.forms', 'pyrevit.forms._cpy', 'Snippets._host', '_host'):
             if _mod_name in sys.modules:
                 try:
                     importlib.reload(sys.modules[_mod_name])
@@ -94,7 +98,7 @@ def init_cpython_paths():
     # Scripts call init_cpython_paths() directly, so install the CPython API
     # shims here too rather than only at module import.
     for _installer in (fix_std_streams, install_forms_shim, install_script_shim,
-                       enable_safe_engine_shutdown):
+                       install_imp_shim, install_wpf_shim, enable_safe_engine_shutdown):
         try:
             _installer()
         except Exception:
@@ -466,12 +470,31 @@ def install_forms_shim():
                        ('ProgressBar', _T3ProgressBar),
                        ('WarningBar', _T3WarningBar),
                        ('MessageBox', _t3_alert),
-                       ('toast', lambda *a, **k: None)):
+                       ('toast', lambda *a, **k: None),
+                       ('to_items_source', lambda items: _forms_to_items_source(items)),
+                       ('set_items_source', lambda ctrl, items: _forms_set_items_source(ctrl, items))):
         if _missing(name):
             try:
                 setattr(_forms, name, impl)
             except Exception:
                 pass
+
+
+def _forms_to_items_source(items):
+    try:
+        from GUI.WPF_Base import to_items_source
+        return to_items_source(items)
+    except Exception:
+        return items
+
+
+def _forms_set_items_source(ctrl, items):
+    try:
+        from GUI.WPF_Base import set_items_source
+        set_items_source(ctrl, items)
+    except Exception:
+        if ctrl is not None:
+            ctrl.ItemsSource = items
 
 
 class _NullOutput(object):
@@ -667,6 +690,61 @@ def install_script_shim():
             pass
 
 
+def install_imp_shim():
+    """Shim the removed Python standard library module `imp` on Python 3.12+.
+
+    Python 3.12 removed `imp` completely. Legacy pyRevit modules or wrappers
+    (such as bundled `rpw.utils.sphinx_compat`) still have `import imp` at
+    module top-level. Registering a compatibility shim in `sys.modules['imp']`
+    prevents fatal `ModuleNotFoundError: No module named 'imp'` crashes across
+    the entire Revit session.
+    """
+    if 'imp' in sys.modules:
+        return
+    try:
+        import importlib
+        import types
+
+        imp = types.ModuleType('imp')
+        imp.new_module = lambda name: types.ModuleType(name)
+        imp.reload = importlib.reload
+        imp.find_module = lambda *args, **kwargs: (None, None, ('', '', 0))
+        imp.load_module = lambda *args, **kwargs: None
+        imp.acquire_lock = lambda: None
+        imp.release_lock = lambda: None
+        imp.lock_held = lambda: False
+        sys.modules['imp'] = imp
+    except Exception:
+        pass
+
+
+def install_wpf_shim():
+    """Shim the IronPython-only `wpf` module on CPython 3.
+
+    Under IronPython, `import wpf; wpf.LoadComponent(self, xaml_path)` was standard.
+    Under CPython (PythonNet), `wpf` does not exist. Providing this shim ensures
+    legacy scripts and dialogs that import `wpf` don't throw ModuleNotFoundError.
+    """
+    if 'wpf' in sys.modules:
+        return
+    try:
+        import types
+        wpf = types.ModuleType('wpf')
+
+        def LoadComponent(window, xaml_path):
+            try:
+                from GUI.WPF_Base import T3WPFWindow
+                if isinstance(window, T3WPFWindow):
+                    return
+            except Exception:
+                pass
+
+        wpf.LoadComponent = LoadComponent
+        sys.modules['wpf'] = wpf
+    except Exception:
+        pass
+
+
 # Run immediately upon import.
 # NOTE: this module lives in lib/, so the persistent CPython engine caches it in
 # sys.modules — editing it requires one pyRevit Reload before the new code runs.
@@ -674,4 +752,6 @@ init_cpython_paths()
 fix_std_streams()
 install_forms_shim()
 install_script_shim()
+install_imp_shim()
+install_wpf_shim()
 enable_safe_engine_shutdown()

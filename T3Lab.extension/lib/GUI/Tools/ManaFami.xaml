@@ -661,6 +661,7 @@
           </Style>
 
           <Style x:Key="T3.DataGrid" TargetType="DataGrid">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
             <Setter Property="FontSize"   Value="{StaticResource T3.Size.Body}"/>
             <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
@@ -749,6 +750,9 @@
                     </Grid>
                   </Border>
                   <ControlTemplate.Triggers>
+                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.RowAlt}"/>
+                    </Trigger>
                     <Trigger Property="IsMouseOver" Value="True">
                       <Setter TargetName="Bd" Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
                     </Trigger>
@@ -771,6 +775,7 @@
           </Style>
 
           <Style x:Key="T3.ListView" TargetType="ListView">
+            <Setter Property="AlternationCount" Value="2"/>
             <Setter Property="Background" Value="{StaticResource T3.Surface}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -912,7 +917,7 @@
             <Setter Property="Background"  Value="{StaticResource T3.SurfaceSunken}"/>
             <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
-            <Setter Property="Padding" Value="16,0,8,0"/>
+            <Setter Property="Padding" Value="12,0,8,0"/>
           </Style>
 
           <Style x:Key="T3.Panel" TargetType="Border">
@@ -968,16 +973,34 @@
           <!-- Zero-gap tab surface. WPF's stock TabControl carries Padding="2,2,2,2", a
                light Background and a 1px border, which render as a white gutter around
                every tab's content (rule 19 — bố cục liền mạch). Implicit so every tool
-               inherits it; a tool that sets these locally still wins. -->
+               inherits it; a tool that sets these locally still wins.
+               Template: stock TabPanel uses Margin="0,2,2,0" which creates a 2px gap above
+               content even when TabItems are collapsed. TabPanel Margin="0" eliminates this gap. -->
           <Style TargetType="TabControl">
             <Setter Property="Padding" Value="0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
-            <!-- NOTE: a content-only ControlTemplate here would also remove the stock
-                 HeaderPanel's Margin="2,2,2,0" (the last 2px strip above the content),
-                 but retemplating TabControl globally coincided with XAML load failures
-                 in Revit and was reverted 2026-09-03. Re-attempt only with a Revit test.
-                 Padding/BorderThickness/Background already remove the L/R/B gutter. -->
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                  <Grid KeyboardNavigation.TabNavigation="Local">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TabPanel Grid.Row="0" IsItemsHost="True" Margin="0"/>
+                    <Border Grid.Row="1"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            Background="{TemplateBinding Background}">
+                      <ContentPresenter x:Name="PART_SelectedContentHost"
+                                        Margin="{TemplateBinding Padding}"
+                                        ContentSource="SelectedContent"/>
+                    </Border>
+                  </Grid>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
           </Style>
 
           <Style x:Key="T3.TabItem.Hidden" TargetType="TabItem">
@@ -1001,15 +1024,15 @@
                           </Border>
                           <ControlTemplate.Triggers>
                               <Trigger Property="IsChecked" Value="True">
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Ink}"/>
-                                  <Setter Property="Foreground" Value="{StaticResource T3.Surface}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </Trigger>
                               <MultiTrigger>
                                   <MultiTrigger.Conditions>
                                       <Condition Property="IsChecked" Value="False"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Border}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Canvas}"/>
                                   <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                               <MultiTrigger>
@@ -1017,7 +1040,8 @@
                                       <Condition Property="IsChecked" Value="True"/>
                                       <Condition Property="IsMouseOver" Value="True"/>
                                   </MultiTrigger.Conditions>
-                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.Text}"/>
+                                  <Setter TargetName="border" Property="Background" Value="{StaticResource T3.BorderStrong}"/>
+                                  <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
                               </MultiTrigger>
                           </ControlTemplate.Triggers>
                       </ControlTemplate>
@@ -1178,7 +1202,7 @@
             <Setter Property="Width"  Value="42"/>
             <Setter Property="Height" Value="42"/>
             <Setter Property="CornerRadius" Value="{StaticResource T3.R.Window}"/>
-            <Setter Property="Background"   Value="{StaticResource T3.Ink}"/>
+            <Setter Property="Background"   Value="{StaticResource T3.Border}"/>
           </Style>
 
           <!-- Pill 36px — dải trạng thái/đếm nằm ngang. Bo góc 18 = nửa chiều cao. -->
@@ -1376,62 +1400,14 @@
             BorderThickness="1.5"
             CornerRadius="12" ClipToBounds="True">
         <Grid>
-            <Grid.ColumnDefinitions>
-                <!-- Column 0: Sidebar Icon Rail (56px) -->
-                <ColumnDefinition Width="58"/>
-                <!-- Column 1: Main Workspace (*) -->
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48"/>      <!-- Row 0: Full-width Title Bar -->
+                <RowDefinition Height="*"/>       <!-- Row 1: Main Body with Sidebar Rail -->
+                <RowDefinition Height="48"/>      <!-- Row 2: Full-width Footer Bar -->
+            </Grid.RowDefinitions>
 
-            <!-- ══════════════════ COLUMN 0: SIDEBAR ICON RAIL ══════════════════ -->
-            <Border Grid.Column="0" Background="{StaticResource T3.SurfaceSunken}"
-                    BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
-                <Grid Margin="0,16">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Logo Tile -->
-                    <Border Grid.Row="0" Style="{StaticResource T3.Rail.Logo}" Margin="0,0,0,16">
-                        <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" FontSize="15"
-                                   Foreground="{StaticResource T3.Ink}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-
-                    <!-- Tab 0: Family Loader -->
-                    <ToggleButton x:Name="nav_loader" Grid.Row="1"
-                                  Style="{StaticResource T3.Rail.Tile}"
-                                  Margin="0,0,0,8" IsChecked="True"
-                                  ToolTip="Family Loader" Click="nav_toggle_clicked">
-                        <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
-                    </ToggleButton>
-
-                    <!-- Tab 1: Family Management -->
-                    <ToggleButton x:Name="nav_management" Grid.Row="2"
-                                  Style="{StaticResource T3.Rail.Tile}"
-                                  Margin="0,0,0,8"
-                                  ToolTip="Family Management" Click="nav_toggle_clicked">
-                        <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
-                    </ToggleButton>
-                </Grid>
-            </Border>
-
-            <!-- ══════════════════ COLUMN 1: MAIN WORKSPACE ══════════════════ -->
-            <Grid Grid.Column="1">
-                <Grid.RowDefinitions>
-                    <!-- Row 0: Title Bar (48px) -->
-                    <RowDefinition Height="48"/>
-                    <!-- Row 1: Content TabControl (*) -->
-                    <RowDefinition Height="*"/>
-                    <!-- Row 2: Footer Bar (48px) -->
-                    <RowDefinition Height="48"/>
-                </Grid.RowDefinitions>
-
-                <!-- ══════════════════ ROW 0: TITLE BAR ══════════════════ -->
-                <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
+            <!-- ══════════════════ ROW 0: FULL-WIDTH TITLE BAR ══════════════════ -->
+            <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -1440,10 +1416,15 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Title + Subtitle -->
-                        <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="16,0,0,0"
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,0"
                                     shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                            <TextBlock x:Name="lbl_title" Text="Family Loader" Style="{StaticResource T3.Title}"/>
-                            <TextBlock x:Name="lbl_subtitle" Text="Load and manage Revit families from local or cloud libraries" Style="{StaticResource T3.Subtitle}"/>
+                            <Image x:Name="logo_image" Height="28" Margin="0,0,12,0"
+                                   VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                <TextBlock x:Name="lbl_title" Text="Family Loader" Style="{StaticResource T3.Title}"/>
+                                <TextBlock x:Name="lbl_subtitle" Text="Load and manage Revit families from local or cloud libraries" Style="{StaticResource T3.Subtitle}"/>
+                            </StackPanel>
                         </StackPanel>
 
                         <!-- Window Controls -->
@@ -1465,8 +1446,53 @@
                     </Grid>
                 </Border>
 
+            <!-- ══════════════════ ROW 1: WORKSPACE WITH REFINED SIDEBAR ══════════════════ -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="58"/>    <!-- Col 0: Left Navigation Icon Rail -->
+                    <ColumnDefinition Width="*"/>     <!-- Col 1: Main Content Work Area -->
+                </Grid.ColumnDefinitions>
+
+                <!-- ══════════════════ COL 0: LEFT NAVIGATION ICON RAIL ══════════════════ -->
+                <Border Grid.Column="0" Background="{StaticResource T3.SurfaceSunken}"
+                    BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,1,0">
+                <Grid Margin="0,12,0,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Tab 0: Family Loader -->
+                    <ToggleButton x:Name="nav_loader" Grid.Row="0"
+                                  Style="{StaticResource T3.Rail.Tile}"
+                                  Margin="0,0,0,8" IsChecked="True"
+                                  ToolTip="Family Loader" Click="nav_toggle_clicked">
+                        <Path Data="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z M3.27 6.96L12 12.01l8.73-5.05 M12 22.08V12"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Tab 1: Family Management -->
+                    <ToggleButton x:Name="nav_management" Grid.Row="1"
+                                  Style="{StaticResource T3.Rail.Tile}"
+                                  Margin="0,0,0,8"
+                                  ToolTip="Family Management" Click="nav_toggle_clicked">
+                        <Path Data="M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M1 14h6 M9 8h6 M17 16h6"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="18" Height="18" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                </Grid>
+            </Border>
+
+                <!-- ══════════════════ COL 1: MAIN WORKSPACE ══════════════════ -->
                 <!-- ══════════════════ ROW 1: CONTENT TABCONTROL ══════════════════ -->
-                <TabControl x:Name="main_tab_control" Grid.Row="1" BorderThickness="0" Background="Transparent" Padding="0">
+                <TabControl x:Name="main_tab_control" Grid.Column="1" BorderThickness="0" Background="Transparent" Padding="0">
                     <TabControl.ItemContainerStyle>
                         <Style TargetType="TabItem" BasedOn="{StaticResource T3.TabItem.Hidden}"/>
                     </TabControl.ItemContainerStyle>
@@ -1814,9 +1840,10 @@
                                 <Grid Grid.Row="1">
                                     <TextBlock Text="No families loaded in grid." Style="{StaticResource T3.Empty}" Visibility="Collapsed"/>
                                     <DataGrid x:Name="dg_families"
-                                              Style="{StaticResource T3.DataGrid}">
+                                              Style="{StaticResource T3.DataGrid}"
+                                              BorderThickness="0">
                                         <DataGrid.Columns>
-                                            <DataGridTemplateColumn Header="&#x2713;" Width="40">
+                                            <DataGridTemplateColumn Header="&#x2713;" Width="36">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -1825,10 +1852,12 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTextColumn Header="Family Name" Binding="{Binding FamilyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="240"/>
-                                            <DataGridTextColumn Header="Type Name" Binding="{Binding TypeName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
-                                            <DataGridTextColumn Header="Category" Binding="{Binding CategoryName}" Width="150" IsReadOnly="True"/>
-                                            <DataGridTemplateColumn Header="Workset" Width="150">
+                                            <DataGridTextColumn Header="FAMILY NAME" Binding="{Binding FamilyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="240"/>
+                                            <DataGridTextColumn Header="TYPE NAME" Binding="{Binding TypeName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*"
+                                                                ElementStyle="{StaticResource T3.Cell.Muted}"/>
+                                            <DataGridTextColumn Header="CATEGORY" Binding="{Binding CategoryName}" Width="150" IsReadOnly="True"
+                                                                ElementStyle="{StaticResource T3.Body.Secondary}"/>
+                                            <DataGridTemplateColumn Header="WORKSET" Width="150">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <ComboBox ItemsSource="{Binding RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}, Path=DataContext.Worksets}"
@@ -1839,7 +1868,7 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="Action" Width="60">
+                                            <DataGridTemplateColumn Header="ACTION" Width="60">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Button Click="delete_row_click" Style="{StaticResource T3.WinCtrl}" Width="28" Height="24" ToolTip="Remove from list" HorizontalAlignment="Center">
@@ -1873,7 +1902,10 @@
                 </TabControl>
 
                 <!-- ══════════════════ ROW 2: FOOTER BAR ══════════════════ -->
-                <Border Grid.Row="2" Style="{StaticResource T3.FooterBar}">
+            </Grid>
+
+            <!-- ══════════════════ ROW 2: UNIFIED FOOTER BAR ══════════════════ -->
+            <Border Grid.Row="2" Style="{StaticResource T3.FooterBar}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -1891,8 +1923,6 @@
                         <TextBlock x:Name="count_text" Grid.Column="1" Text="Total elements found: 0 | Selected: 0" Style="{StaticResource T3.Caption}" Foreground="{StaticResource T3.TextDisabled}" VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
-
-            </Grid>
         </Grid>
     </Border>
 </Window>

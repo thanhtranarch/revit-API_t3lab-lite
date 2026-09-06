@@ -37,25 +37,36 @@ from Autodesk.Revit.DB import *
 # ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
 #  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
-# ==================================================
-# doc   = __revit__.ActiveUIDocument.Document
-# uidoc = __revit__.ActiveUIDocument
-# `__revit__` members are unavailable when no UIDocument is active, and at
-# module scope that kills the import outright. Resolve defensively; the entry
-# point reports the real problem (see Snippets._host.resolve_doc()).
 try:
-    app = __revit__.Application
-except Exception:
-    app = None
-rvt_year = int(app.VersionNumber)
+    from Snippets._host import resolve_doc, resolve_uidoc, get_revit_version
+except ImportError:
+    try:
+        import importlib
+        import Snippets._host
+        importlib.reload(Snippets._host)
+        from Snippets._host import resolve_doc, resolve_uidoc, get_revit_version
+    except Exception:
+        from Snippets._host import resolve_doc, get_revit_version
+        def resolve_uidoc(candidate=None):
+            if candidate is not None and hasattr(candidate, 'Document') and candidate.Document is not None:
+                return candidate
+            try:
+                from pyrevit import revit
+                return revit.uidoc
+            except Exception:
+                return None
+from Snippets._compat import make_eid
 
 # ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔
 # ╠╣ ║ ║║║║║   ║ ║║ ║║║║
 # ╚  ╚═╝╝╚╝╚═╝ ╩ ╩╚═╝╝╚╝ FUNCTION
 # ==================================================
-def select_similar_by_family(uidoc, mode):
+def select_similar_by_family(uidoc=None, mode='model'):
+    uidoc = resolve_uidoc(uidoc)
+    if not uidoc:
+        return
     doc = uidoc.Document
-    selected_elements = uidoc.Selection.GetElementIds()
+    selected_elements = list(uidoc.Selection.GetElementIds())
 
     try:
         # Check that Only single item is selected!
@@ -72,8 +83,12 @@ def select_similar_by_family(uidoc, mode):
         f_parameter = ParameterValueProvider(ElementId(BuiltInParameter.ALL_MODEL_FAMILY_NAME))
         f_parameter_value = elem_family_name
 
-        if rvt_year < 2023:
-            f_rule = FilterStringRule(f_parameter, FilterStringEquals(), f_parameter_value,True)
+        rvt_year = get_revit_version(doc)
+        if rvt_year and rvt_year < 2022:
+            try:
+                f_rule = FilterStringRule(f_parameter, FilterStringEquals(), f_parameter_value, True)
+            except Exception:
+                f_rule = FilterStringRule(f_parameter, FilterStringEquals(), f_parameter_value)
         else:
             f_rule = FilterStringRule(f_parameter, FilterStringEquals(), f_parameter_value)
 

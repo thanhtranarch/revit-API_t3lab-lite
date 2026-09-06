@@ -70,28 +70,40 @@ class ManaSelectWindow(T3WPFWindow):
     def _init_sub_panels(self):
         """Loads Quick Select window grid and collapses its header to avoid duplicates."""
         try:
-            self._quick_select_win = QuickElementDialog.QuickSelectWindow()
+            self._quick_select_win = QuickElementDialog.QuickSelectWindow(set_owner=False)
             quick_select_border = self._quick_select_win.Content
             # Content is Border, its Child is Grid. The Border is QuickElement's own
             # standalone window chrome (rounded corners + gray edge) - reparenting it
             # as-is would nest that chrome frame inside ManaSelect's own window chrome,
             # showing up as a gray gutter/border around the tab. Reparent the inner
             # Grid only and drop the outer chrome Border.
-            quick_select_grid = quick_select_border.Child
-            self._quick_select_win.Content = None
-            quick_select_border.Child = None
+            if hasattr(quick_select_border, 'Child') and quick_select_border.Child is not None:
+                quick_select_grid = quick_select_border.Child
+                self._quick_select_win.Content = None
+                quick_select_border.Child = None
+            else:
+                quick_select_grid = quick_select_border
+                self._quick_select_win.Content = None
             self.grid_quick_select.Children.Add(quick_select_grid)
 
             # Collapse sub-tool header and footer to unify status bar
-            if quick_select_grid.RowDefinitions.Count > 0:
-                quick_select_grid.RowDefinitions[0].Height = System.Windows.GridLength(0)
-            if quick_select_grid.RowDefinitions.Count > 2:
-                quick_select_grid.RowDefinitions[quick_select_grid.RowDefinitions.Count - 1].Height = System.Windows.GridLength(0)
+            if hasattr(quick_select_grid, 'RowDefinitions'):
+                if quick_select_grid.RowDefinitions.Count > 0:
+                    quick_select_grid.RowDefinitions[0].Height = System.Windows.GridLength(0)
+                if quick_select_grid.RowDefinitions.Count > 2:
+                    quick_select_grid.RowDefinitions[quick_select_grid.RowDefinitions.Count - 1].Height = System.Windows.GridLength(0)
 
             # Re-wire close
-            self._quick_select_win.Close = self.Close
-        except Exception as ex:
-            print("Error loading Quick Select panel: {}".format(ex))
+            try:
+                self._quick_select_win.Close = self.Close
+            except BaseException:
+                pass
+        except BaseException as ex:
+            try:
+                import traceback
+                traceback.print_exc()
+            except BaseException:
+                pass
 
     def _on_nav_toggle_clicked(self, sender, e):
         """Switch active TabControl index, sync rail toggle state and update status bar text."""

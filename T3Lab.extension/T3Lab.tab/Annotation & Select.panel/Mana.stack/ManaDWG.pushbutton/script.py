@@ -72,7 +72,7 @@ from Autodesk.Revit.DB import (
 )
 
 from pyrevit import revit, forms, script
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 
 # PATH SETUP
 # ==================================================
@@ -243,7 +243,7 @@ class DWGManagementWindow(T3WPFWindow):
 
         try:
             self.DWGDataGrid.ItemsSource = None
-            self.DWGDataGrid.ItemsSource = self._filtered_items
+            self.DWGDataGrid.ItemsSource = to_items_source(self._filtered_items)
         except Exception as ex:
             logger.warning("Could not bind grid: {}".format(ex))
 
@@ -305,7 +305,7 @@ class DWGManagementWindow(T3WPFWindow):
         # Rebind to refresh checkbox states
         try:
             self.DWGDataGrid.ItemsSource = None
-            self.DWGDataGrid.ItemsSource = self._filtered_items
+            self.DWGDataGrid.ItemsSource = to_items_source(self._filtered_items)
         except Exception:
             pass
 

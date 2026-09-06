@@ -27,21 +27,15 @@ from Autodesk.Revit.DB import *
 # module scope that kills the import outright. Resolve defensively; the entry
 # point reports the real problem (see Snippets._host.resolve_doc()).
 try:
-    uidoc = __revit__.ActiveUIDocument
-except Exception:
-    uidoc = None
-try:
-    app = __revit__.Application
-except Exception:
-    app = None
-try:
-    doc = __revit__.ActiveUIDocument.Document
+    from Snippets._host import resolve_doc, host_uiapp
+    doc, _ = resolve_doc()
+    _uiapp = host_uiapp()
+    uidoc = _uiapp.ActiveUIDocument if _uiapp else None
+    app   = _uiapp.Application if _uiapp else None
 except Exception:
     doc = None
-
-active_view_id      = doc.ActiveView.Id
-active_view         = doc.GetElement(active_view_id)
-active_view_level   = active_view.GenLevel
+    uidoc = None
+    app = None
 
 # ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
 # ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
@@ -78,7 +72,7 @@ def get_points_along_a_curve(curve, step=0.3):
 
 
 
-def get_line_styles(uidoc):
+def get_line_styles(uidoc=None):
     """Function to get available LineStyles for DetaiLines.
     It will create a temporary DetailLine to get LineStyles to prevent having issues
     in a project without lines.
@@ -86,13 +80,25 @@ def get_line_styles(uidoc):
     !IMPORTANT This function has to be run outside of any transactions!
 
     :return: list of Available LineStyles"""
+    if uidoc is None:
+        try:
+            from Snippets._host import host_uiapp
+            _u = host_uiapp()
+            uidoc = _u.ActiveUIDocument if _u else None
+        except Exception:
+            uidoc = None
+    if not uidoc:
+        return []
+
+    cur_doc = uidoc.Document
+    active_view = uidoc.ActiveView
 
     # CREATE TEMP LINE
-    with Transaction(doc, "temp - Create DetailLine") as t:
+    with Transaction(cur_doc, "temp - Create DetailLine") as t:
         t.Start()
         new_line         = Line.CreateBound(XYZ(0,0,0), XYZ(1,1,0))
-        random_line      = uidoc.Document.Create.NewDetailCurve(active_view, new_line)
+        random_line      = cur_doc.Create.NewDetailCurve(active_view, new_line)
         line_styles_ids  = random_line.GetLineStyleIds()
         t.RollBack()
-    line_styles = [doc.GetElement(line_style) for line_style in line_styles_ids]
+    line_styles = [cur_doc.GetElement(line_style) for line_style in line_styles_ids]
     return line_styles

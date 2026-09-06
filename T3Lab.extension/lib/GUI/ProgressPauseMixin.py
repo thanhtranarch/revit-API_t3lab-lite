@@ -8,9 +8,14 @@ AutoJoin/script.py and FamiGenDialog.py.
 
 Usage (window class)::
 
-    from GUI.ProgressPauseMixin import ProgressPauseMixin
+    from GUI.WPF_Base import T3WPFWindow
 
-    class MyToolWindow(forms.WPFWindow, ProgressPauseMixin):
+    # NOTE: In CPython 3 (PythonNet), NEVER inherit from (T3WPFWindow, ProgressPauseMixin)!
+    # PythonNet throws: "Non .NET type used as super class for meta type".
+    # T3WPFWindow already includes all ProgressPauseMixin methods and attributes natively.
+    # Simply inherit from T3WPFWindow:
+
+    class MyToolWindow(T3WPFWindow):
         # Override PP_* class attrs if the XAML uses different x:Name values.
 
         def run_clicked(self, sender, e):

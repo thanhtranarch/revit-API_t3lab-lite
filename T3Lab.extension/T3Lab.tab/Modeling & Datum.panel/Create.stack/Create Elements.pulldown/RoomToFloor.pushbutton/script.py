@@ -63,7 +63,7 @@ from System.Windows.Media.Imaging import BitmapImage
 from System import Uri, UriKind
 from System.Collections.Generic import List
 
-from rpw import revit, DB
+from pyrevit import revit, DB
 from Autodesk.Revit.DB import (
     Transaction,
     TransactionGroup,
@@ -82,7 +82,8 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.UI import TaskDialog
 from pyrevit import forms, script
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
+from Snippets._compat import make_eid
 
 # Path setup
 SCRIPT_DIR = os.path.dirname(__file__)
@@ -120,7 +121,11 @@ REVIT_VERSION = get_revit_version()
 # CLASS/FUNCTIONS
 # ==============================================================================
 
+import uuid
+
 class FloorsCreationWarningSwallower(IFailuresPreprocessor):
+    __namespace__ = "T3Lab.RoomToFloor_" + uuid.uuid4().hex[:8]
+
     def PreprocessFailures(self, failuresAccessor):
         failList = failuresAccessor.GetFailureMessages()
         for failure in failList:
@@ -279,7 +284,7 @@ class RoomItem(object):
             self.Level = ""
 
 
-class RoomToFloorWindow(T3WPFWindow, ProgressPauseMixin):
+class RoomToFloorWindow(T3WPFWindow):
     """WPF window for creating floors from rooms."""
 
     # ProgressPauseMixin — RoomToFloor.xaml footer progress panel
@@ -312,7 +317,7 @@ class RoomToFloorWindow(T3WPFWindow, ProgressPauseMixin):
             self._all_rooms.append(RoomItem(r))
 
         self._all_rooms.sort(key=lambda x: (x.Level, x.Number))
-        self.room_datagrid.ItemsSource = self._all_rooms
+        self.room_datagrid.ItemsSource = to_items_source(self._all_rooms)
 
     def _load_floor_types(self):
         floor_types = FilteredElementCollector(doc) \
@@ -368,12 +373,12 @@ class RoomToFloorWindow(T3WPFWindow, ProgressPauseMixin):
     def search_changed(self, sender, e):
         query = self.txt_search.Text.strip().upper()
         if not query:
-            self.room_datagrid.ItemsSource = self._all_rooms
+            self.room_datagrid.ItemsSource = to_items_source(self._all_rooms)
         else:
-            self.room_datagrid.ItemsSource = [
+            self.room_datagrid.ItemsSource = to_items_source([
                 r for r in self._all_rooms 
                 if query in r.Name.upper() or query in r.Number.upper() or query in r.Level.upper()
-            ]
+            ])
         self._update_status()
 
     def create_floors_clicked(self, sender, e):
@@ -442,8 +447,8 @@ def run_headless(args_json):
         structural = data.get("structural", False)
         use_finish = data.get("use_finish", True)
         
-        rooms = [doc.GetElement(ElementId(int(rid))) for rid in room_ids]
-        floor_type = doc.GetElement(ElementId(int(type_id)))
+        rooms = [doc.GetElement(make_eid(int(rid))) for rid in room_ids if rid]
+        floor_type = doc.GetElement(make_eid(int(type_id))) if type_id else None
         
         new_floors, created, errors = gen.generate_floors(rooms, floor_type, offset, structural, use_finish)
         print(json.dumps({"status": "success", "created": created, "errors": errors}))

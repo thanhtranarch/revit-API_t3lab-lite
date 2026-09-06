@@ -13,7 +13,7 @@ Linkedin: linkedin.com/in/sunarch7899/
 __author__  = "Tran Tien Thanh"
 __title__   = "Forms"
 
-from GUI.WPF_Base import my_WPF, T3WPFWindow, WPFWindow
+from GUI.WPF_Base import my_WPF, T3WPFWindow, WPFWindow, to_items_source, set_items_source, setup_window_logo
 from GUI.FindReplace import FindReplace
 from GUI.SelectFromDict import select_from_dict
 from GUI.T3Dialog import T3Dialog, show_info, show_warning, show_error, confirm

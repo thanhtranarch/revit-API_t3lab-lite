@@ -19,7 +19,7 @@ __author__ = "Dang Quoc Truong (DQT)"
 __doc__ = "Write Revit computed volume into a selected shared parameter on Structural Foundation elements."
 
 # ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
-import sys
+import os, sys
 
 for _env in ('APPDATA', 'PROGRAMDATA'):
     _base = os.environ.get(_env, '')
@@ -53,6 +53,7 @@ try:
 except Exception:
     pass
 # ──────────────────────────────────────────────────────────────────────────────
+from GUI.WPF_Base import setup_window_logo
 import clr
 clr.AddReference('RevitAPI')
 clr.AddReference('RevitAPIUI')
@@ -195,6 +196,7 @@ class FoundationVolumeDialog(object):
             xaml_content = f.read()
         stream = MemoryStream(Encoding.UTF8.GetBytes(xaml_content))
         self.window = XamlReader.Load(stream)
+        setup_window_logo(self.window)
 
         # Controls
         self._count_lbl       = self.window.FindName("FoundationCount")
@@ -209,6 +211,7 @@ class FoundationVolumeDialog(object):
         self._btn_minimize    = self.window.FindName("btn_minimize")
         self._btn_maximize    = self.window.FindName("btn_maximize")
         self._btn_close       = self.window.FindName("btn_close")
+        self._title_bar       = self.window.FindName("title_bar")
         self._main_tabs       = self.window.FindName("main_tabs")
         self._back_btn        = self.window.FindName("back_button")
         self._next_txt        = self.window.FindName("next_button_text")
@@ -239,6 +242,8 @@ class FoundationVolumeDialog(object):
             self._btn_maximize.Click += self._on_maximize
         if self._btn_close:
             self._btn_close.Click += self._on_close
+        if self._title_bar:
+            self._title_bar.MouseLeftButtonDown += self._on_drag
 
     # ── List helpers ──────────────────────────────────────────────────────
     def _populate_list(self, names):
@@ -340,9 +345,12 @@ class FoundationVolumeDialog(object):
                         try:
                             is_volume_spec = False
                             try:
-                                spec_id = p.Definition.GetSpecTypeId()
-                                if HAS_UNIT_TYPE_ID:
+                                if HAS_UNIT_TYPE_ID and hasattr(p.Definition, "GetSpecTypeId"):
+                                    spec_id = p.Definition.GetSpecTypeId()
                                     is_volume_spec = (spec_id == DB.SpecTypeId.Volume)
+                                else:
+                                    from Autodesk.Revit.DB import ParameterType
+                                    is_volume_spec = (p.Definition.ParameterType == ParameterType.Volume)
                             except Exception:
                                 pass
 
@@ -442,6 +450,14 @@ class FoundationVolumeDialog(object):
 
     def _on_close(self, sender, e):
         self.window.Close()
+
+    def _on_drag(self, sender, e):
+        try:
+            from System.Windows.Input import MouseButtonState
+            if e.ButtonState == MouseButtonState.Pressed:
+                self.window.DragMove()
+        except Exception:
+            pass
 
     def show(self):
         self.window.ShowDialog()

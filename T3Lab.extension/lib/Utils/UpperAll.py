@@ -30,13 +30,26 @@ from Snippets._compat import eid_value
 _SKIP_PARAM_TYPE_NAMES = frozenset(("URL", "Image"))
 
 def _is_skippable_string_param(param):
+    if not param:
+        return False
     try:
-        return param.Definition.ParameterType.ToString() in _SKIP_PARAM_TYPE_NAMES
+        defn = param.Definition
+        if not defn:
+            return False
+        if hasattr(defn, "GetDataType"):
+            dt = defn.GetDataType()
+            if dt:
+                dt_id = str(dt.TypeId).lower()
+                if "url" in dt_id or "image" in dt_id:
+                    return True
+        return defn.ParameterType.ToString() in _SKIP_PARAM_TYPE_NAMES
     except Exception:
         return False
 
 
 class WarningSwallower(IFailuresPreprocessor):
+    __namespace__ = "T3Lab.UpperAll"
+
     def PreprocessFailures(self, failuresAccessor):
         try:
             failures = failuresAccessor.GetFailureMessages()

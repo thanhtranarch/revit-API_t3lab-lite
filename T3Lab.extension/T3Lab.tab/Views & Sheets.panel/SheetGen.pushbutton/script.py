@@ -65,7 +65,7 @@ from System.Windows.Controls import Border, Grid, TextBlock, Canvas, DataGridRow
 from System.Windows.Media import SolidColorBrush, Color, VisualTreeHelper
 from System.Windows.Shapes import Line
 
-from rpw import revit, DB
+from pyrevit import revit, DB, forms, script
 from Autodesk.Revit.DB import (
     Transaction,
     TransactionGroup,
@@ -85,8 +85,7 @@ from Autodesk.Revit.DB import (
     XYZ,
 )
 from Autodesk.Revit.UI import TaskDialog
-from pyrevit import forms, script
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 
 # ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
@@ -173,7 +172,7 @@ class RoomItem(object):
         self.GenQty = 1
 
 
-class CreateRoomPlanWindow(T3WPFWindow, ProgressPauseMixin):
+class CreateRoomPlanWindow(T3WPFWindow):
     """WPF window for creating plan views from rooms."""
 
     # ProgressPauseMixin — SheetGen.xaml footer progress panel
@@ -248,7 +247,7 @@ class CreateRoomPlanWindow(T3WPFWindow, ProgressPauseMixin):
 
         # Sort by number
         self._all_rooms.sort(key=lambda x: x.Number)
-        self.room_datagrid.ItemsSource = self._all_rooms
+        self.room_datagrid.ItemsSource = to_items_source(self._all_rooms)
         if self._all_rooms:
             self.room_datagrid.SelectedItem = self._all_rooms[0]
 
@@ -1176,7 +1175,7 @@ class CreateRoomPlanWindow(T3WPFWindow, ProgressPauseMixin):
         """Filter room list by search text."""
         query = self.txt_search.Text.strip().upper()
         if not query:
-            self.room_datagrid.ItemsSource = self._all_rooms
+            self.room_datagrid.ItemsSource = to_items_source(self._all_rooms)
         else:
             filtered = [
                 r for r in self._all_rooms
@@ -1185,7 +1184,7 @@ class CreateRoomPlanWindow(T3WPFWindow, ProgressPauseMixin):
                 or query in (r.RoomType or "").upper()
                 or query in (r.Level or "").upper()
             ]
-            self.room_datagrid.ItemsSource = filtered
+            self.room_datagrid.ItemsSource = to_items_source(filtered)
         self._update_status()
 
     # ── Main action ───────────────────────────────────

@@ -56,12 +56,25 @@ XAML thì không. `audit_t3.py` bắt lỗi này bằng cách dò dấu tiếng 
 > attribute của Window được parse TRƯỚC `Window.Resources`, nên `StaticResource` ở đó
 > không tìm thấy key. Bên trong cây con thì `StaticResource` bình thường.
 
-## Title bar (40px)
+## Title bar (48px)
 
 ```xml
-<Border Style="{StaticResource T3.TitleBar}">
-  <TextBlock Text="Rename Sheets" Style="{StaticResource T3.Title}"
-             VerticalAlignment="Center"/>
+<Border Style="{StaticResource T3.TitleBar}" Padding="12,0,8,0">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*"/>
+      <ColumnDefinition Width="Auto"/>
+    </Grid.ColumnDefinitions>
+    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+      <Image x:Name="logo_image" Height="28" Margin="0,0,12,0"
+             VerticalAlignment="Center"
+             RenderOptions.BitmapScalingMode="HighQuality"/>
+      <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+        <TextBlock Text="Rename Sheets" Style="{StaticResource T3.Title}"/>
+        <TextBlock Text="Batch-rename project sheets according to standards" Style="{StaticResource T3.Subtitle}"/>
+      </StackPanel>
+    </StackPanel>
+  </Grid>
 </Border>
 ```
 

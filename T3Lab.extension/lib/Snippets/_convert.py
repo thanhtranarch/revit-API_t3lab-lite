@@ -26,10 +26,14 @@ from Autodesk.Revit.DB import *
 # module scope that kills the import outright. Resolve defensively; the entry
 # point reports the real problem (see Snippets._host.resolve_doc()).
 try:
-    app = __revit__.Application
+    from Snippets._host import get_revit_version
+    rvt_year = get_revit_version()
 except Exception:
-    app = None
-rvt_year = int(app.VersionNumber)
+    try:
+        app = __revit__.Application
+        rvt_year = int(app.VersionNumber)
+    except Exception:
+        rvt_year = 2024
 
 
 # ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗

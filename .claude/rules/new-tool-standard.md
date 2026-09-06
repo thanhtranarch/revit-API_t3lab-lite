@@ -163,12 +163,13 @@ if __name__ == '__main__':
 | S9 | Không thêm dependency mới | CPython 3 (pyRevit) + .NET + stock WPF |
 | S10 | Shebang `#! python3` bắt buộc ở dòng 1 | pyRevit định tuyến chạy CPython 3 (CPY3123) |
 | S11 | Path setup `sys.path.insert(0, LIB_DIR)` bắt buộc | Đảm bảo import `GUI`, `Snippets`, `Services` không phụ thuộc vào vị trí chạy |
-| S12 | .NET Interface phải có `__namespace__ = "T3Lab.<UniqueName>"` — **nhưng CHỈ dưới IronPython**, xem ô dưới | Tránh type collision trong dynamic assembly của PythonNet |
+| S12 | .NET Interface bắt buộc có `__namespace__` | Trong PythonNet, thiếu `__namespace__` khiến đối tượng không implement interface (`object does not implement <Interface>`). |
 | S13 | Cấm cú pháp Python 2 (`xrange`, `__builtin__`, `execfile`, `unicode`, `open(..., 'wb')` cho CSV) | Gây crash ngay lập tức trên Python 3 |
 | S14 | **Debug lỗi Revit bắt buộc đọc Journal**: Đọc file `%LOCALAPPDATA%\Autodesk\Revit\Autodesk Revit <Year>\Journals\journal.XXXX.txt` | Trích xuất stack trace thực tế, tuyệt đối không đoán mò |
-| S15 | **`__namespace__` phải bọc `if sys.version_info[0] < 3:`** khi class nằm trong `script.py` | Engine CPython là interpreter **thường trú**; `script.py` chạy lại mỗi lần click, mà `__namespace__` ghim cứng tên CLR type → lần click thứ 2 ném `TypeError: Duplicate type name within an assembly`. Bỏ `__namespace__` thì pythonnet tự sinh tên duy nhất. IronPython vẫn cần nó nên giữ trong nhánh `< 3`. Tốt nhất: đưa class đó vào `lib/` (chỉ import một lần mỗi phiên) |
+| S15 | **Khai báo `__namespace__` an toàn**: đưa class vào `lib/` HOẶC dùng namespace động `uuid` trong `script.py` | Engine CPython là interpreter **thường trú**; nếu class nằm trong `script.py` với tên tĩnh thì lần click thứ 2 ném `TypeError: Duplicate type name within an assembly`. Giải pháp: đưa class vào `lib/` (import 1 lần) hoặc dùng `__namespace__ = "T3Lab.<Name>_" + uuid.uuid4().hex[:8]`. Tuyệt đối không bỏ `__namespace__` vì sẽ gây `object does not implement <Interface>`. |
 | S16 | **Không dùng `pyrevit.forms.*` trực tiếp** — dùng `GUI.T3Dialog`, hoặc thêm API vào `_cpython_bootstrap.install_forms_shim()` | `pyrevit/forms/__init__.py` có module `__getattr__` ném `PyRevitCPythonNotSupported` cho **mọi** thuộc tính dưới CPython |
 | S17 | **Mọi sửa đổi trong `lib/` cần Reload pyRevit** mới có hiệu lực | `sys.modules` sống suốt phiên Revit. Triệu chứng đánh lừa: pyRevit in traceback theo **file hiện tại trên đĩa** nhưng chạy **code cũ**, nên số dòng không khớp lỗi. Thấy lỗi vô lý so với dòng được chỉ → nghi module cũ trước khi nghi code |
+| S18 | **Cấm Multiple Inheritance với CLR Class** (`Non .NET type used as super class for meta type`) | Trong PythonNet, class kế thừa CLR class (`T3WPFWindow` / `System.Windows.Window`) không được phép kế thừa thêm pure Python class/mixin. Toàn bộ progress/pause methods đã có sẵn trong `T3WPFWindow`; chỉ khai báo `class MyWindow(T3WPFWindow):`. |
 
 ---
 

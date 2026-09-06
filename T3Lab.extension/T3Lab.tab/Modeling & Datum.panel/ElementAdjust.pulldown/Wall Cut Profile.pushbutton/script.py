@@ -12,7 +12,7 @@ __author__ = "Dang Quoc Truong (DQT)"
 __doc__ = "Cut wall profiles or create openings based on linked element intersections"
 
 # ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
-import sys
+import os, sys
 
 for _env in ('APPDATA', 'PROGRAMDATA'):
     _base = os.environ.get(_env, '')
@@ -141,13 +141,10 @@ CATEGORIES = {
 # SELECTION FILTERS
 # ==============================================================================
 
+import uuid
+
 class LinkFilter(ISelectionFilter):
-    # IronPython only: __namespace__ pins the generated CLR type
-    # name, so re-running this script.py on the next click raises
-    # "Duplicate type name within an assembly". pythonnet
-    # auto-uniquifies when it is absent, which is what we want.
-    if sys.version_info[0] < 3:
-        __namespace__ = "T3Lab.WallCutProfile"
+    __namespace__ = "T3Lab.WallCutProfile_Link_" + uuid.uuid4().hex[:8]
     def AllowElement(self, elem):
         try:
             return isinstance(elem, RevitLinkInstance)
@@ -159,12 +156,7 @@ class LinkFilter(ISelectionFilter):
 
 
 class WallFilter(ISelectionFilter):
-    # IronPython only: __namespace__ pins the generated CLR type
-    # name, so re-running this script.py on the next click raises
-    # "Duplicate type name within an assembly". pythonnet
-    # auto-uniquifies when it is absent, which is what we want.
-    if sys.version_info[0] < 3:
-        __namespace__ = "T3Lab.WallCutProfile"
+    __namespace__ = "T3Lab.WallCutProfile_Wall_" + uuid.uuid4().hex[:8]
     def AllowElement(self, elem):
         try:
             if not isinstance(elem, Wall):
@@ -187,7 +179,11 @@ class WallFilter(ISelectionFilter):
 # FAILURES PREPROCESSOR
 # ==============================================================================
 
+import uuid
+
 class WarningSwallower(DB.IFailuresPreprocessor):
+    __namespace__ = "T3Lab.WallCutProfile_" + uuid.uuid4().hex[:8]
+
     def PreprocessFailures(self, fa):
         for f in fa.GetFailureMessages():
             sev = f.GetSeverity()

@@ -44,6 +44,7 @@ from Autodesk.Revit.DB import (
 from pyrevit import script, forms
 from GUI.WPF_Base import T3WPFWindow
 from GUI.ProgressPauseMixin import ProgressPauseMixin
+from Snippets._compat import make_eid, eid_value
 
 # Dynamically find the XAML layout
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'IFCSG.xaml')
@@ -1002,7 +1003,7 @@ class ExcelReporter:
 # Unified IFC-SG Suite Window
 # ==============================================================================
 
-class IFCSGSuiteWindow(T3WPFWindow, ProgressPauseMixin):
+class IFCSGSuiteWindow(T3WPFWindow):
 
     # ProgressPauseMixin — IFCSG.xaml progress panel element names
     PP_PANEL      = "ifc_progress_panel"
@@ -1942,7 +1943,9 @@ class IFCSGSuiteWindow(T3WPFWindow, ProgressPauseMixin):
             ids = System.Collections.Generic.List[ElementId]()
             for eid in element_ids:
                 try:
-                    ids.Add(ElementId(int(eid)))
+                    eid_obj = make_eid(int(eid))
+                    if eid_obj and eid_value(eid_obj) != -1:
+                        ids.Add(eid_obj)
                 except:
                     pass
             if ids.Count > 0:

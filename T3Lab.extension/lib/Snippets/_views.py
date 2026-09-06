@@ -43,18 +43,12 @@ from Autodesk.Revit.DB import ( Transaction,
 # module scope that kills the import outright. Resolve defensively; the entry
 # point reports the real problem (see Snippets._host.resolve_doc()).
 try:
-    uidoc = __revit__.ActiveUIDocument
-except Exception:
-    uidoc = None
-try:
-    doc = __revit__.ActiveUIDocument.Document
+    from Snippets._host import resolve_doc, get_revit_version
+    doc, _doc_err = resolve_doc()
+    rvt_year = get_revit_version()
 except Exception:
     doc = None
-try:
-    app = __revit__.Application
-except Exception:
-    app = None
-rvt_year = int(app.VersionNumber)
+    rvt_year = 2024
 
 # ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
 # ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
@@ -80,7 +74,8 @@ def get_sheet_from_view(view):
     my_filter = create_string_equals_filter(key_parameter=BuiltInParameter.SHEET_NUMBER,
                                             element_value=view.get_Parameter(BuiltInParameter.VIEWER_SHEET_NUMBER).AsString() )
     #>>>>>>>>>> GET SHEET
-    return FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Sheets).WhereElementIsNotElementType().WherePasses(my_filter).FirstElement()
+    target_doc = view.Document if (view and hasattr(view, 'Document')) else doc
+    return FilteredElementCollector(target_doc).OfCategory(BuiltInCategory.OST_Sheets).WhereElementIsNotElementType().WherePasses(my_filter).FirstElement()
 
 # CREATE VIEW
 def create_3D_view(uidoc, name=''):

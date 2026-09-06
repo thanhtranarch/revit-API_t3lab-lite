@@ -18,25 +18,67 @@ Callbacks contract (missing keys degrade gracefully):
 """
 
 import os
-import clr
-clr.AddReference("System.Drawing")
+import sys
+
+try:
+    import clr
+    for _ref in ('System', 'WindowsBase', 'PresentationCore', 'PresentationFramework', 'System.Drawing'):
+        try:
+            clr.AddReference(_ref)
+        except Exception:
+            pass
+except Exception:
+    clr = None
 
 from pyrevit import forms
 from GUI.WPF_Base import T3WPFWindow
 
-from System import TimeSpan
-from System.Windows import (WindowState, Thickness, CornerRadius,
-                            Visibility, Clipboard, VerticalAlignment)
-from System.Windows.Input import Cursors, Key
-from System.Windows.Media import (BrushConverter, Color, SolidColorBrush,
-                                  LinearGradientBrush, GradientStop,
-                                  GradientStopCollection)
-from System.Windows.Controls import (Canvas, Button, TextBlock, StackPanel,
-                                     Border, Orientation)
-from System.Windows.Shapes import Ellipse
-from System.Windows.Threading import DispatcherTimer
-from System.Drawing import Bitmap, Graphics
-from System.Drawing import Point as DrawPoint, Size as DrawSize
+try:
+    from System import TimeSpan
+except Exception:
+    TimeSpan = None
+
+try:
+    from System.Windows import (WindowState, Thickness, CornerRadius,
+                                Visibility, Clipboard, VerticalAlignment)
+except Exception:
+    WindowState = Thickness = CornerRadius = Visibility = Clipboard = VerticalAlignment = None
+
+try:
+    from System.Windows.Input import Cursors, Key
+except Exception:
+    Cursors = Key = None
+
+try:
+    from System.Windows.Media import (BrushConverter, Color, SolidColorBrush,
+                                      LinearGradientBrush, GradientStop,
+                                      GradientStopCollection)
+except Exception:
+    BrushConverter = Color = SolidColorBrush = LinearGradientBrush = GradientStop = GradientStopCollection = None
+
+try:
+    from System.Windows.Controls import (Canvas, Button, TextBlock, StackPanel,
+                                         Border, Orientation)
+except Exception:
+    Canvas = Button = TextBlock = StackPanel = Border = Orientation = None
+
+try:
+    from System.Windows.Shapes import Ellipse
+except Exception:
+    Ellipse = None
+
+try:
+    from System.Windows.Threading import DispatcherTimer
+except Exception:
+    DispatcherTimer = None
+
+try:
+    from System.Drawing import Bitmap, Graphics
+    from System.Drawing import Point as DrawPoint, Size as DrawSize
+    HAS_DRAWING = True
+except Exception:
+    Bitmap = Graphics = DrawPoint = DrawSize = None
+    HAS_DRAWING = False
 
 # Absolute path to XAML
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'BGTheme.xaml')
@@ -47,7 +89,23 @@ MAX_RECENTS = 10
 # ------------------------------------------------------------------ helpers
 
 def brush(hex_string):
-    return BrushConverter().ConvertFromString(hex_string)
+    """Safely convert a hex string to a WPF Brush."""
+    if not hex_string:
+        return None
+    try:
+        if BrushConverter is not None:
+            return BrushConverter().ConvertFromString(hex_string)
+        from System.Windows.Media import BrushConverter as BC
+        return BC().ConvertFromString(hex_string)
+    except Exception:
+        pass
+    try:
+        rgb = from_hex(hex_string)
+        if rgb is not None:
+            return solid(rgb)
+    except Exception:
+        pass
+    return None
 
 
 def clamp255(v):
@@ -234,15 +292,21 @@ class BackgroundThemeWindow(T3WPFWindow):
     # ------------------------------------------------------------ chrome
 
     def minimize_button_clicked(self, sender, e):
-        self.WindowState = WindowState.Minimized
+        if WindowState is not None:
+            self.WindowState = WindowState.Minimized
 
     def maximize_button_clicked(self, sender, e):
-        if self.WindowState == WindowState.Maximized:
-            self.WindowState = WindowState.Normal
-            self.btn_maximize.ToolTip = "Maximize"
-        else:
-            self.WindowState = WindowState.Maximized
-            self.btn_maximize.ToolTip = "Restore"
+        if WindowState is not None:
+            if self.WindowState == WindowState.Maximized:
+                self.WindowState = WindowState.Normal
+                btn = getattr(self, 'btn_maximize', None) or self.FindName('btn_maximize')
+                if btn:
+                    btn.ToolTip = "Maximize"
+            else:
+                self.WindowState = WindowState.Maximized
+                btn = getattr(self, 'btn_maximize', None) or self.FindName('btn_maximize')
+                if btn:
+                    btn.ToolTip = "Restore"
 
     def close_button_clicked(self, sender, e):
         self.Close()
@@ -475,6 +539,8 @@ class BackgroundThemeWindow(T3WPFWindow):
             self._status("Screen pick cancelled")
 
     def _sample_screen(self, args):
+        if not HAS_DRAWING or Bitmap is None or Graphics is None:
+            return None
         try:
             pos = args.GetPosition(self)
             sp = self.PointToScreen(pos)

@@ -12,8 +12,10 @@ suy doan. Chay:  python3 dev/audit_cpython.py [--quiet]
   C5  P1  DB.<Enum> qua pyrevit.DB               -> attribute missing tren stub
   C6  P1  print() ngoai except                   -> ScriptIO has no attribute write
   C8  P0  ElementId.IntegerValue khong guard     -> AttributeError tren Revit 2024+
+  C9  P0  reload() tran                          -> NameError tren CPython 3
 """
 
+import ast
 import io
 import os
 import re
@@ -26,7 +28,8 @@ EXT = os.path.join(ROOT, 'T3Lab.extension')
 SHIMMED = {'alert', 'pick_file', 'save_file', 'pick_folder', 'WPFWindow',
            'SelectFromList', 'CommandSwitchWindow', 'ask_for_string',
            'ProgressBar', 'WarningBar', 'MessageBox', 'toast',
-           'Reactive', 'IRONPY', 'Visibility', '_cpy'}
+           'Reactive', 'IRONPY', 'Visibility', '_cpy',
+           'to_items_source', 'set_items_source'}
 
 GENERIC = re.compile(
     r'\b(List|Array|Dictionary|ObservableCollection|IList|HashSet|IEnumerable|'
@@ -101,6 +104,11 @@ def audit():
                 add('P0', 'C1', path, i,
                     '%s[%s] - dung System.Object / CLR type' % (m.group(1), m.group(2)))
 
+            m_oc = re.search(r'\bObservableCollection\[\s*([A-Za-z0-9_]+)\s*\]', line.split('#')[0])
+            if m_oc and m_oc.group(1) not in ('Object', 'System'):
+                add('P0', 'C1', path, i,
+                    'ObservableCollection[%s] - phai dung ObservableCollection[Object]() tren CPython 3' % m_oc.group(1))
+
             if MODULE_DOC.match(line):
                 add('P0', 'C2', path, i,
                     '%s o module scope - boc try/except, dung Snippets._host.resolve_doc()'
@@ -113,14 +121,17 @@ def audit():
                         '_cpython_bootstrap.install_forms_shim()' % name)
 
             if is_pushbutton and '__namespace__' in line and '=' in line:
-                # An giai neu da boc "if sys.version_info[0] < 3:" ngay tren:
-                # CPython khong dat __namespace__ -> pythonnet tu sinh ten duy nhat.
-                guarded = any('version_info[0] < 3' in prev
-                              for prev in lines[max(0, i - 3):i - 1])
+                # An giai neu dung uuid/exec_id (unique moi click) hoac da boc "if sys.version_info[0] < 3:"
+                guarded = (
+                    any(('version_info[0] < 3' in prev or 'uuid' in prev or 'exec_id' in prev)
+                        for prev in lines[max(0, i - 15):i])
+                    or 'uuid' in line
+                    or 'exec_id' in line
+                )
                 if not guarded:
                     add('P0', 'C4', path, i,
                         '__namespace__ trong script.py chay lai moi click -> '
-                        'Duplicate type name; boc "if sys.version_info[0] < 3:"')
+                        'Duplicate type name; dung uuid hoac dua class vao lib/')
 
             if 'script.get_output()' in line and '=' in line:
                 # An giai neu da di qua _cpython_bootstrap.safe_output()
@@ -142,6 +153,23 @@ def audit():
 
             if PRINT_CALL.match(line):
                 add('P1', 'C6', path, i, 'print() - bo hoac dung logger')
+
+        # C9: bare reload() call (CPython 3 requires importlib.reload)
+        try:
+            tree = ast.parse(src)
+            has_reload_def = any(
+                (isinstance(n, ast.ImportFrom) and any(alias.name == 'reload' for alias in n.names))
+                or (isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'reload' for t in n.targets))
+                or (isinstance(n, ast.FunctionDef) and n.name == 'reload')
+                for n in ast.walk(tree)
+            )
+            if not has_reload_def:
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'reload':
+                        add('P0', 'C9', path, node.lineno,
+                            'reload() tran - tren CPython 3 reload khong phai builtin; dung importlib.reload')
+        except Exception:
+            pass
 
     return findings
 

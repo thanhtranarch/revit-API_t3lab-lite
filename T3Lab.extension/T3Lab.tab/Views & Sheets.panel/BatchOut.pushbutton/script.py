@@ -81,7 +81,7 @@ from System.Threading import Thread, ThreadStart
 from System.Windows.Threading import DispatcherPriority
 
 from pyrevit import revit, DB, UI, forms, script, EXEC_PARAMS
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 from Autodesk.Revit.DB import (
     Transaction, FilteredElementCollector, BuiltInCategory,
     ViewSheet, ViewSet, ViewSheetSet, DWGExportOptions, DWFExportOptions,
@@ -488,62 +488,37 @@ class ExportProfile(object):
         return profile
 
 
-class BatchOutEventHandler(IExternalEventHandler):
-    # IronPython only: __namespace__ pins the generated CLR type
-    # name, so re-running this script.py on the next click raises
-    # "Duplicate type name within an assembly". pythonnet
-    # auto-uniquifies when it is absent, which is what we want.
-    if sys.version_info[0] < 3:
-        __namespace__ = "T3Lab.BatchOut"
-    """Runs queued window actions inside a valid Revit API context.
-
-    Required because the window is modeless (Show, not ShowDialog): ALL Revit
-    API access — reads included, not just transactions — must happen in here.
-    Touching the API from WPF events or Dispatcher callbacks after the command
-    has returned runs outside API context and hard-crashes Revit on workshared
-    models (fatal 0xe0434352 / 0xc0000005 seen 2026-07-13/14). Same pattern as
-    ManaLoca: "All Revit API work happens here".
-
-    NOTHING may escape Execute, and Execute may only rely on `self` and
-    builtins: if the engine scope was torn down (command ran without a baked
-    __persistentengine__ flag), every module-global lookup here raises
-    NameError — including a `logger` call in an except block. Exactly that
-    escaped Execute and took the whole Revit process down on 2026-07-14
-    (journal session 1006: UnboundNameException -> fatal 0xe0434352).
-    """
-
-    def __init__(self, logger):
-        # Direct reference: module globals may be gone by the time Execute
-        # fires, but instance attributes survive scope teardown
-        self._logger = logger
-        # Queue (not a single slot) so rapid clicks — e.g. Refresh then
-        # Export before Revit goes idle — never drop an action
-        self._queue = []
-
-    def add(self, action):
-        self._queue.append(action)
-
-    def Execute(self, uiapp):
-        try:
-            # Snapshot-drain: actions queued DURING this Execute (e.g. the next
-            # lazy-load chunk) run in the NEXT Execute, so Revit gets breathing
-            # room between chunks instead of one long blocking drain.
-            actions = self._queue
+try:
+    from Services.batchout_handler import BatchOutEventHandler
+except Exception:
+    import uuid
+    class BatchOutEventHandler(IExternalEventHandler):
+        __namespace__ = "T3Lab.BatchOut_" + uuid.uuid4().hex[:8]
+        def __init__(self, logger):
+            self._logger = logger
             self._queue = []
-            for action in actions:
-                try:
-                    action()
-                except Exception as ex:
-                    try:
-                        self._logger.error(
-                            "BatchOut external event failed: {}".format(ex))
-                    except Exception:
-                        pass
-        except Exception:
-            pass
 
-    def GetName(self):
-        return "T3Lab BatchOut Handler"
+        def add(self, action):
+            self._queue.append(action)
+
+        def Execute(self, uiapp):
+            try:
+                actions = self._queue
+                self._queue = []
+                for action in actions:
+                    try:
+                        action()
+                    except Exception as ex:
+                        try:
+                            self._logger.error(
+                                "BatchOut external event failed: {}".format(ex))
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+        def GetName(self):
+            return "T3Lab BatchOut Handler"
 
 
 class ExportManagerWindow(T3WPFWindow):
@@ -592,7 +567,7 @@ class ExportManagerWindow(T3WPFWindow):
                 # rather than letting Create escape.
                 try:
                     self._api_event = ExternalEvent.Create(self._api_handler)
-                except Exception as ee_ex:
+                except BaseException as ee_ex:
                     logger.debug(
                         "ExternalEvent.Create unavailable (window constructed "
                         "outside API context) — falling back to modal: "
@@ -772,7 +747,7 @@ class ExportManagerWindow(T3WPFWindow):
 
             # Update profiles listview (only if dialog is open)
             if hasattr(self, 'profiles_listview') and self.profiles_listview:
-                self.profiles_listview.ItemsSource = self.profiles
+                self.profiles_listview.ItemsSource = to_items_source(self.profiles)
             logger.info("Loaded {} profiles".format(len(self.profiles)))
 
         except Exception as ex:
@@ -1087,7 +1062,7 @@ class ExportManagerWindow(T3WPFWindow):
 
                 # Refresh listview
                 self.profiles_listview.ItemsSource = None
-                self.profiles_listview.ItemsSource = self.profiles
+                self.profiles_listview.ItemsSource = to_items_source(self.profiles)
 
                 self.status_text.Text = "Profile '{}' saved successfully".format(profile.Name)
 
@@ -1136,7 +1111,7 @@ class ExportManagerWindow(T3WPFWindow):
 
             # Refresh listview
             self.profiles_listview.ItemsSource = None
-            self.profiles_listview.ItemsSource = self.profiles
+            self.profiles_listview.ItemsSource = to_items_source(self.profiles)
 
             self.status_text.Text = "Profile '{}' deleted successfully".format(selected_profile.Name)
 
@@ -1180,7 +1155,7 @@ class ExportManagerWindow(T3WPFWindow):
 
                 # Refresh listview
                 self.profiles_listview.ItemsSource = None
-                self.profiles_listview.ItemsSource = self.profiles
+                self.profiles_listview.ItemsSource = to_items_source(self.profiles)
 
                 self.status_text.Text = "Profile '{}' imported successfully".format(profile.Name)
 
@@ -2588,7 +2563,7 @@ class ExportManagerWindow(T3WPFWindow):
     def update_sheets_list(self):
         """Update the sheets ListView."""
         self.sheets_listview.ItemsSource = None
-        self.sheets_listview.ItemsSource = self.filtered_sheets
+        self.sheets_listview.ItemsSource = to_items_source(self.filtered_sheets)
 
     def update_items_list(self):
         """Update the items ListView based on current selection mode."""
@@ -2603,7 +2578,7 @@ class ExportManagerWindow(T3WPFWindow):
     def update_views_list(self):
         """Update the views ListView."""
         self.sheets_listview.ItemsSource = None
-        self.sheets_listview.ItemsSource = self.filtered_views
+        self.sheets_listview.ItemsSource = to_items_source(self.filtered_views)
 
     def update_selection_count(self):
         """Update the selection count status bar."""
@@ -3494,7 +3469,7 @@ class ExportManagerWindow(T3WPFWindow):
                     self._run_in_api_context(self.build_export_preview)
                 else:
                     self.export_items = []
-                    self.export_preview_list.ItemsSource = self.export_items
+                    self.export_preview_list.ItemsSource = to_items_source(self.export_items)
                     self.progress_text.Text = "No items selected for export"
         except Exception as ex:
             logger.debug("Error updating export preview: {}".format(ex))
@@ -3589,7 +3564,7 @@ class ExportManagerWindow(T3WPFWindow):
                 self.export_items.append(preview_item)
 
         # Update preview list
-        self.export_preview_list.ItemsSource = self.export_items
+        self.export_preview_list.ItemsSource = to_items_source(self.export_items)
         self.progress_text.Text = "Ready to export {} items".format(len(self.export_items))
 
     def get_export_filename(self, item):
@@ -5162,7 +5137,7 @@ class ExportManagerWindow(T3WPFWindow):
             # Profile ListView
             profile_list = ListView()
             profile_list.Margin = Thickness(0, 0, 10, 0)
-            profile_list.ItemsSource = self.profiles
+            profile_list.ItemsSource = to_items_source(self.profiles)
             Grid.SetColumn(profile_list, 0)
 
             # Create custom template for listview items
@@ -5238,7 +5213,7 @@ class ExportManagerWindow(T3WPFWindow):
             def delete_and_refresh(s, ev):
                 self.delete_profile_clicked(s, ev)
                 profile_list.ItemsSource = None
-                profile_list.ItemsSource = self.profiles
+                profile_list.ItemsSource = to_items_source(self.profiles)
 
             delete_btn.Click += delete_and_refresh
             buttons_panel.Children.Add(delete_btn)
@@ -5258,7 +5233,7 @@ class ExportManagerWindow(T3WPFWindow):
             def import_and_refresh(s, ev):
                 self.import_profile_clicked(s, ev)
                 profile_list.ItemsSource = None
-                profile_list.ItemsSource = self.profiles
+                profile_list.ItemsSource = to_items_source(self.profiles)
 
             import_btn.Click += import_and_refresh
             buttons_panel.Children.Add(import_btn)

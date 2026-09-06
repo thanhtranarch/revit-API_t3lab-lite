@@ -49,6 +49,7 @@ from System.Windows import Thickness, Visibility, HorizontalAlignment
 from System.Windows import MessageBox as WPFMessageBox
 from System.Windows.Markup import XamlReader
 WPFGrid = System.Windows.Controls.Grid
+from GUI.WPF_Base import setup_window_logo
 
 # pyRevit
 from pyrevit import revit, script, forms
@@ -69,27 +70,40 @@ try:
 except Exception:
     app = None
 
+from Snippets._compat import make_eid, eid_value
+try:
+    from Snippets._host import resolve_doc, resolve_uidoc
+except ImportError:
+    try:
+        import importlib
+        import Snippets._host
+        importlib.reload(Snippets._host)
+        from Snippets._host import resolve_doc, resolve_uidoc
+    except Exception:
+        from Snippets._host import resolve_doc
+        def resolve_uidoc(candidate=None):
+            if candidate is not None and hasattr(candidate, 'Document') and candidate.Document is not None:
+                return candidate
+            try:
+                from pyrevit import revit
+                return revit.uidoc
+            except Exception:
+                return None
+
 # ===========================================================================
 # HELPERS
 # ===========================================================================
 def _eid_int(eid):
-    try:
-        return eid.Value
-    except:
-        try:
-            return eid.IntegerValue
-        except:
-            return 0
+    return eid_value(eid)
 
 
 def _make_eid(int_val):
-    try:
-        return ElementId(int(int_val))
-    except:
-        return ElementId.InvalidElementId
+    return make_eid(int_val)
 
 
 class WarningSwallower(IFailuresPreprocessor):
+    __namespace__ = "T3Lab.TagChecker"
+
     def PreprocessFailures(self, failuresAccessor):
         try:
             for f in failuresAccessor.GetFailureMessages():
@@ -1017,6 +1031,7 @@ class TagCheckerWindow(object):
         xbytes = Encoding.UTF8.GetBytes(xaml_content)
         stream = MemoryStream(xbytes)
         self.window = XamlReader.Load(stream)
+        setup_window_logo(self.window)
 
         # Controls
         self.tbSearch = self.window.FindName("tbSearch")
@@ -1351,9 +1366,18 @@ class TagCheckerWindow(object):
 # ===========================================================================
 # MAIN LOOP: show -> close -> action -> re-show
 # ===========================================================================
-active_view = doc.ActiveView
-vtype = str(active_view.ViewType)
 def show_dialog():
+    global doc, uidoc
+    if not doc:
+        _d = resolve_doc(doc)
+        doc = _d[0] if isinstance(_d, tuple) else _d
+    if not uidoc:
+        uidoc = resolve_uidoc(uidoc)
+    if not doc or not doc.ActiveView:
+        forms.alert(
+            "No active document or view found.",
+            title="Tag Checker", exitscript=True)
+        return
     vtype = str(doc.ActiveView.ViewType)
     if vtype not in [
         "FloorPlan", "CeilingPlan", "EngineeringPlan",

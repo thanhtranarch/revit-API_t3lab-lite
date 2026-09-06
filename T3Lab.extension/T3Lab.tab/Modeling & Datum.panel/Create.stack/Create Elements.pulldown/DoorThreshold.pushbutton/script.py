@@ -57,7 +57,7 @@ clr.AddReference('WindowsBase')
 from System.Windows import WindowState
 from System.Collections.Generic import List
 
-from rpw import revit, DB
+from pyrevit import revit, DB
 from Autodesk.Revit.DB import (
     Transaction,
     FilteredElementCollector,
@@ -77,7 +77,7 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.UI import TaskDialog
 from pyrevit import forms, script
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 
 # Path setup
 SCRIPT_DIR = os.path.dirname(__file__)
@@ -111,7 +111,11 @@ REVIT_VERSION = get_revit_version()
 FT_TO_MM = 304.8
 MM_TO_FT = 1.0 / 304.8
 
+import uuid
+
 class ThresholdCreationWarningSwallower(IFailuresPreprocessor):
+    __namespace__ = "T3Lab.DoorThreshold_" + uuid.uuid4().hex[:8]
+
     def PreprocessFailures(self, failuresAccessor):
         failList = failuresAccessor.GetFailureMessages()
         for failure in failList:
@@ -370,7 +374,7 @@ class DoorThresholdWindow(T3WPFWindow):
             self._all_doors.append(item)
 
         self._all_doors.sort(key=lambda x: (x.Level, x.Mark))
-        self.door_datagrid.ItemsSource = self._all_doors
+        self.door_datagrid.ItemsSource = to_items_source(self._all_doors)
 
     def _load_floor_types(self):
         floor_types = FilteredElementCollector(doc) \
@@ -429,12 +433,12 @@ class DoorThresholdWindow(T3WPFWindow):
     def search_changed(self, sender, e):
         query = self.txt_search.Text.strip().upper()
         if not query:
-            self.door_datagrid.ItemsSource = self._all_doors
+            self.door_datagrid.ItemsSource = to_items_source(self._all_doors)
         else:
-            self.door_datagrid.ItemsSource = [
+            self.door_datagrid.ItemsSource = to_items_source([
                 d for d in self._all_doors 
                 if query in d.Name.upper() or query in d.Mark.upper() or query in d.Level.upper()
-            ]
+            ])
         self._update_status()
 
     def create_thresholds_clicked(self, sender, e):

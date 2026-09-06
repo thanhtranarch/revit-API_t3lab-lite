@@ -44,7 +44,7 @@ from System import Object
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 from pyrevit import forms, DB, script, revit
-from GUI.WPF_Base import T3WPFWindow
+from GUI.WPF_Base import T3WPFWindow, to_items_source
 from GUI.ProgressPauseMixin import ProgressPauseMixin
 from Autodesk.Revit.DB import (
     FilteredElementCollector, BuiltInCategory, BuiltInParameter, ElementId,
@@ -63,27 +63,17 @@ if _lib_dir not in sys.path:
     sys.path.insert(0, _lib_dir)
 
 # ============================================================================
-# REVIT VERSION COMPATIBILITY (2024 - 2027)
+# REVIT VERSION COMPATIBILITY (2020 - 2027+)
 # ============================================================================
+from Snippets._compat import make_eid, eid_value
+
 def _eid_int(eid):
-    """Get integer value from ElementId - compatible with Revit 2024-2027+"""
-    if eid is None:
-        return -1
-    try:
-        return eid.Value  # Revit 2025+ (64-bit Int64)
-    except AttributeError:
-        return eid.IntegerValue  # Revit 2024 and earlier
+    """Get integer value from ElementId - compatible with Revit 2020-2027+"""
+    return eid_value(eid)
 
 def _make_eid(value):
-    """Construct an ElementId from an int, safe for Revit 2024-2027."""
-    try:
-        return ElementId(value)
-    except:
-        try:
-            from System import Int64
-            return ElementId(Int64(value))
-        except:
-            return ElementId(int(value))
+    """Construct an ElementId safely for Revit 2020-2027+."""
+    return make_eid(value)
 
 # ============================================================================
 # METRIC THRESHOLDS FOR HEALTH CHECK
@@ -849,7 +839,7 @@ def parse_slog_time(time_str):
 # ============================================================================
 # MAIN AUDITOR WINDOW
 # ============================================================================
-class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
+class ModelAuditorWindow(T3WPFWindow):
 
     # ProgressPauseMixin — ModelAuditor.xaml footer progress panel
     PP_PANEL      = "ma_progress_panel"
@@ -1284,8 +1274,8 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
         )
         self.txt_health_summary_metrics.Text = metrics_breakdown
         
-        self.dg_health_metrics.ItemsSource = grid_data
-        self.lst_health_recommendations.ItemsSource = recs_data
+        self.dg_health_metrics.ItemsSource = to_items_source(grid_data)
+        self.lst_health_recommendations.ItemsSource = to_items_source(recs_data)
 
         self.status_text.Text = "Health analysis complete. Score: {}".format(score)
 
@@ -1300,7 +1290,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
             forms.alert("No elements to select for metric: {}".format(row.label), title="Model Health Check")
             return
         
-        elem_ids = [ElementId(eid) for eid in ids_list]
+        elem_ids = [_make_eid(eid) for eid in ids_list]
         try:
             self.uidoc.Selection.SetElementIds(System.Collections.Generic.List[ElementId](elem_ids))
             self.uidoc.ShowElements(System.Collections.Generic.List[ElementId](elem_ids))
@@ -1343,7 +1333,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
             checksets_dir = os.path.normpath(checksets_dir)
             if os.path.exists(checksets_dir):
                 checksets = [f for f in os.listdir(checksets_dir) if f.endswith(".json")]
-                self.cb_checkset.ItemsSource = [os.path.splitext(f)[0] for f in checksets]
+                self.cb_checkset.ItemsSource = to_items_source([os.path.splitext(f)[0] for f in checksets])
                 self.cb_checkset.SelectedIndex = 0
         except Exception as ex:
             print("Error initializing checksets: {}".format(ex))
@@ -1373,7 +1363,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
                 checkset_data,
                 progress_callback=progress_cb,
                 cancel_check=lambda: self.is_cancelled)
-            self.dg_checker_results.ItemsSource = [GridRow(**r) for r in results]
+            self.dg_checker_results.ItemsSource = to_items_source([GridRow(**r) for r in results])
 
             cancelled = self.is_cancelled
             fails = sum(1 for r in results if r["status"] == "Fail")
@@ -1441,8 +1431,8 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
                     element_ids=[_eid_int(eid) for eid in elements]
                 ))
             
-            self.dg_warning_groups.ItemsSource = sorted(grid_data, key=lambda x: x.count, reverse=True)
-            self.lst_warning_elements.ItemsSource = []
+            self.dg_warning_groups.ItemsSource = to_items_source(sorted(grid_data, key=lambda x: x.count, reverse=True))
+            self.lst_warning_elements.ItemsSource = None
             self.status_text.Text = "Loaded {} warnings in {} unique groups".format(len(warnings), len(grid_data))
         except Exception as ex:
             print("Error loading warnings: {}".format(ex))
@@ -1460,14 +1450,14 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
         list_items = []
         for id_val in ids:
             try:
-                el = self.doc.GetElement(ElementId(id_val))
+                el = self.doc.GetElement(_make_eid(id_val))
                 name = el.Name if el else "Unknown"
                 cat_name = el.Category.Name if el and el.Category else "Element"
                 list_items.append("{} : {} [{}]".format(cat_name, name, id_val))
             except:
                 list_items.append("Element [{}]".format(id_val))
                 
-        self.lst_warning_elements.ItemsSource = list_items
+        self.lst_warning_elements.ItemsSource = to_items_source(list_items)
 
     def on_warning_select_elements(self, sender, e):
         selected_items = self.lst_warning_elements.SelectedItems
@@ -1480,7 +1470,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
             # Extract id in brackets [12345]
             match = re.search(r'\[(\d+)\]', item)
             if match:
-                elem_ids.append(ElementId(int(match.group(1))))
+                elem_ids.append(_make_eid(int(match.group(1))))
         
         if elem_ids:
             self.uidoc.Selection.SetElementIds(System.Collections.Generic.List[ElementId](elem_ids))
@@ -1590,7 +1580,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
 
             cancelled = self.is_cancelled
             self.end_progress()
-            self.dg_smart_purge.ItemsSource = ObservableCollection[Object](self.purge_items)
+            self.dg_smart_purge.ItemsSource = to_items_source(self.purge_items)
             if cancelled:
                 self.status_text.Text = "Smart Purge scan cancelled. Unused items found so far: {}".format(len(self.purge_items))
             else:
@@ -1622,7 +1612,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
         selected_ids = []
         for item in self.purge_items:
             if item.get("is_selected", False) and item.get("can_delete", True):
-                selected_ids.append(ElementId(item["id"]))
+                selected_ids.append(_make_eid(item["id"]))
         
         if not selected_ids:
             forms.alert("No valid elements selected for purging.", title="Smart Purge")
@@ -1689,7 +1679,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
                 with SilenceOutput():
                     result = scanner.scan()
                 if result:
-                    to_delete_ids.extend([ElementId(item["id"]) for item in result])
+                    to_delete_ids.extend([_make_eid(item["id"]) for item in result])
 
             # 4. Materials
             if purge_materials:
@@ -1698,7 +1688,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
                 with SilenceOutput():
                     result = scanner.scan()
                 if result:
-                    to_delete_ids.extend([ElementId(item["id"]) for item in result])
+                    to_delete_ids.extend([_make_eid(item["id"]) for item in result])
 
             # 5. DWG Imports / Links
             if purge_dwg:
@@ -1712,7 +1702,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
                 with SilenceOutput():
                     result = scanner.scan()
                 if result:
-                    to_delete_ids.extend([ElementId(item["id"]) for item in result])
+                    to_delete_ids.extend([_make_eid(item["id"]) for item in result])
 
             if not to_delete_ids:
                 forms.alert("No unused items found in the selected categories.", title="Advanced Purge")
@@ -1746,7 +1736,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
         try:
             ids = [int(x.strip()) for x in id_str.split(",") if x.strip().isdigit()]
             for id_val in ids:
-                el = self.doc.GetElement(ElementId(id_val))
+                el = self.doc.GetElement(_make_eid(id_val))
                 if el:
                     self.delete_elements_ids.append(el.Id)
                     name = el.Name or "Element"
@@ -1756,9 +1746,9 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
                     children = analyze_element(el, self.doc)
                     for dep in children:
                         deps_list.append("  ↳ " + dep.to_string())
-                        self.delete_elements_ids.append(ElementId(dep.eid))
+                        self.delete_elements_ids.append(_make_eid(dep.eid))
             
-            self.lst_delete_dependencies.ItemsSource = deps_list
+            self.lst_delete_dependencies.ItemsSource = to_items_source(deps_list)
             self.btn_delete_run.IsEnabled = len(self.delete_elements_ids) > 0
             self.status_text.Text = "Dependency check complete. Found {} total elements (including targets).".format(len(self.delete_elements_ids))
         except Exception as ex:
@@ -1788,7 +1778,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
             
             forms.alert("Smart Delete complete! Deleted: {} elements".format(len(deleted)), title="Smart Delete")
             self.tb_delete_ids.Text = ""
-            self.lst_delete_dependencies.ItemsSource = []
+            self.lst_delete_dependencies.ItemsSource = None
             self.btn_delete_run.IsEnabled = False
         except Exception as ex:
             forms.alert("Delete failed:\n{}".format(ex))
@@ -1815,7 +1805,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
                         ))
                 except: pass
             
-            self.dg_special_inplace.ItemsSource = self.inplace_items
+            self.dg_special_inplace.ItemsSource = to_items_source(self.inplace_items)
             self.status_text.Text = "In-Place Model audit complete. Found: {}".format(len(self.inplace_items))
         except Exception as ex:
             print("Error loading in-place models: {}".format(ex))
@@ -1826,7 +1816,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
             forms.alert("Please select in-place models in the list first.", title="In-Place Auditor")
             return
         
-        ids = [ElementId(item["id"]) for item in selected]
+        ids = [_make_eid(item["id"]) for item in selected]
         self.uidoc.Selection.SetElementIds(System.Collections.Generic.List[ElementId](ids))
         self.uidoc.ShowElements(System.Collections.Generic.List[ElementId](ids))
 
@@ -1840,7 +1830,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
             return
             
         try:
-            ids = [ElementId(item["id"]) for item in selected]
+            ids = [_make_eid(item["id"]) for item in selected]
             t = Transaction(self.doc, "Delete In-Place Families")
             t.Start()
             self.doc.Delete(System.Collections.Generic.List[ElementId](ids))
@@ -1899,7 +1889,7 @@ class ModelAuditorWindow(T3WPFWindow, ProgressPauseMixin):
                         area_str=str(area_m2)
                     ))
             
-            self.dg_special_materials.ItemsSource = sorted(self.material_items, key=lambda x: x.name)
+            self.dg_special_materials.ItemsSource = to_items_source(sorted(self.material_items, key=lambda x: x.name))
             self.status_text.Text = "Material list generated successfully."
         except Exception as ex:
             print("Error loading materials: {}".format(ex))

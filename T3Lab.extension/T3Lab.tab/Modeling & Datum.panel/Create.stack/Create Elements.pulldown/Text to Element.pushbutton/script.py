@@ -12,7 +12,7 @@ __doc__ = (
     "'Find Intersections' to preview matches before writing."
 )
 
-import sys
+import os, sys
 # ─── CPython 3 & lib bootstrap ────────────────────────────────────────────────
 for _env in ('APPDATA', 'PROGRAMDATA'):
     _base = os.environ.get(_env, '')

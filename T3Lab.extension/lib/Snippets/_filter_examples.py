@@ -38,8 +38,12 @@ def create_string_filter(key_parameter, element_value, caseSensitive = True):
     """Function to create a RevitAPI filter."""
     f_parameter         = ParameterValueProvider(ElementId(key_parameter))  #sheet.SheetNumber
     f_parameter_value   = element_value #e.g. element.Category.Id           #element.GetPara
-    caseSensitive       = True
-    f_rule              = FilterStringRule(f_parameter, FilterStringEquals(), f_parameter_value, caseSensitive)
+    try:
+        # Revit 2022+ (caseSensitive parameter was removed)
+        f_rule = FilterStringRule(f_parameter, FilterStringEquals(), f_parameter_value)
+    except Exception:
+        # Revit 2021 and earlier
+        f_rule = FilterStringRule(f_parameter, FilterStringEquals(), f_parameter_value, caseSensitive)
     return ElementParameterFilter(f_rule)
 
 #>>>>>>>>>> MAIN

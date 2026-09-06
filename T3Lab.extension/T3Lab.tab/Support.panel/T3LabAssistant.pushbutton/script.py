@@ -173,19 +173,19 @@ except Exception as _theme_ex:                       # pragma: no cover
     # Keep the two in step: this table is what paints the window when the theme
     # module cannot be imported at all.
     _LIGHT_FALLBACK = {
-        'AppBg': (240, 240, 240), 'ChatBg': (255, 255, 255),
+        'AppBg': (245, 245, 245), 'ChatBg': (255, 255, 255),
         'ComposerBg': (255, 255, 255), 'CardBg': (255, 255, 255),
-        'CardBorder': (196, 196, 196), 'Divider': (217, 217, 217),
-        'PaneEdge': (166, 166, 166), 'UserBubbleBg': (219, 232, 246),
-        'UserBubbleText': (0, 0, 0), 'BotText': (28, 28, 28),
-        'Ink': (0, 0, 0), 'Muted': (92, 92, 92), 'Faint': (133, 133, 133),
-        'Accent': (10, 111, 179), 'AccentSoft': (214, 233, 247),
-        'Blue': (10, 111, 179), 'Success': (11, 122, 74), 'Danger': (196, 43, 28),
-        'Amber': (245, 158, 11), 'IconFg': (92, 92, 92),
-        'IconFgHover': (26, 26, 26), 'IconHoverBg': (228, 228, 228),
-        'InputText': (0, 0, 0), 'InputCaret': (0, 0, 0),
+        'CardBorder': (222, 222, 222), 'Divider': (236, 236, 236),
+        'PaneEdge': (222, 222, 222), 'UserBubbleBg': (219, 232, 246),
+        'UserBubbleText': (0, 0, 0), 'BotText': (0, 0, 0),
+        'Ink': (60, 60, 60), 'Muted': (90, 90, 90), 'Faint': (171, 171, 171),
+        'Accent': (6, 150, 215), 'AccentSoft': (214, 233, 247),
+        'Blue': (0, 110, 175), 'Success': (11, 122, 74), 'Danger': (196, 43, 28),
+        'Amber': (245, 158, 11), 'IconFg': (145, 145, 145),
+        'IconFgHover': (60, 60, 60), 'IconHoverBg': (234, 234, 234),
+        'InputText': (60, 60, 60), 'InputCaret': (60, 60, 60),
         'CodeBg': (245, 245, 245), 'CodeFg': (28, 28, 28),
-        'ScrollThumb': (193, 193, 193), 'SelectedBg': (230, 230, 230),
+        'ScrollThumb': (193, 193, 193), 'SelectedBg': (227, 227, 227),
     }
 
     def _trgb(token):
@@ -763,6 +763,42 @@ def _get_uiapp():
     except Exception as ex:
         logger.debug("_get_uiapp failed: {}".format(_exc_text(ex)))
         return None
+
+
+def _get_uicontrolled_app():
+    """Locate UIControlledApplication from pyRevit runtime if available."""
+    try:
+        import System
+        for assm in System.AppDomain.CurrentDomain.GetAssemblies():
+            try:
+                name = assm.GetName().Name
+                if name.startswith("pyRevitLoader"):
+                    t = assm.GetType("PyRevitLoader.PyRevitLoaderApplication")
+                    if t:
+                        f = t.GetField(
+                            "_uiControlledApplication",
+                            System.Reflection.BindingFlags.Public
+                            | System.Reflection.BindingFlags.NonPublic
+                            | System.Reflection.BindingFlags.Static,
+                        )
+                        if f:
+                            app = f.GetValue(None)
+                            if app is not None and (type(app).__name__ == "UIControlledApplication" or (hasattr(app, 'ControlledApplication') and not hasattr(app, 'ActiveUIDocument'))):
+                                return app
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    try:
+        from pyrevit import HOST_APP
+        app = getattr(HOST_APP, 'uicontrolledapp', None)
+        if app is not None and (type(app).__name__ == "UIControlledApplication" or (hasattr(app, 'ControlledApplication') and not hasattr(app, 'ActiveUIDocument'))):
+            return app
+    except Exception:
+        pass
+
+    return None
 
 
 _VIET_CHARS = (u"àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợ"
@@ -1601,11 +1637,14 @@ class T3LabAssistantWindow(T3WPFWindow):
 
         try:
             self.SizeChanged += self._on_size_changed
+            if hasattr(self, 'root_chrome') and self.root_chrome is not None:
+                self.root_chrome.SizeChanged += self._on_size_changed
         except Exception:
             pass
         self._compact = None
         try:
-            self._apply_compact_layout(self.ActualWidth or self.Width)
+            _initial_w = self.root_chrome.ActualWidth if (hasattr(self, 'root_chrome') and self.root_chrome.ActualWidth > 0) else (self.ActualWidth or self.Width)
+            self._apply_compact_layout(_initial_w)
         except Exception:
             pass
 
@@ -1839,7 +1878,7 @@ class T3LabAssistantWindow(T3WPFWindow):
     # Project Browser is routinely narrower than the skills popup's MinWidth
     # alone (340), so the popup hangs outside the pane over Revit's own UI.
     _POPUP_PANELS = ('skills_popup_panel', 'project_popup_panel',
-                     'model_popup_panel')
+                     'model_popup_panel', 'saved_prompts_list_panel')
     # Room for the popup's own border, margin and shadow.
     _POPUP_GUTTER = 24
     # The widest MinWidth authored in the XAML (skills_popup). Below this the
@@ -1987,45 +2026,68 @@ class T3LabAssistantWindow(T3WPFWindow):
     # ─── Window state persistence ─────────────────────────────────────────────
 
     def _restore_window_state(self):
-        """Restore window position and size from settings."""
+        """Restore window position and size from settings with strict boundary clamping."""
+        if getattr(self, 'is_docked', False):
+            return
+
         try:
             from config.settings import T3LabAISettings
             ws = T3LabAISettings().get_window_state()
 
-            # Restore size
+            # Restore size — strictly clamp so assistant never opens full screen
             w = ws.get('width')
             h = ws.get('height')
             if w and h:
-                self.Width  = float(w)
-                self.Height = float(h)
+                w_f = float(w)
+                h_f = float(h)
+                self.Width = w_f if 480.0 <= w_f <= 720.0 else 560.0
+                self.Height = h_f if 580.0 <= h_f <= 950.0 else 720.0
+            else:
+                self.Width  = 560.0
+                self.Height = 720.0
 
-            # Restore position — validate it is still on-screen
+            # Restore position — validate it is still on-screen; default to screen right
             left = ws.get('left')
             top  = ws.get('top')
-            if left is not None and top is not None:
-                try:
-                    import System.Windows
-                    sw = System.Windows.SystemParameters.PrimaryScreenWidth
-                    sh = System.Windows.SystemParameters.PrimaryScreenHeight
+            try:
+                import System.Windows
+                sw = System.Windows.SystemParameters.PrimaryScreenWidth
+                sh = System.Windows.SystemParameters.PrimaryScreenHeight
+                if left is not None and top is not None:
                     left_f = float(left)
                     top_f  = float(top)
                     if 0 <= left_f <= sw - 100 and 0 <= top_f <= sh - 60:
                         self.Left = left_f
                         self.Top  = top_f
-                except Exception:
-                    pass
+                    else:
+                        self.Left = max(40.0, sw - self.Width - 40.0)
+                        self.Top  = max(40.0, (sh - self.Height) / 2.0)
+                else:
+                    self.Left = max(40.0, sw - self.Width - 40.0)
+                    self.Top  = max(40.0, (sh - self.Height) / 2.0)
+            except Exception:
+                pass
 
         except Exception as ex:
             logger.debug(u"_restore_window_state error: {}".format(_exc_text(ex)))
 
     def _save_window_state(self):
-        """Persist current window geometry to settings."""
+        """Persist current window geometry to settings (skipped when docked or maximized)."""
+        if getattr(self, 'is_docked', False):
+            return
+
         try:
+            from System.Windows import WindowState
+            if getattr(self, 'WindowState', None) != WindowState.Normal:
+                return
+
             from config.settings import T3LabAISettings
+            w = max(480.0, min(float(self.Width), 720.0))
+            h = max(580.0, min(float(self.Height), 950.0))
             T3LabAISettings().save_window_state(
-                self.Left, self.Top,
-                self.Width, self.Height,
-                False,   # settings sidebar removed — all settings live in LLMs Setting
+                float(self.Left), float(self.Top),
+                w, h,
+                False,
             )
         except Exception as ex:
             logger.debug(u"_save_window_state error: {}".format(_exc_text(ex)))
@@ -2069,11 +2131,17 @@ class T3LabAssistantWindow(T3WPFWindow):
         self.WindowState = WindowState.Minimized
 
     def maximize_clicked(self, sender, e):
-        from System.Windows import WindowState
-        if self.WindowState == WindowState.Maximized:
-            self.WindowState = WindowState.Normal
-        else:
-            self.WindowState = WindowState.Maximized
+        """Toggle between standard width (560px) and wide width (720px).
+
+        Prevents full-screen blowout while giving the user extra room when needed.
+        """
+        try:
+            if self.Width > 640.0:
+                self.Width = 560.0
+            else:
+                self.Width = 720.0
+        except Exception:
+            pass
 
     def close_clicked(self, sender, e):
         self.Close()
@@ -2316,6 +2384,519 @@ class T3LabAssistantWindow(T3WPFWindow):
             self._update_welcome_greeting()
         except Exception as ex:
             logger.debug(u"reset_chat error: {}".format(_exc_text(ex)))
+
+    def new_chat_clicked(self, sender=None, e=None):
+        """Start a new chat conversation. Archive current session if it has messages."""
+        try:
+            if getattr(self, '_busy', False):
+                self._append_bot_message(
+                    u"Still working on the current request — press Stop first, "
+                    u"then start a new conversation.",
+                    icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+                return
+
+            # Archive current conversation if it contains messages
+            if getattr(self, '_persisted_msgs', None):
+                self._archive_current_session()
+
+            # Reset session state and delete current document active history
+            self._reset_session_state(clear_transcript=True)
+            clear_chat_history(self._doc_key)
+
+            # Update greeting & show suggestion prompt cards
+            self._update_welcome_greeting()
+
+            # Switch to chat tab
+            self.tab_chat_clicked()
+        except Exception as ex:
+            logger.debug(u"new_chat_clicked error: {}".format(_exc_text(ex)))
+
+    def _archive_current_session(self):
+        """Archive current conversation to a historical session file."""
+        try:
+            if not getattr(self, '_persisted_msgs', None):
+                return None
+            from core import jsonsafe
+            sessions_dir = os.path.join(lib_dir, 'config', 'chat_history', 'sessions')
+            if not os.path.exists(sessions_dir):
+                try:
+                    os.makedirs(sessions_dir)
+                except Exception:
+                    pass
+
+            title = u"Conversation"
+            for m in self._persisted_msgs:
+                if m.get("role") == "user" and m.get("content"):
+                    c = m["content"].strip().replace('\n', ' ')
+                    if len(c) > 40:
+                        c = c[:37] + u"..."
+                    title = c
+                    break
+
+            now = datetime.datetime.now()
+            session_id = now.strftime("%Y%m%d_%H%M%S")
+            ts = now.strftime("%Y-%m-%d %H:%M")
+            session_data = {
+                "id": session_id,
+                "doc_key": self._doc_key,
+                "title": title,
+                "timestamp": ts,
+                "message_count": len(self._persisted_msgs),
+                "messages": list(self._persisted_msgs),
+                "summary": getattr(self, '_history_summary', u'')
+            }
+
+            fname = "{}_{}.json".format(self._doc_key, session_id)
+            fpath = os.path.join(sessions_dir, fname)
+            data = jsonsafe.dumps(session_data, indent=2)
+            with io.open(fpath, 'w', encoding='utf-8') as f:
+                f.write(data)
+            return fpath
+        except Exception as ex:
+            logger.debug(u"_archive_current_session error: {}".format(_exc_text(ex)))
+            return None
+
+    def tab_chat_clicked(self, sender=None, e=None):
+        """Switch to Chat view."""
+        try:
+            from System.Windows import Visibility
+            from System.Windows.Media import Brushes
+            self.chat_view_grid.Visibility = Visibility.Visible
+            self.history_view_grid.Visibility = Visibility.Collapsed
+
+            try:
+                self.tab_chat_border.Background = self.FindResource("T3.Surface")
+                self.tab_chat_border.BorderBrush = self.FindResource("T3.Border")
+                self.tab_chat_icon.Foreground = self.FindResource("T3.Ink")
+                self.tab_history_border.Background = Brushes.Transparent
+                self.tab_history_border.BorderBrush = Brushes.Transparent
+                self.tab_history_icon.Foreground = self.FindResource("T3.TextSecondary")
+            except Exception:
+                pass
+
+            try:
+                self.chat_input.Focus()
+            except Exception:
+                pass
+        except Exception as ex:
+            logger.debug(u"tab_chat_clicked error: {}".format(_exc_text(ex)))
+
+    def tab_history_clicked(self, sender=None, e=None):
+        """Switch to History view and render past sessions."""
+        try:
+            from System.Windows import Visibility
+            from System.Windows.Media import Brushes
+            self.chat_view_grid.Visibility = Visibility.Collapsed
+            self.history_view_grid.Visibility = Visibility.Visible
+
+            try:
+                self.tab_history_border.Background = self.FindResource("T3.Surface")
+                self.tab_history_border.BorderBrush = self.FindResource("T3.Border")
+                self.tab_history_icon.Foreground = self.FindResource("T3.Ink")
+                self.tab_chat_border.Background = Brushes.Transparent
+                self.tab_chat_border.BorderBrush = Brushes.Transparent
+                self.tab_chat_icon.Foreground = self.FindResource("T3.TextSecondary")
+            except Exception:
+                pass
+
+            self._render_history_sessions()
+        except Exception as ex:
+            logger.debug(u"tab_history_clicked error: {}".format(_exc_text(ex)))
+
+    def suggestion_card_clicked(self, sender=None, e=None):
+        """Handle click on one of the suggestion prompt cards."""
+        try:
+            tag = getattr(sender, 'Tag', None)
+            if not tag:
+                return
+            prompt_text = str(tag).strip()
+            if prompt_text:
+                self.chat_input.Text = prompt_text
+                self._process_input()
+        except Exception as ex:
+            logger.debug(u"suggestion_card_clicked error: {}".format(_exc_text(ex)))
+
+    def _get_history_sessions(self):
+        """Retrieve list of saved session metadata for this document."""
+        sessions = []
+        try:
+            sessions_dir = os.path.join(lib_dir, 'config', 'chat_history', 'sessions')
+            if not os.path.exists(sessions_dir):
+                return []
+            prefix = "{}_".format(self._doc_key)
+            files = [f for f in os.listdir(sessions_dir) if f.endswith('.json')]
+            files.sort(reverse=True)
+            for f in files:
+                fpath = os.path.join(sessions_dir, f)
+                try:
+                    with io.open(fpath, 'r', encoding='utf-8') as sf:
+                        data = json.load(sf)
+                    data['fpath'] = fpath
+                    if data.get('doc_key') == self._doc_key or f.startswith(prefix):
+                        sessions.append(data)
+                except Exception:
+                    pass
+        except Exception as ex:
+            logger.debug(u"_get_history_sessions error: {}".format(_exc_text(ex)))
+        return sessions
+
+    def _render_history_sessions(self):
+        """Populate the history view with saved conversation cards."""
+        try:
+            from System.Windows import Visibility, Thickness, CornerRadius, GridUnitType, GridLength
+            from System.Windows.Controls import Border, Grid, StackPanel, TextBlock, Button, ColumnDefinition, Orientation
+            from System.Windows.Media import Brushes, FontFamily
+
+            self.history_sessions_panel.Children.Clear()
+            sessions = self._get_history_sessions()
+
+            if not sessions:
+                self.history_empty_state.Visibility = Visibility.Visible
+                self.history_sessions_panel.Visibility = Visibility.Collapsed
+                return
+
+            self.history_empty_state.Visibility = Visibility.Collapsed
+            self.history_sessions_panel.Visibility = Visibility.Visible
+
+            for sess in sessions:
+                fpath = sess.get('fpath')
+                title_text = sess.get('title') or u"Conversation"
+                meta_text = u"{}  •  {} messages".format(
+                    sess.get('timestamp') or u"",
+                    sess.get('message_count') or len(sess.get('messages', []))
+                )
+
+                card = Border()
+                card.Background = self.FindResource("T3.Surface")
+                card.BorderBrush = self.FindResource("T3.Border")
+                card.BorderThickness = Thickness(1)
+                card.CornerRadius = CornerRadius(6)
+                card.Margin = Thickness(0, 0, 0, 8)
+                card.Padding = Thickness(12, 8, 12, 8)
+
+                grid = Grid()
+                col0 = ColumnDefinition()
+                col0.Width = GridLength(1.0, GridUnitType.Star)
+                col1 = ColumnDefinition()
+                col1.Width = GridLength.Auto
+                grid.ColumnDefinitions.Add(col0)
+                grid.ColumnDefinitions.Add(col1)
+
+                info_stack = StackPanel()
+                info_stack.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                Grid.SetColumn(info_stack, 0)
+
+                tb_title = TextBlock()
+                tb_title.Text = title_text
+                tb_title.Style = self.FindResource("T3.BodyStrong")
+                tb_title.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
+
+                tb_meta = TextBlock()
+                tb_meta.Text = meta_text
+                tb_meta.Style = self.FindResource("T3.Caption")
+                tb_meta.Margin = Thickness(0, 4, 0, 0)
+
+                info_stack.Children.Add(tb_title)
+                info_stack.Children.Add(tb_meta)
+                grid.Children.Add(info_stack)
+
+                act_stack = StackPanel()
+                act_stack.Orientation = Orientation.Horizontal
+                act_stack.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                Grid.SetColumn(act_stack, 1)
+
+                # Open / Resume button
+                btn_open = Button()
+                btn_open.Style = self.FindResource("T3.Button.Ghost")
+                btn_open.Height = 28
+                btn_open.Padding = Thickness(8, 0, 8, 0)
+                btn_open.ToolTip = u"Resume this conversation"
+                btn_open.Content = u"Resume"
+
+                def _make_resume_handler(path):
+                    def _handler(s, ev):
+                        self._resume_history_session(path)
+                    return _handler
+                btn_open.Click += _make_resume_handler(fpath)
+                act_stack.Children.Add(btn_open)
+
+                # Delete button
+                btn_del = Button()
+                btn_del.Style = self.FindResource("T3.Button.Ghost")
+                btn_del.Height = 28
+                btn_del.Width = 28
+                btn_del.Padding = Thickness(0)
+                btn_del.Margin = Thickness(4, 0, 0, 0)
+                btn_del.ToolTip = u"Delete this session"
+
+                tb_del_icon = TextBlock()
+                tb_del_icon.Text = u"\uE74D"
+                tb_del_icon.FontFamily = FontFamily("Segoe MDL2 Assets")
+                tb_del_icon.FontSize = 11.5
+                tb_del_icon.Foreground = self.FindResource("T3.Danger.Text")
+                btn_del.Content = tb_del_icon
+
+                def _make_del_handler(path):
+                    def _handler(s, ev):
+                        try:
+                            if path and os.path.exists(path):
+                                os.remove(path)
+                            self._render_history_sessions()
+                        except Exception:
+                            pass
+                    return _handler
+                btn_del.Click += _make_del_handler(fpath)
+                act_stack.Children.Add(btn_del)
+
+                grid.Children.Add(act_stack)
+                card.Child = grid
+                self.history_sessions_panel.Children.Add(card)
+        except Exception as ex:
+            logger.debug(u"_render_history_sessions error: {}".format(_exc_text(ex)))
+
+    def _resume_history_session(self, path):
+        """Load and resume an archived session into the current chat."""
+        try:
+            if not path or not os.path.exists(path):
+                return
+            with io.open(path, 'r', encoding='utf-8') as f:
+                sess_data = json.load(f)
+
+            if getattr(self, '_persisted_msgs', None):
+                self._archive_current_session()
+
+            self._reset_session_state(clear_transcript=True)
+
+            msgs = sess_data.get("messages", [])
+            summary = sess_data.get("summary", u"")
+
+            self._persisted_msgs = list(msgs)
+            self._history_summary = summary
+
+            save_chat_history(self._doc_key, self._persisted_msgs, summary=self._history_summary)
+
+            for m in msgs:
+                role = m.get("role", "")
+                content = m.get("content", "")
+                if not content:
+                    continue
+                if role == "user":
+                    self._append_user_message(content)
+                elif role == "assistant":
+                    self._append_bot_message(content)
+                self._conversation_history.append({"role": role, "content": content})
+
+            self._update_welcome_greeting()
+            self.tab_chat_clicked()
+        except Exception as ex:
+            logger.debug(u"_resume_history_session error: {}".format(_exc_text(ex)))
+
+    def clear_all_history_clicked(self, sender=None, e=None):
+        """Delete all saved sessions for this document."""
+        try:
+            sessions = self._get_history_sessions()
+            for s in sessions:
+                fp = s.get('fpath')
+                if fp and os.path.exists(fp):
+                    try:
+                        os.remove(fp)
+                    except Exception:
+                        pass
+            self._render_history_sessions()
+        except Exception as ex:
+            logger.debug(u"clear_all_history_clicked error: {}".format(_exc_text(ex)))
+
+    # ─── Saved Prompts & Skills Management ────────────────────────────────────
+
+    def saved_prompts_clicked(self, sender=None, e=None):
+        """Toggle the Saved Prompts & Skills popup."""
+        try:
+            is_open = getattr(self.saved_prompts_popup, 'IsOpen', False)
+            if is_open:
+                self.saved_prompts_popup.IsOpen = False
+            else:
+                self._populate_saved_prompts_list("")
+                self.saved_prompts_popup.IsOpen = True
+                try:
+                    self.saved_prompts_search.Text = ""
+                    self.saved_prompts_search.Focus()
+                except Exception:
+                    pass
+        except Exception as ex:
+            logger.debug(u"saved_prompts_clicked error: {}".format(_exc_text(ex)))
+
+    def close_saved_prompts_clicked(self, sender=None, e=None):
+        """Close the Saved Prompts & Skills popup."""
+        try:
+            self.saved_prompts_popup.IsOpen = False
+        except Exception:
+            pass
+
+    def saved_prompts_search_changed(self, sender=None, e=None):
+        """Filter prompts/skills list as the user types."""
+        try:
+            q = (self.saved_prompts_search.Text or u"").strip().lower()
+            self._populate_saved_prompts_list(q)
+        except Exception as ex:
+            logger.debug(u"saved_prompts_search_changed error: {}".format(_exc_text(ex)))
+
+    def open_skills_folder_clicked(self, sender=None, e=None):
+        """Open the skills folder in Windows Explorer to add or edit custom prompt .md files."""
+        try:
+            from Intelligence.skills_engine import _user_skills_dir
+            udir = _user_skills_dir()
+            if not os.path.exists(udir):
+                try:
+                    os.makedirs(udir)
+                except Exception:
+                    pass
+            _open_in_explorer(udir)
+        except Exception as ex:
+            logger.debug(u"open_skills_folder_clicked error: {}".format(_exc_text(ex)))
+
+    def manage_skills_clicked(self, sender=None, e=None):
+        """Open the Skills management tab in the LLMs Setting dialog."""
+        try:
+            self.saved_prompts_popup.IsOpen = False
+        except Exception:
+            pass
+        self._open_llm_settings(tab='skills')
+
+    def _populate_saved_prompts_list(self, query=u""):
+        """Build clickable rows for each saved prompt / skill. UI THREAD."""
+        try:
+            from System.Windows import Thickness, CornerRadius, GridUnitType, GridLength
+            from System.Windows.Controls import Border, Grid, StackPanel, TextBlock, ColumnDefinition
+            from System.Windows.Input import Cursors
+            from Intelligence.skills_engine import get_skills_engine
+
+            self.saved_prompts_list_panel.Children.Clear()
+            engine = get_skills_engine()
+            skills = engine.all_skills() or []
+
+            # Filter by query
+            if query:
+                q = query.lower()
+                filtered = []
+                for s in skills:
+                    name = (s.get('name') or u'').lower()
+                    desc = (s.get('description') or u'').lower()
+                    sid = (s.get('id') or u'').lower()
+                    trigs = u" ".join(s.get('triggers') or []).lower()
+                    if q in name or q in desc or q in sid or q in trigs:
+                        filtered.append(s)
+                skills = filtered
+
+            if not skills:
+                tb_none = TextBlock()
+                tb_none.Text = u"No matching prompts or skills found."
+                tb_none.Style = self.FindResource("T3.Caption")
+                tb_none.Margin = Thickness(12, 16, 12, 16)
+                tb_none.HorizontalAlignment = System.Windows.HorizontalAlignment.Center
+                self.saved_prompts_list_panel.Children.Add(tb_none)
+                return
+
+            bg_normal = self.FindResource("T3.Surface")
+            bg_hover = self.FindResource("T3.SurfaceSunken")
+            br_normal = self.FindResource("T3.Border")
+            br_hover = self.FindResource("T3.BorderStrong")
+
+            for s in skills:
+                sid = s.get('id') or u''
+                name = s.get('name') or sid
+                desc = s.get('description') or u''
+
+                card = Border()
+                card.Background = bg_normal
+                card.BorderBrush = br_normal
+                card.BorderThickness = Thickness(1)
+                card.CornerRadius = CornerRadius(6)
+                card.Margin = Thickness(0, 0, 0, 4)
+                card.Padding = Thickness(10, 7, 10, 7)
+                card.Cursor = Cursors.Hand
+                card.ToolTip = u"Click to insert: /{}\n{}".format(sid, desc)
+
+                # Hover states
+                def _make_hover(target_card):
+                    def _enter(sender, ev):
+                        target_card.Background = bg_hover
+                        target_card.BorderBrush = br_hover
+                    def _leave(sender, ev):
+                        target_card.Background = bg_normal
+                        target_card.BorderBrush = br_normal
+                    return _enter, _leave
+
+                _ent, _lev = _make_hover(card)
+                card.MouseEnter += _ent
+                card.MouseLeave += _lev
+
+                grid = Grid()
+                col0 = ColumnDefinition()
+                col0.Width = GridLength(1.0, GridUnitType.Star)
+                col1 = ColumnDefinition()
+                col1.Width = GridLength.Auto
+                grid.ColumnDefinitions.Add(col0)
+                grid.ColumnDefinitions.Add(col1)
+
+                info_stack = StackPanel()
+                info_stack.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                Grid.SetColumn(info_stack, 0)
+
+                tb_name = TextBlock()
+                tb_name.Text = name
+                tb_name.Style = self.FindResource("T3.BodyStrong")
+                tb_name.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
+                info_stack.Children.Add(tb_name)
+
+                if desc:
+                    tb_desc = TextBlock()
+                    tb_desc.Text = desc
+                    tb_desc.Style = self.FindResource("T3.Caption")
+                    tb_desc.Foreground = self.FindResource("T3.TextSecondary")
+                    tb_desc.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
+                    tb_desc.Margin = Thickness(0, 2, 0, 0)
+                    info_stack.Children.Add(tb_desc)
+
+                grid.Children.Add(info_stack)
+
+                # Command badge on the right
+                badge = Border()
+                badge.Background = self.FindResource("T3.SurfaceSunken")
+                badge.BorderBrush = self.FindResource("T3.Border")
+                badge.BorderThickness = Thickness(1)
+                badge.CornerRadius = CornerRadius(4)
+                badge.Padding = Thickness(6, 2, 6, 2)
+                badge.Margin = Thickness(8, 0, 0, 0)
+                badge.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                Grid.SetColumn(badge, 1)
+
+                tb_action = TextBlock()
+                tb_action.Text = u"/{}".format(sid)
+                tb_action.Style = self.FindResource("T3.Mono")
+                tb_action.FontSize = 10.5
+                tb_action.Foreground = self.FindResource("T3.TextMuted")
+                tb_action.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                badge.Child = tb_action
+
+                grid.Children.Add(badge)
+                card.Child = grid
+
+                def _make_pick_handler(skill_id):
+                    def _h(sender_btn, ev):
+                        try:
+                            self.saved_prompts_popup.IsOpen = False
+                            self.tab_chat_clicked()
+                            self.chat_input.Text = u"/{} ".format(skill_id)
+                            self.chat_input.CaretIndex = len(self.chat_input.Text)
+                            self.chat_input.Focus()
+                        except Exception as ex:
+                            logger.debug(u"pick skill error: {}".format(_exc_text(ex)))
+                    return _h
+
+                card.MouseLeftButtonUp += _make_pick_handler(sid)
+                self.saved_prompts_list_panel.Children.Add(card)
+        except Exception as ex:
+            logger.debug(u"_populate_saved_prompts_list error: {}".format(_exc_text(ex)))
 
     def _reset_session_state(self, clear_transcript=True):
         """Drop everything tied to the OLD conversation scope. UI THREAD.
@@ -4012,6 +4593,12 @@ class T3LabAssistantWindow(T3WPFWindow):
                 self._close_skills_popup()
                 e.Handled = True
                 return
+
+        # Ctrl+N starts a new conversation
+        if (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control and e.Key == Key.N:
+            self.new_chat_clicked()
+            e.Handled = True
+            return
 
         if e.Key == Key.Return or e.Key == Key.Enter:
             # Shift+Enter inserts a newline (multi-line input)
@@ -9794,62 +10381,8 @@ class T3LabAssistantWindow(T3WPFWindow):
         return btn
 
     def _make_message_actions(self, row):
-        """The icon row under an assistant reply — copy · retry · 👍 · 👎 · ‹ n/m ›.
-
-        Reads its state from ``row.Tag`` (a plain dict), which is where the
-        reply's text and any regenerated versions live. IronPython cannot add
-        attributes to CLR objects, so ``Tag`` is the carrier.
-
-        The version arrows only render once a row actually HAS more than one
-        version (i.e. after Try again produced an alternative), matching how
-        the reference UI hides "1/1".
-        """
-        from System.Windows.Controls import StackPanel, Orientation, TextBlock
-        from System.Windows import Thickness, VerticalAlignment
-
-        state = row.Tag or {}
-        versions = state.get('versions') or []
-        idx      = state.get('index', 0)
-
-        bar = StackPanel()
-        bar.Orientation = Orientation.Horizontal
-        bar.Margin = Thickness(-4, 2, 0, 0)
-
-        bar.Children.Add(self._make_action_icon(
-            self._ACT_COPY, u"Copy", self._msg_copy_clicked))
-        bar.Children.Add(self._make_action_icon(
-            self._ACT_RETRY, u"Try again", self._msg_retry_clicked))
-
-        liked = state.get('vote')
-        bar.Children.Add(self._make_action_icon(
-            self._ACT_UP, u"Good response", self._msg_vote_up_clicked,
-            token=('Accent' if liked == 'up' else 'IconFg')))
-        bar.Children.Add(self._make_action_icon(
-            self._ACT_DOWN, u"Bad response", self._msg_vote_down_clicked,
-            token=('Accent' if liked == 'down' else 'IconFg')))
-
-        if len(versions) > 1:
-            prev_btn = self._make_action_icon(
-                self._ACT_PREV, u"Previous version", self._msg_prev_clicked)
-            prev_btn.IsEnabled = idx > 0
-            prev_btn.Margin = Thickness(4, 0, 0, 0)
-            bar.Children.Add(prev_btn)
-
-            counter = TextBlock()
-            counter.Text = u"{} / {}".format(idx + 1, len(versions))
-            counter.FontSize = 10.5
-            counter.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
-            _bind_fg(counter, 'Faint')
-            counter.VerticalAlignment = VerticalAlignment.Center
-            counter.Margin = Thickness(1, 0, 1, 0)
-            bar.Children.Add(counter)
-
-            next_btn = self._make_action_icon(
-                self._ACT_NEXT, u"Next version", self._msg_next_clicked)
-            next_btn.IsEnabled = idx < len(versions) - 1
-            bar.Children.Add(next_btn)
-
-        return bar
+        """The action/feedback bar under assistant replies — disabled per user request."""
+        return None
 
     @staticmethod
     def _owning_reply_row(sender):
@@ -9894,7 +10427,9 @@ class T3LabAssistantWindow(T3WPFWindow):
             body.LineHeight   = 21
             body.Text         = text
         host.Children.Add(body)
-        host.Children.Add(self._make_message_actions(row))
+        acts = self._make_message_actions(row)
+        if acts is not None:
+            host.Children.Add(acts)
 
     # ─── Action handlers ─────────────────────────────────────────────────────
 
@@ -10611,7 +11146,9 @@ class T3LabAssistantWindow(T3WPFWindow):
 
             if actions:
                 try:
-                    host.Children.Add(self._make_message_actions(row))
+                    acts = self._make_message_actions(row)
+                    if acts is not None:
+                        host.Children.Add(acts)
                 except Exception as ex:
                     logger.debug(u"message actions skipped: {}".format(_exc_text(ex)))
 
@@ -10807,24 +11344,43 @@ if __name__ == '__main__':
         forms.alert("Please open a Revit document first.", exitscript=True)
 
     try:
-        from Autodesk.Revit.UI import DockablePaneId
+        from Autodesk.Revit.UI import DockablePaneId, DockablePane
         from System import Guid
-        from GUI.AssistantPaneControl import ASSISTANT_PANE_GUID
+        from GUI.AssistantPaneControl import ASSISTANT_PANE_GUID, AssistantPaneProvider
 
         pane_id = DockablePaneId(ASSISTANT_PANE_GUID)
-        # Same defect as undo_clicked: HOST_APP.uiapp is None here, so this
-        # threw AttributeError every time and the pane silently degraded to
-        # the floating-window fallback below.
         uiapp = _get_uiapp()
         if uiapp is None:
             raise AttributeError("no UIApplication available")
-        pane = uiapp.GetDockablePane(pane_id)
-        if pane:
-            if pane.IsShown():
-                pane.Hide()
-            else:
-                pane.Show()
+
+        # Attempt dynamic registration if not yet registered in Revit
+        if not DockablePane.PaneExists(pane_id):
+            uictrld = _get_uicontrolled_app()
+            if uictrld is not None and hasattr(uictrld, 'RegisterDockablePane'):
+                try:
+                    uictrld.RegisterDockablePane(pane_id, 'T3Lab Assistant', AssistantPaneProvider())
+                    logger.info("Registered DockablePane dynamically via UIControlledApplication.")
+                except Exception as ex_dyn:
+                    logger.debug("Dynamic UIControlledApplication.RegisterDockablePane: {}".format(ex_dyn))
+
+        if not DockablePane.PaneExists(pane_id):
+            if hasattr(uiapp, 'RegisterDockablePane'):
+                try:
+                    uiapp.RegisterDockablePane(pane_id, 'T3Lab Assistant', AssistantPaneProvider())
+                    logger.info("Registered DockablePane dynamically via UIApplication.")
+                except Exception as ex_dyn2:
+                    logger.debug("Dynamic UIApplication.RegisterDockablePane: {}".format(ex_dyn2))
+
+        if DockablePane.PaneExists(pane_id):
+            pane = uiapp.GetDockablePane(pane_id)
+            if pane:
+                if pane.IsShown():
+                    pane.Hide()
+                else:
+                    pane.Show()
+        else:
+            raise Exception("DockablePane 'T3Lab Assistant' requires Revit to be restarted to dock into Revit window.")
     except Exception as ex:
-        logger.warning(u"Could not toggle dockable pane: {}. Falling back to floating window.".format(_exc_text(ex)))
-        window = T3LabAssistantWindow()
+        logger.warning(u"Dockable pane unavailable: {}. Opening companion tool window.".format(_exc_text(ex)))
+        window = T3LabAssistantWindow(is_docked=False)
         window.ShowDialog()

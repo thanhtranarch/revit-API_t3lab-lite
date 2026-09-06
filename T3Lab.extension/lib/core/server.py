@@ -4392,9 +4392,15 @@ class T3LabAIServer(object):
                     raw = param.AsDouble()
                     value = str(raw)
                     try:
-                        units = str(param.DisplayUnitType)
+                        if hasattr(param, "GetUnitTypeId"):
+                            units = str(param.GetUnitTypeId().TypeId)
+                        else:
+                            units = str(param.DisplayUnitType)
                     except Exception:
-                        pass
+                        try:
+                            units = str(param.DisplayUnitType)
+                        except Exception:
+                            pass
             except Exception as ex:
                 return {'error': 'Failed to read parameter: {}'.format(str(ex))}
             return {
@@ -9372,9 +9378,21 @@ class T3LabAIServer(object):
                 t = Transaction(doc, 'T3Lab AI Create Project Parameter')
                 t.Start()
                 try:
-                    ok = doc.ParameterBindings.Insert(ext_def, binding, BuiltInParameterGroup.PG_DATA)
-                    if not ok:
-                        ok = doc.ParameterBindings.ReInsert(ext_def, binding, BuiltInParameterGroup.PG_DATA)
+                    group_param = None
+                    try:
+                        from Autodesk.Revit.DB import GroupTypeId
+                        group_param = GroupTypeId.Data
+                    except Exception:
+                        group_param = BuiltInParameterGroup.PG_DATA
+
+                    try:
+                        ok = doc.ParameterBindings.Insert(ext_def, binding, group_param)
+                        if not ok:
+                            ok = doc.ParameterBindings.ReInsert(ext_def, binding, group_param)
+                    except Exception:
+                        ok = doc.ParameterBindings.Insert(ext_def, binding, BuiltInParameterGroup.PG_DATA)
+                        if not ok:
+                            ok = doc.ParameterBindings.ReInsert(ext_def, binding, BuiltInParameterGroup.PG_DATA)
                     t.Commit()
                 except Exception as e:
                     t.RollBack()

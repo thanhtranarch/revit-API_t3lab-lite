@@ -87,25 +87,18 @@ FINDINGS_FILE = os.path.join(DIAG_FOLDER, '_bad_geometry.json')
 
 
 # ── ElementId compatibility (Revit 2024+ dropped IntegerValue) ────────────
-def eid_value(element_id):
-    """Integer value of an ElementId, version-safe across Revit 2022-2026."""
-    if element_id is None:
-        return -1
-    try:
-        return int(element_id.Value)              # Revit 2024+
-    except Exception:
-        try:
-            return int(element_id.IntegerValue)   # Revit 2023 and earlier
-        except Exception:
-            return -1
+from Snippets._compat import make_eid, eid_value
 
 
 def make_eid_safe(value):
     """ElementId from an int, version-safe. None when it cannot be built."""
     try:
-        return DB.ElementId(int(value))
+        eid = make_eid(value)
+        if eid and eid_value(eid) != -1:
+            return eid
     except Exception:
-        return None
+        pass
+    return None
 
 
 def elem_name(element):

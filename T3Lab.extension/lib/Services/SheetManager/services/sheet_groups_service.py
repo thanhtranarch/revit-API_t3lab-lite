@@ -9,7 +9,7 @@ Copyright © Dang Quoc Truong (DQT)
 import json
 import os
 
-from Snippets._compat import eid_value
+from Snippets._compat import eid_value, make_eid
 
 
 class SheetGroupsService(object):
@@ -51,8 +51,7 @@ class SheetGroupsService(object):
                     # Convert string IDs back to ElementId
                     self.groups = {}
                     for group_name, sheet_id_strings in data.items():
-                        from Autodesk.Revit.DB import ElementId
-                        sheet_ids = [ElementId(int(id_str)) for id_str in sheet_id_strings]
+                        sheet_ids = [make_eid(int(id_str)) for id_str in sheet_id_strings if id_str]
                         self.groups[group_name] = sheet_ids
                     
                 print("DEBUG: Loaded {} groups from {}".format(len(self.groups), self.json_file))

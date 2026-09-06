@@ -6,14 +6,26 @@ Thin WPF wrapper around MCPService. All backend logic lives in
 Services/mcp_service.py and can be reused by any other tool.
 """
 
-from __future__ import unicode_literals
-
 import os
 import sys
+
+try:
+    import clr
+    for _ref in ('System', 'WindowsBase', 'PresentationCore', 'PresentationFramework'):
+        try:
+            clr.AddReference(_ref)
+        except Exception:
+            pass
+except Exception:
+    clr = None
+
+try:
+    from System.Windows import WindowState
+except Exception:
+    WindowState = None
+
 from pyrevit import forms, script
 from GUI.WPF_Base import T3WPFWindow
-from System.Windows import WindowState
-from System.Windows.Media import BrushConverter
 
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'MCPControl.xaml')
 
@@ -32,23 +44,73 @@ logger = script.get_logger()
 
 
 def _brush(hex_color):
-    return BrushConverter().ConvertFromString(hex_color)
+    """Safely convert a hex color string to a WPF SolidColorBrush."""
+    if not hex_color:
+        return None
+    try:
+        from System.Windows.Media import BrushConverter
+        return BrushConverter().ConvertFromString(hex_color)
+    except Exception:
+        pass
+    try:
+        from System.Windows.Media import SolidColorBrush, Color
+        hex_c = hex_color.lstrip('#')
+        if len(hex_c) == 6:
+            r = int(hex_c[0:2], 16)
+            g = int(hex_c[2:4], 16)
+            b = int(hex_c[4:6], 16)
+            return SolidColorBrush(Color.FromRgb(r, g, b))
+        elif len(hex_c) == 8:
+            a = int(hex_c[0:2], 16)
+            r = int(hex_c[2:4], 16)
+            g = int(hex_c[4:6], 16)
+            b = int(hex_c[6:8], 16)
+            return SolidColorBrush(Color.FromArgb(a, r, g, b))
+    except Exception:
+        pass
+    return None
+
+
+def _apply_btn_style(btn, style_key, resources=None):
+    """Safely apply a resource style to a button using WPF TryFindResource."""
+    if not btn or not style_key:
+        return
+    try:
+        if hasattr(btn, 'TryFindResource'):
+            st = btn.TryFindResource(style_key)
+            if st is not None:
+                btn.Style = st
+                return
+    except Exception:
+        pass
+    try:
+        if resources is not None:
+            if hasattr(resources, 'Contains') and resources.Contains(style_key):
+                btn.Style = resources[style_key]
+                return
+            elif hasattr(resources, '__contains__') and style_key in resources:
+                btn.Style = resources[style_key]
+                return
+    except Exception:
+        pass
 
 
 # ─── Status helpers shared with embedded widgets ───────────────────────────────
 
-def apply_server_status(status, indicator, label, btn, resources):
+def apply_server_status(status, indicator, label, btn, resources=None):
     """
     Update server status widgets from an MCPService.server_status() dict.
     All widget args may be None (skipped gracefully).
     """
+    if not status:
+        status = {}
     if status.get('error'):
         color, text = '#D23B3B', 'Error: {}'.format(status['error'])
         btn_content, btn_style_key = 'Start Server', 'T3.Button.Primary'
         enabled = True
-    elif status['running']:
+    elif status.get('running'):
         color       = '#157038'
-        text        = 'Connected — port {}'.format(status['port'])
+        text        = 'Connected — port {}'.format(status.get('port', 48884))
         btn_content = 'Stop Server'
         btn_style_key = 'T3.Button.Danger'
         enabled     = True
@@ -57,27 +119,37 @@ def apply_server_status(status, indicator, label, btn, resources):
         btn_content, btn_style_key = 'Start Server', 'T3.Button.Primary'
         enabled = True
 
-    if indicator: indicator.Background = _brush(color)
-    if label:     label.Text           = text
+    if indicator:
+        b = _brush(color)
+        if b is not None:
+            indicator.Background = b
+    if label:
+        label.Text = text
     if btn:
         btn.Content   = btn_content
         btn.IsEnabled = enabled
-        if resources and btn_style_key in resources:
-            btn.Style = resources[btn_style_key]
+        _apply_btn_style(btn, btn_style_key, resources)
 
 
-def apply_watcher_status(status, indicator, label, btn, resources):
+def apply_watcher_status(status, indicator, label, btn, resources=None):
     """
     Update watcher status widgets from an MCPService.watcher_status() dict.
     """
+    if not status:
+        status = {}
     if not HAS_SERVICE or status.get('error'):
         err = status.get('error', 'Service unavailable') if status else 'Service unavailable'
-        if indicator: indicator.Background = _brush('#9A9AA2')
-        if label:     label.Text           = err
-        if btn:       btn.IsEnabled        = False
+        if indicator:
+            b = _brush('#9A9AA2')
+            if b is not None:
+                indicator.Background = b
+        if label:
+            label.Text = err
+        if btn:
+            btn.IsEnabled = False
         return
 
-    if status['running']:
+    if status.get('running'):
         color = '#157038'
         text  = 'File watcher active — monitoring task.json'
         btn_content, btn_style_key = 'Stop Watcher', 'T3.Button.Danger'
@@ -86,13 +158,16 @@ def apply_watcher_status(status, indicator, label, btn, resources):
         text  = 'File watcher stopped'
         btn_content, btn_style_key = 'Start Watcher', 'T3.Button.Secondary'
 
-    if indicator: indicator.Background = _brush(color)
-    if label:     label.Text           = text
+    if indicator:
+        b = _brush(color)
+        if b is not None:
+            indicator.Background = b
+    if label:
+        label.Text = text
     if btn:
         btn.Content   = btn_content
         btn.IsEnabled = True
-        if resources and btn_style_key in resources:
-            btn.Style = resources[btn_style_key]
+        _apply_btn_style(btn, btn_style_key, resources)
 
 
 # ─── Dialog ────────────────────────────────────────────────────────────────────
@@ -105,17 +180,26 @@ class MCPControlWindow(T3WPFWindow):
     def __init__(self):
         T3WPFWindow.__init__(self, _XAML)
 
-        # MCP server events
-        self.toggle_btn.Click    += self._on_toggle
-        self.copy_btn.Click      += self._on_copy
-        self.port_tb.TextChanged += self._on_port_changed
+        # MCP server controls (safely bound via FindName)
+        self.toggle_btn       = self.FindName('toggle_btn')
+        self.copy_btn         = self.FindName('copy_btn')
+        self.port_tb          = self.FindName('port_tb')
+        self.status_indicator = self.FindName('status_indicator')
+        self.status_label     = self.FindName('status_label')
+        self.config_box       = self.FindName('config_box')
 
-        # Active document widgets (read-only status — switching is done from
-        # the AI client via the switch_active_document / open_document tools)
+        if self.toggle_btn:
+            self.toggle_btn.Click += self._on_toggle
+        if self.copy_btn:
+            self.copy_btn.Click += self._on_copy
+        if self.port_tb:
+            self.port_tb.TextChanged += self._on_port_changed
+
+        # Active document widgets (read-only status)
         self._doc_indicator = self.FindName('active_doc_indicator')
         self._doc_label     = self.FindName('active_doc_label')
 
-        # File watcher events (FindName so missing elements don't crash)
+        # File watcher widgets
         self._watcher_indicator = self.FindName('watcher_indicator')
         self._watcher_label     = self.FindName('watcher_label')
         self._watcher_btn       = self.FindName('watcher_toggle_btn')
@@ -135,14 +219,13 @@ class MCPControlWindow(T3WPFWindow):
         if configure_claude_btn:
             configure_claude_btn.Click += self._on_configure_claude
 
-        # Teaching capture widgets (Opus distils to local Qwen via MCP)
+        # Teaching capture widgets
         self._teaching_toggle    = self.FindName('teaching_toggle')
         self._teaching_indicator = self.FindName('teaching_indicator')
         self._teaching_label     = self.FindName('teaching_status_label')
         self._sandbox_label      = self.FindName('sandbox_label')
         mark_sandbox_btn         = self.FindName('mark_sandbox_btn')
-        # Bind Click (not Checked/Unchecked): _refresh_teaching sets IsChecked
-        # from server state, and Checked would re-fire the handler and fight it.
+
         if self._teaching_toggle:
             self._teaching_toggle.Click += self._on_teaching_toggle
         if mark_sandbox_btn:
@@ -154,7 +237,8 @@ class MCPControlWindow(T3WPFWindow):
     # ── Window chrome ──────────────────────────────────────────────────────────
 
     def minimize_button_clicked(self, sender, e):
-        self.WindowState = WindowState.Minimized
+        if WindowState is not None:
+            self.WindowState = WindowState.Minimized
 
     def close_button_clicked(self, sender, e):
         self.Close()
@@ -168,22 +252,42 @@ class MCPControlWindow(T3WPFWindow):
                 port = MCPService.server_status().get('port', 48884)
             except Exception:
                 pass
-        self.port_tb.Text = str(port)
+        if self.port_tb:
+            self.port_tb.Text = str(port)
 
     # ── Refresh ────────────────────────────────────────────────────────────────
 
     def _refresh_all(self):
-        self._refresh_server()
-        self._refresh_documents()
-        self._refresh_watcher()
-        self._refresh_claude_config()
-        self._refresh_teaching()
+        try:
+            self._refresh_server()
+        except Exception as ex:
+            logger.debug("Error refreshing server status: {}".format(ex))
+        try:
+            self._refresh_documents()
+        except Exception as ex:
+            logger.debug("Error refreshing documents: {}".format(ex))
+        try:
+            self._refresh_watcher()
+        except Exception as ex:
+            logger.debug("Error refreshing watcher: {}".format(ex))
+        try:
+            self._refresh_claude_config()
+        except Exception as ex:
+            logger.debug("Error refreshing Claude config: {}".format(ex))
+        try:
+            self._refresh_teaching()
+        except Exception as ex:
+            logger.debug("Error refreshing teaching: {}".format(ex))
 
     def _refresh_server(self):
         if not HAS_SERVICE:
-            self.status_indicator.Background = _brush('#94A3B8')
-            self.status_label.Text           = 'Service unavailable: ' + _SVC_ERR_MSG
-            self.toggle_btn.IsEnabled        = False
+            if self.status_indicator:
+                b = _brush('#94A3B8')
+                if b: self.status_indicator.Background = b
+            if self.status_label:
+                self.status_label.Text = 'Service unavailable: ' + _SVC_ERR_MSG
+            if self.toggle_btn:
+                self.toggle_btn.IsEnabled = False
             return
         status = MCPService.server_status()
         apply_server_status(
@@ -193,33 +297,45 @@ class MCPControlWindow(T3WPFWindow):
             self.toggle_btn,
             self.Resources,
         )
-        self.config_box.Text = MCPService.config_snippet(
-            port=self.port_tb.Text or status.get('port')
-        )
+        if self.config_box:
+            port_text = self.port_tb.Text if self.port_tb else None
+            self.config_box.Text = MCPService.config_snippet(
+                port=port_text or status.get('port')
+            )
 
     def _refresh_documents(self):
         if not self._doc_label:
             return
         if not HAS_SERVICE:
-            if self._doc_indicator: self._doc_indicator.Background = _brush('#94A3B8')
+            if self._doc_indicator:
+                b = _brush('#94A3B8')
+                if b: self._doc_indicator.Background = b
             self._doc_label.Text = 'Service unavailable'
             return
 
         docs, err = MCPService.list_open_documents()
         if err:
-            if self._doc_indicator: self._doc_indicator.Background = _brush('#EF4444')
+            if self._doc_indicator:
+                b = _brush('#EF4444')
+                if b: self._doc_indicator.Background = b
             self._doc_label.Text = 'Error: {}'.format(err)
             return
 
-        active_title = next((d['title'] for d in docs if d['is_active']), None)
+        active_title = next((d['title'] for d in (docs or []) if d.get('is_active')), None)
         if active_title:
-            if self._doc_indicator: self._doc_indicator.Background = _brush('#10B981')
+            if self._doc_indicator:
+                b = _brush('#10B981')
+                if b: self._doc_indicator.Background = b
             self._doc_label.Text = 'Active: {}'.format(active_title)
         elif docs:
-            if self._doc_indicator: self._doc_indicator.Background = _brush('#F59E0B')
+            if self._doc_indicator:
+                b = _brush('#F59E0B')
+                if b: self._doc_indicator.Background = b
             self._doc_label.Text = '{} open — none active (click a tab in Revit)'.format(len(docs))
         else:
-            if self._doc_indicator: self._doc_indicator.Background = _brush('#94A3B8')
+            if self._doc_indicator:
+                b = _brush('#94A3B8')
+                if b: self._doc_indicator.Background = b
             self._doc_label.Text = 'No document open'
 
     def _refresh_watcher(self):
@@ -236,7 +352,8 @@ class MCPControlWindow(T3WPFWindow):
             self.Resources,
         )
         if self._dir_label:
-            self._dir_label.Text = status.get('data_dir', MCPService.data_dir())
+            data_dir = status.get('data_dir') if status else None
+            self._dir_label.Text = data_dir or MCPService.data_dir()
 
     # ── Event handlers ─────────────────────────────────────────────────────────
 
@@ -244,7 +361,7 @@ class MCPControlWindow(T3WPFWindow):
         if not HAS_SERVICE:
             return
         try:
-            port = int(self.port_tb.Text.strip())
+            port = int(self.port_tb.Text.strip()) if self.port_tb else None
         except Exception:
             port = None
         new_state, err = MCPService.toggle_server(current_port=port)
@@ -252,9 +369,6 @@ class MCPControlWindow(T3WPFWindow):
             logger.error('MCP server toggle error: {}'.format(err))
         else:
             logger.info('MCP server: {}'.format(new_state))
-            # We're on the UI thread here (button click) — a valid Revit API
-            # context — so guarantee the ExternalEvent exists for model-editing
-            # tools even if the server was auto-started from a background probe.
             if new_state == 'running':
                 ok, ee_err = MCPService.ensure_external_event()
                 if not ok:
@@ -274,7 +388,8 @@ class MCPControlWindow(T3WPFWindow):
     def _on_copy(self, sender, e):
         try:
             from System.Windows import Clipboard
-            Clipboard.SetText(self.config_box.Text)
+            text = self.config_box.Text if self.config_box else ''
+            Clipboard.SetText(text)
             logger.info('Configuration copied to clipboard.')
         except Exception as ex:
             logger.error('Clipboard error: {}'.format(ex))
@@ -287,25 +402,30 @@ class MCPControlWindow(T3WPFWindow):
     def _refresh_claude_config(self):
         if not HAS_SERVICE:
             if self._claude_cfg_indicator:
-                self._claude_cfg_indicator.Background = _brush('#94A3B8')
+                b = _brush('#94A3B8')
+                if b: self._claude_cfg_indicator.Background = b
             if self._claude_cfg_label:
                 self._claude_cfg_label.Text = 'Service unavailable'
             return
-        status = MCPService.claude_desktop_status()
+        try:
+            status = MCPService.claude_desktop_status()
+        except Exception as ex:
+            status = {'error': str(ex)}
         if status.get('error'):
             color = '#EF4444'
             text  = 'Error: {}'.format(status['error'])
-        elif not status['file_exists']:
+        elif not status.get('file_exists'):
             color = '#F59E0B'
             text  = 'Config not found — will be created on Configure'
-        elif status['configured']:
+        elif status.get('configured'):
             color = '#10B981'
             text  = 'Configured — t3lab-revit entry present'
         else:
             color = '#EF4444'
             text  = 'Not configured — click Configure to add entry'
         if self._claude_cfg_indicator:
-            self._claude_cfg_indicator.Background = _brush(color)
+            b = _brush(color)
+            if b: self._claude_cfg_indicator.Background = b
         if self._claude_cfg_label:
             self._claude_cfg_label.Text = text
         if self._claude_cfg_path:
@@ -315,7 +435,7 @@ class MCPControlWindow(T3WPFWindow):
         if not HAS_SERVICE:
             return
         try:
-            port = int(self.port_tb.Text.strip())
+            port = int(self.port_tb.Text.strip()) if self.port_tb else None
         except Exception:
             port = None
         ok, msg = MCPService.configure_claude_desktop(port=port)
@@ -326,9 +446,10 @@ class MCPControlWindow(T3WPFWindow):
         self._refresh_claude_config()
 
     def _on_port_changed(self, sender, e):
-        if HAS_SERVICE:
+        if HAS_SERVICE and self.config_box:
+            port_text = self.port_tb.Text if self.port_tb else None
             self.config_box.Text = MCPService.config_snippet(
-                port=self.port_tb.Text or None
+                port=port_text or None
             )
 
     # ── Teaching capture ────────────────────────────────────────────────────────
@@ -344,8 +465,8 @@ class MCPControlWindow(T3WPFWindow):
         if self._teaching_toggle is not None:
             self._teaching_toggle.IsChecked = enabled
         if self._teaching_indicator is not None:
-            self._teaching_indicator.Background = _brush(
-                '#10B981' if enabled else '#94A3B8')
+            b = _brush('#10B981' if enabled else '#94A3B8')
+            if b: self._teaching_indicator.Background = b
         recorded = status.get('sessions_recorded', 0)
         if status.get('error'):
             self._teaching_label.Text = 'Teaching unavailable'
@@ -363,7 +484,6 @@ class MCPControlWindow(T3WPFWindow):
     def _on_teaching_toggle(self, sender, e):
         if not HAS_SERVICE:
             return
-        # The toggle already flipped IsChecked on click; push that to the server.
         want = bool(self._teaching_toggle.IsChecked) \
             if self._teaching_toggle is not None else False
         _new, err = MCPService.set_teaching_mode(want)

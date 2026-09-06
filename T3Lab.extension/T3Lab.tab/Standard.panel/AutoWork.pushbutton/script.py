@@ -79,6 +79,7 @@ from System.Windows.Media import SolidColorBrush, Color
 from System.Windows.Threading import DispatcherPriority
 from System.Threading import Thread, ThreadStart
 from System.Collections.ObjectModel import ObservableCollection
+from System.Collections.Generic import List as NetList
 from System import Object
 
 from pyrevit import forms, script, revit, DB
@@ -411,9 +412,12 @@ class AutoWorkWindow(T3WPFWindow):
                     pass
 
             # Highlight and show elements
-            eids_to_show = [eid]
+            eids_to_show = NetList[DB.ElementId]()
+            eids_to_show.Add(eid)
             if record.SecondaryId:
-                eids_to_show.append(make_eid(record.SecondaryId))
+                sec_eid = make_eid(record.SecondaryId)
+                if sec_eid:
+                    eids_to_show.Add(sec_eid)
 
             self.uidoc.Selection.SetElementIds(eids_to_show)
             self.uidoc.ShowElements(eids_to_show)
@@ -425,19 +429,23 @@ class AutoWorkWindow(T3WPFWindow):
     def select_in_revit_clicked(self, sender, e):
         """Select all checked defect elements in Revit."""
         try:
-            selected_eids = []
+            selected_eids = NetList[DB.ElementId]()
             for r in self._displayed_records:
                 if r.IsSelected and r.ElementId != -1:
-                    selected_eids.append(make_eid(r.ElementId))
+                    e1 = make_eid(r.ElementId)
+                    if e1:
+                        selected_eids.Add(e1)
                     if r.SecondaryId:
-                        selected_eids.append(make_eid(r.SecondaryId))
+                        e2 = make_eid(r.SecondaryId)
+                        if e2:
+                            selected_eids.Add(e2)
 
-            if not selected_eids:
+            if selected_eids.Count == 0:
                 self._set_status("No checked items with valid element IDs.", error=True)
                 return
 
             self.uidoc.Selection.SetElementIds(selected_eids)
-            self._set_status("Selected {} element(s) in Revit.".format(len(selected_eids)))
+            self._set_status("Selected {} element(s) in Revit.".format(selected_eids.Count))
         except Exception as ex:
             self._set_status("Selection error: {}".format(ex), error=True)
 
