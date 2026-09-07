@@ -251,8 +251,9 @@ except Exception:
 class SheetItem(_Reactive):
     """Represents a sheet item in the list - optimized for performance."""
     def __init__(self, sheet, is_selected=False, lazy=False):
+        self._property_changed_handlers = []
         self.Sheet = sheet
-        self.IsSelected = is_selected
+        self._is_selected = bool(is_selected)
         self.SheetNumber = sheet.SheetNumber
         self.SheetName = sheet.Name
         self.Status = "Ready"
@@ -268,6 +269,37 @@ class SheetItem(_Reactive):
 
         if not lazy:
             self._load_revision_params()
+
+    @property
+    def IsSelected(self):
+        return self._is_selected
+
+    @IsSelected.setter
+    def IsSelected(self, value):
+        val = bool(value)
+        if self._is_selected != val:
+            self._is_selected = val
+            self.OnPropertyChanged("IsSelected")
+
+    def add_PropertyChanged(self, handler):
+        if handler not in self._property_changed_handlers:
+            self._property_changed_handlers.append(handler)
+
+    def remove_PropertyChanged(self, handler):
+        if handler in self._property_changed_handlers:
+            self._property_changed_handlers.remove(handler)
+
+    def OnPropertyChanged(self, property_name):
+        try:
+            if PropertyChangedEventArgs is not None:
+                args = PropertyChangedEventArgs(property_name)
+                for handler in list(self._property_changed_handlers):
+                    try:
+                        handler(self, args)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
     def _load_revision_params(self):
         """Load revision and metadata parameters. Called deferred for fast startup."""
@@ -311,8 +343,9 @@ class ViewItem(_Reactive):
     _VIEW_TYPE_MAP = VIEW_TYPE_LABELS
 
     def __init__(self, view, is_selected=False, lazy=False):
+        self._property_changed_handlers = []
         self.View = view
-        self.IsSelected = is_selected
+        self._is_selected = bool(is_selected)
         self.ViewName = view.Name
         self.SheetNumber = view.Name  # alias for column compatibility
         self.SheetName = ""
@@ -343,6 +376,37 @@ class ViewItem(_Reactive):
         self.Revision = self.Phase
         self.Orientation = "-"
 
+    @property
+    def IsSelected(self):
+        return self._is_selected
+
+    @IsSelected.setter
+    def IsSelected(self, value):
+        val = bool(value)
+        if self._is_selected != val:
+            self._is_selected = val
+            self.OnPropertyChanged("IsSelected")
+
+    def add_PropertyChanged(self, handler):
+        if handler not in self._property_changed_handlers:
+            self._property_changed_handlers.append(handler)
+
+    def remove_PropertyChanged(self, handler):
+        if handler in self._property_changed_handlers:
+            self._property_changed_handlers.remove(handler)
+
+    def OnPropertyChanged(self, property_name):
+        try:
+            if PropertyChangedEventArgs is not None:
+                args = PropertyChangedEventArgs(property_name)
+                for handler in list(self._property_changed_handlers):
+                    try:
+                        handler(self, args)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
     def _load_extra_data(self):
         """Load Phase and ViewTemplate — deferred for startup performance."""
         try:
@@ -372,6 +436,7 @@ class ViewItem(_Reactive):
 class ExportPreviewItem(object):
     """Represents an export preview item."""
     def __init__(self, item, format_name, size, orientation):
+        self._property_changed_handlers = []
         # Support both SheetItem and ViewItem
         if hasattr(item, 'SheetNumber'):
             # It's a SheetItem
@@ -391,9 +456,49 @@ class ExportPreviewItem(object):
         self.Format = format_name
         self.Size = size
         self.Orientation = orientation
-        self.Progress = 0
-        self.Status = ""
+        self._progress = 0
+        self._status = ""
         self.ProgressText = ""
+
+    @property
+    def Progress(self):
+        return self._progress
+
+    @Progress.setter
+    def Progress(self, value):
+        if self._progress != value:
+            self._progress = value
+            self.OnPropertyChanged("Progress")
+
+    @property
+    def Status(self):
+        return self._status
+
+    @Status.setter
+    def Status(self, value):
+        if self._status != value:
+            self._status = value
+            self.OnPropertyChanged("Status")
+
+    def add_PropertyChanged(self, handler):
+        if handler not in self._property_changed_handlers:
+            self._property_changed_handlers.append(handler)
+
+    def remove_PropertyChanged(self, handler):
+        if handler in self._property_changed_handlers:
+            self._property_changed_handlers.remove(handler)
+
+    def OnPropertyChanged(self, property_name):
+        try:
+            if PropertyChangedEventArgs is not None:
+                args = PropertyChangedEventArgs(property_name)
+                for handler in list(self._property_changed_handlers):
+                    try:
+                        handler(self, args)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
 
 class ExportProfile(object):
@@ -614,6 +719,8 @@ class ExportManagerWindow(T3WPFWindow):
             # Performance optimization: caches for batch loading
             self._titleblock_size_cache = {}  # Sheet ID -> (width_mm, height_mm)
             self._paper_size_cache = {}  # Sheet ID -> (size_name, orientation)
+            self._titleblock_cache_loaded = False
+            self._batch_updating = False
 
             # naming pattern stored as plain object; default = sheet number only
             self.naming_pattern = type('_NP', (), {'Text': '{SheetNumber}'})()
@@ -668,6 +775,9 @@ class ExportManagerWindow(T3WPFWindow):
             # Attach event handler for click-to-select functionality
             # This is done programmatically because EventSetters in Styles don't work with pyRevit
             self.sheets_listview.PreviewMouseLeftButtonDown += self.listview_clicked
+
+            # Sync selection state → count whenever WPF native selection changes
+            self.sheets_listview.SelectionChanged += self.sheets_selection_changed
 
             # Attach event handler for tab changes to update preview
             self.main_tabs.SelectionChanged += self.tab_changed
@@ -1266,11 +1376,13 @@ class ExportManagerWindow(T3WPFWindow):
                 except:
                     continue
 
+            self._titleblock_cache_loaded = True
             logger.debug("Batch loaded {} titleblock sizes".format(len(self._titleblock_size_cache)))
 
         except Exception as ex:
             logger.debug("Error batch loading titleblocks: {}".format(ex))
             self._titleblock_size_cache = {}
+            self._titleblock_cache_loaded = True
 
     def _detect_paper_size_from_dimensions(self, width_mm, height_mm):
         """Fast paper size detection from dimensions using pre-computed lookup.
@@ -1355,6 +1467,7 @@ class ExportManagerWindow(T3WPFWindow):
         Uses cached titleblock data for performance (batch loaded).
         """
         try:
+            self._ensure_titleblock_cache()
             sheet_id = eid_value(sheet.Id)
 
             # Check paper size cache first
@@ -1368,25 +1481,10 @@ class ExportManagerWindow(T3WPFWindow):
                 self._paper_size_cache[sheet_id] = result
                 return result
 
-            # Fallback: query directly if not in cache (for dynamically added sheets)
-            collector = FilteredElementCollector(self.doc, sheet.Id)\
-                .OfCategory(BuiltInCategory.OST_TitleBlocks)\
-                .WhereElementIsNotElementType()
-
-            for tb in collector:
-                width_param = tb.get_Parameter(DB.BuiltInParameter.SHEET_WIDTH)
-                height_param = tb.get_Parameter(DB.BuiltInParameter.SHEET_HEIGHT)
-
-                if width_param and height_param:
-                    width_mm = width_param.AsDouble() * 304.8
-                    height_mm = height_param.AsDouble() * 304.8
-                    # Cache for future use
-                    self._titleblock_size_cache[sheet_id] = (width_mm, height_mm)
-                    result = self._detect_paper_size_from_dimensions(width_mm, height_mm)
-                    self._paper_size_cache[sheet_id] = result
-                    return result
-                break
-
+            # If not in cache, the sheet has no titleblock (e.g. START VIEW or cover sheet).
+            # NEVER query FilteredElementCollector(self.doc, sheet.Id) because view-scoped
+            # collectors on sheets force Revit to initialize view graphics and delegate to
+            # RevitWorker.exe, which deadlocks/crashes Revit on complex or cloud-based start views!
             result = ("Use Sheet Size", "Landscape")
             self._paper_size_cache[sheet_id] = result
             return result
@@ -2392,6 +2490,13 @@ class ExportManagerWindow(T3WPFWindow):
         except Exception as ex:
             logger.error("Error applying sheet set filter: {}".format(ex))
 
+    def _on_item_property_changed(self, sender, args):
+        """React to any programmatic or binding changes to IsSelected on items."""
+        if getattr(self, '_batch_updating', False):
+            return
+        if args and getattr(args, 'PropertyName', None) == "IsSelected":
+            self.update_selection_count()
+
     def load_sheets(self):
         """Load all sheets - Phase 1: instant display of names, Phase 2: progressive background load."""
         try:
@@ -2404,7 +2509,11 @@ class ExportManagerWindow(T3WPFWindow):
             sheets.sort(key=lambda x: x.SheetNumber)
 
             # Create minimal SheetItems (lazy=True skips all parameter accesses)
-            self.all_sheets = [SheetItem(sheet, False, lazy=True) for sheet in sheets]
+            self.all_sheets = []
+            for sheet in sheets:
+                item = SheetItem(sheet, False, lazy=True)
+                item.add_PropertyChanged(self._on_item_property_changed)
+                self.all_sheets.append(item)
             self.filtered_sheets = list(self.all_sheets)
 
             # Show sheet names immediately
@@ -2466,7 +2575,7 @@ class ExportManagerWindow(T3WPFWindow):
 
     def _ensure_titleblock_cache(self):
         """Populate titleblock size cache on first call (deferred from startup)."""
-        if not self._titleblock_size_cache:
+        if not getattr(self, '_titleblock_cache_loaded', False):
             self._batch_load_titleblock_sizes()
 
     def _load_extra_sheet_data(self):
@@ -2517,7 +2626,11 @@ class ExportManagerWindow(T3WPFWindow):
                              "excluded".format(len(views), excluded))
 
             # lazy=True: skip Phase/ViewTemplate lookups for instant display
-            self.all_views = [ViewItem(view, False, lazy=True) for view in views]
+            self.all_views = []
+            for view in views:
+                item = ViewItem(view, False, lazy=True)
+                item.add_PropertyChanged(self._on_item_property_changed)
+                self.all_views.append(item)
             self.filtered_views = list(self.all_views)
 
             self.update_items_list()
@@ -2581,21 +2694,31 @@ class ExportManagerWindow(T3WPFWindow):
         self.sheets_listview.ItemsSource = to_items_source(self.filtered_views)
 
     def update_selection_count(self):
-        """Update the selection count status bar."""
+        """Update the selection count status bar and header checkbox."""
         try:
-            if not hasattr(self, 'selection_count_text'):
+            if getattr(self, '_batch_updating', False):
                 return
 
-            if self.selection_mode == "sheets":
-                selected_count = sum(1 for s in self.filtered_sheets if s.IsSelected)
-                total_count = len(self.filtered_sheets)
-                self.selection_count_text.Text = "{} sheets and 0 views selected. Total: {}".format(
-                    selected_count, total_count)
-            else:
-                selected_count = sum(1 for v in self.filtered_views if v.IsSelected)
-                total_count = len(self.filtered_views)
-                self.selection_count_text.Text = "0 sheets and {} views selected. Total: {}".format(
-                    selected_count, total_count)
+            items = self.filtered_sheets if self.selection_mode == "sheets" else self.filtered_views
+            total_count = len(items)
+            selected_count = sum(1 for s in items if s.IsSelected)
+
+            if hasattr(self, 'selection_count_text'):
+                if self.selection_mode == "sheets":
+                    self.selection_count_text.Text = "{} sheets and 0 views selected. Total: {}".format(
+                        selected_count, total_count)
+                else:
+                    self.selection_count_text.Text = "0 sheets and {} views selected. Total: {}".format(
+                        selected_count, total_count)
+
+            # Sync header checkbox (True = all, False = none, None = indeterminate)
+            if hasattr(self, 'header_checkbox') and self.header_checkbox:
+                if total_count == 0 or selected_count == 0:
+                    self.header_checkbox.IsChecked = False
+                elif selected_count == total_count:
+                    self.header_checkbox.IsChecked = True
+                else:
+                    self.header_checkbox.IsChecked = None
 
         except Exception as ex:
             logger.debug("Error updating selection count: {}".format(ex))
@@ -2645,53 +2768,67 @@ class ExportManagerWindow(T3WPFWindow):
             logger.error("Error changing selection mode: {}".format(ex))
 
     def listview_clicked(self, sender, e):
-        """Handle click on ListView to toggle item selection.
+        """Handle click on ListView — only blocks TextBox clicks from toggling the row.
 
-        This allows users to click anywhere on a row to toggle its selection,
-        in addition to using the checkbox.
+        Selection sync is now handled automatically by the XAML TwoWay binding
+        (ListViewItem.IsSelected ↔ SheetItem.IsSelected) and the
+        sheets_selection_changed event handler.
         """
         try:
-            # Get the clicked element
-            from System.Windows import FrameworkElement
-            from System.Windows.Controls import ListViewItem, TextBox, CheckBox
+            from System.Windows.Controls import TextBox
             from System.Windows.Media import VisualTreeHelper
 
-            # Check if the click was on a TextBox or CheckBox
-            # If so, don't toggle selection - let the control handle it
-            element = e.OriginalSource
-            temp_element = element
-            while temp_element is not None:
-                if isinstance(temp_element, (TextBox, CheckBox)):
-                    # Click was in a textbox or checkbox, don't toggle selection
+            # Check if the click was on or inside a TextBox
+            # If so, don't let it bubble up to the ListViewItem selection
+            cur = e.OriginalSource
+            while cur is not None:
+                if isinstance(cur, TextBox):
+                    # Click was in a textbox, stop here to prevent row toggle
+                    e.Handled = True
+                    # Still let the TextBox get focus
+                    sender_tb = cur
+                    sender_tb.Focus()
                     return
-                if isinstance(temp_element, ListViewItem):
+                try:
+                    cur = VisualTreeHelper.GetParent(cur)
+                except Exception:
                     break
-                temp_element = temp_element.Parent if hasattr(temp_element, 'Parent') else None
-
-            # Find the ListViewItem that was clicked
-            item = None
-            element = e.OriginalSource
-            while element is not None:
-                if isinstance(element, ListViewItem):
-                    item = element
-                    break
-                element = VisualTreeHelper.GetParent(element) if element else None
-
-            # Toggle the selection
-            if item and hasattr(item, 'DataContext'):
-                data_item = item.DataContext
-                if data_item:
-                    # Toggle the IsSelected property
-                    data_item.IsSelected = not data_item.IsSelected
-                    # Refresh to show the change
-                    self.sheets_listview.Items.Refresh()
-                    # Update selection count
-                    self.update_selection_count()
-                    # Update export preview if on Create tab
-                    self.update_export_preview_if_needed()
-
         except Exception as ex:
             logger.debug("Error handling listview click: {}".format(ex))
+
+    def sheets_selection_changed(self, sender, e):
+        """React to WPF native selection changes (click, Ctrl+click, Shift+click, arrow keys).
+
+        Because ListViewItem.IsSelected is TwoWay-bound to SheetItem.IsSelected,
+        the data model is already updated when this fires. We just need to
+        refresh the count display and export preview.
+        """
+        try:
+            if getattr(self, '_batch_updating', False):
+                return
+            self.update_selection_count()
+            self.update_export_preview_if_needed()
+        except Exception as ex:
+            logger.debug("Error handling sheets selection changed: {}".format(ex))
+
+    def row_checkbox_clicked(self, sender, e):
+        """Handle direct click on row CheckBox."""
+        try:
+            # Synchronously update data_item.IsSelected to match CheckBox.IsChecked
+            # to eliminate WPF data binding latency from causing the selected count to lag by 1
+            if hasattr(sender, 'DataContext') and sender.DataContext is not None:
+                sender.DataContext.IsSelected = bool(sender.IsChecked)
+
+            # Refresh the ListView so ListViewItem.IsSelected binding picks up
+            # the new SheetItem.IsSelected value (highlight stays in sync).
+            # Required because SheetItem is a plain Python object without CLR
+            # INotifyPropertyChanged, so TwoWay binding only auto-pushes UI→model.
+            self.sheets_listview.Items.Refresh()
+
+            self.update_selection_count()
+            self.update_export_preview_if_needed()
+        except Exception as ex:
+            logger.debug("Error handling row checkbox click: {}".format(ex))
 
     def listview_item_double_clicked(self, sender, e):
         """Handle double-click on ListView item - same as single click for now."""
@@ -2707,8 +2844,9 @@ class ExportManagerWindow(T3WPFWindow):
     def on_listview_size_changed(self, sender, e):
         """Resize Sheet Name and Custom Filename columns to fill available ListView width with ZERO gaps."""
         try:
-            # Fixed columns: checkbox (40) + number (150) + rev (70) + size (70) + orientation (90) + scrollbar/borders (8)
-            fixed = 40 + 150 + 70 + 70 + 90 + 8
+            col_num_w = int(self.col_number.Width) if hasattr(self, 'col_number') and self.col_number.Width > 0 else 220
+            # Fixed columns: checkbox (40) + number (col_num_w) + rev (70) + size (70) + orientation (90) + scrollbar/borders (8)
+            fixed = 40 + col_num_w + 70 + 70 + 90 + 8
             available = sender.ActualWidth - fixed
             if available <= 0:
                 return
@@ -2735,61 +2873,74 @@ class ExportManagerWindow(T3WPFWindow):
 
     def header_checkbox_clicked(self, sender, e):
         """Handle header checkbox click to select/deselect all items."""
-        is_checked = sender.IsChecked
+        try:
+            items = self.filtered_sheets if self.selection_mode == "sheets" else self.filtered_views
+            if not items:
+                return
 
-        if self.selection_mode == "sheets":
-            if is_checked:
-                for sheet_item in self.filtered_sheets:
-                    sheet_item.IsSelected = True
-                self.status_text.Text = "Selected {} sheets".format(len(self.filtered_sheets))
-            else:
-                for sheet_item in self.filtered_sheets:
-                    sheet_item.IsSelected = False
-                self.status_text.Text = "Deselected all sheets"
-            self.sheets_listview.Items.Refresh()
-        else:
-            if is_checked:
-                for view_item in self.filtered_views:
-                    view_item.IsSelected = True
-                self.status_text.Text = "Selected {} views".format(len(self.filtered_views))
-            else:
-                for view_item in self.filtered_views:
-                    view_item.IsSelected = False
-                self.status_text.Text = "Deselected all views"
+            all_selected = all(item.IsSelected for item in items)
+            target_state = not all_selected
+
+            self._batch_updating = True
+            try:
+                for item in items:
+                    item.IsSelected = target_state
+            finally:
+                self._batch_updating = False
+
             self.sheets_listview.Items.Refresh()
 
-        # Update selection count
-        self.update_selection_count()
-        # Update export preview if on Create tab
-        self.update_export_preview_if_needed()
+            if self.selection_mode == "sheets":
+                if target_state:
+                    self.status_text.Text = "Selected {} sheets".format(len(items))
+                else:
+                    self.status_text.Text = "Deselected all sheets"
+            else:
+                if target_state:
+                    self.status_text.Text = "Selected {} views".format(len(items))
+                else:
+                    self.status_text.Text = "Deselected all views"
+
+            # Update selection count
+            self.update_selection_count()
+            # Update export preview if on Queue tab
+            self.update_export_preview_if_needed()
+        except Exception as ex:
+            logger.debug("Error in header_checkbox_clicked: {}".format(ex))
 
     def select_all_sheets(self, sender, e):
         """Select all items (sheets or views)."""
+        items = self.filtered_sheets if self.selection_mode == "sheets" else self.filtered_views
+        self._batch_updating = True
+        try:
+            for item in items:
+                item.IsSelected = True
+        finally:
+            self._batch_updating = False
+
+        self.sheets_listview.Items.Refresh()
         if self.selection_mode == "sheets":
-            for sheet_item in self.filtered_sheets:
-                sheet_item.IsSelected = True
-            self.sheets_listview.Items.Refresh()
-            self.status_text.Text = "Selected {} sheets".format(len(self.filtered_sheets))
+            self.status_text.Text = "Selected {} sheets".format(len(items))
         else:
-            for view_item in self.filtered_views:
-                view_item.IsSelected = True
-            self.sheets_listview.Items.Refresh()
-            self.status_text.Text = "Selected {} views".format(len(self.filtered_views))
+            self.status_text.Text = "Selected {} views".format(len(items))
 
         # Update selection count
         self.update_selection_count()
 
     def select_none_sheets(self, sender, e):
         """Deselect all items (sheets or views)."""
+        items = self.filtered_sheets if self.selection_mode == "sheets" else self.filtered_views
+        self._batch_updating = True
+        try:
+            for item in items:
+                item.IsSelected = False
+        finally:
+            self._batch_updating = False
+
+        self.sheets_listview.Items.Refresh()
         if self.selection_mode == "sheets":
-            for sheet_item in self.filtered_sheets:
-                sheet_item.IsSelected = False
-            self.sheets_listview.Items.Refresh()
             self.status_text.Text = "Deselected all sheets"
         else:
-            for view_item in self.filtered_views:
-                view_item.IsSelected = False
-            self.sheets_listview.Items.Refresh()
             self.status_text.Text = "Deselected all views"
 
         # Update selection count
@@ -3015,6 +3166,7 @@ class ExportManagerWindow(T3WPFWindow):
             # Drop stale caches so sheet sizes re-detect against the live model
             self._titleblock_size_cache = {}
             self._paper_size_cache = {}
+            self._titleblock_cache_loaded = False
 
             # Reload document-driven dropdowns
             self.load_cad_export_setups()
@@ -3502,70 +3654,75 @@ class ExportManagerWindow(T3WPFWindow):
 
     def build_export_preview(self):
         """Build the export preview list."""
-        # Ensure titleblock cache is populated before size detection runs.
-        # This is deferred from startup to avoid triggering Revit graphic regeneration.
-        self._ensure_titleblock_cache()
+        try:
+            # Ensure titleblock cache is populated before size detection runs.
+            # This is deferred from startup to avoid triggering Revit graphic regeneration.
+            self._ensure_titleblock_cache()
 
-        # Get selected items based on mode
-        if self.selection_mode == "sheets":
-            selected_items = [s for s in self.all_sheets if s.IsSelected]
-            # Sync cached sheet numbers with live values from Revit before building preview
-            for sheet_item in selected_items:
-                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
-                sheet_item.SheetName = sheet_item.Sheet.Name
-        else:
-            selected_items = [v for v in self.all_views if v.IsSelected]
-            # Sync cached view names with live values from Revit before building preview
-            for view_item in selected_items:
-                view_item.ViewName = view_item.View.Name
-                view_item.SheetNumber = view_item.View.Name
-
-        # Get selected formats
-        formats = []
-        if self.export_pdf.IsChecked:
-            formats.append("PDF")
-        if self.export_dwg.IsChecked:
-            formats.append("DWG")
-        if self.export_dgn.IsChecked:
-            formats.append("DGN")
-        if self.export_dwf.IsChecked:
-            formats.append("DWF")
-        if self.export_nwd.IsChecked:
-            formats.append("NWC")
-        if self.export_ifc.IsChecked:
-            formats.append("IFC")
-        if self.export_img.IsChecked:
-            formats.append("IMG")
-
-        # Check if auto-detect is enabled
-        is_auto_detect = self.pdf_auto_detect_size.IsChecked if hasattr(self, 'pdf_auto_detect_size') and self.pdf_auto_detect_size.IsChecked is not None else False
-
-        # Get selected manual paper size
-        manual_size = "Use Sheet Size"
-        if hasattr(self, 'pdf_paper_size') and self.pdf_paper_size.SelectedItem:
-            manual_size = self.pdf_paper_size.SelectedItem.Content
-
-        # Build preview items
-        self.export_items = []
-        for item in selected_items:
-            # Determine paper size and orientation for this item
-            if (is_auto_detect or manual_size == "Use Sheet Size") and self.selection_mode == "sheets" and hasattr(item, 'Sheet'):
-                # Auto-detect from Title Block / Use Sheet Size
-                detected_size, detected_orientation = self.get_sheet_paper_size_and_orientation(item.Sheet)
-                size = detected_size
-                orientation = detected_orientation
+            # Get selected items based on mode
+            if self.selection_mode == "sheets":
+                selected_items = [s for s in self.all_sheets if s.IsSelected]
+                # Sync cached sheet numbers with live values from Revit before building preview
+                for sheet_item in selected_items:
+                    sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
+                    sheet_item.SheetName = sheet_item.Sheet.Name
             else:
-                # Use manual settings
-                size = manual_size
-                orientation = "Landscape" if self.pdf_landscape.IsChecked else "Portrait"
+                selected_items = [v for v in self.all_views if v.IsSelected]
+                # Sync cached view names with live values from Revit before building preview
+                for view_item in selected_items:
+                    view_item.ViewName = view_item.View.Name
+                    view_item.SheetNumber = view_item.View.Name
 
-            for fmt in formats:
-                preview_item = ExportPreviewItem(item, fmt, size, orientation)
-                self.export_items.append(preview_item)
+            # Get selected formats
+            formats = []
+            if self.export_pdf.IsChecked:
+                formats.append("PDF")
+            if self.export_dwg.IsChecked:
+                formats.append("DWG")
+            if self.export_dgn.IsChecked:
+                formats.append("DGN")
+            if self.export_dwf.IsChecked:
+                formats.append("DWF")
+            if self.export_nwd.IsChecked:
+                formats.append("NWC")
+            if self.export_ifc.IsChecked:
+                formats.append("IFC")
+            if self.export_img.IsChecked:
+                formats.append("IMG")
 
-        # Update preview list
-        self.export_preview_list.ItemsSource = to_items_source(self.export_items)
-        self.progress_text.Text = "Ready to export {} items".format(len(self.export_items))
+            # Check if auto-detect is enabled
+            is_auto_detect = self.pdf_auto_detect_size.IsChecked if hasattr(self, 'pdf_auto_detect_size') and self.pdf_auto_detect_size.IsChecked is not None else False
+
+            # Get selected manual paper size
+            manual_size = "Use Sheet Size"
+            if hasattr(self, 'pdf_paper_size') and self.pdf_paper_size.SelectedItem:
+                manual_size = self.pdf_paper_size.SelectedItem.Content
+
+            # Build preview items
+            self.export_items = []
+            for item in selected_items:
+                # Determine paper size and orientation for this item
+                if (is_auto_detect or manual_size == "Use Sheet Size") and self.selection_mode == "sheets" and hasattr(item, 'Sheet'):
+                    # Auto-detect from Title Block / Use Sheet Size
+                    detected_size, detected_orientation = self.get_sheet_paper_size_and_orientation(item.Sheet)
+                    size = detected_size
+                    orientation = detected_orientation
+                else:
+                    # Use manual settings
+                    size = manual_size
+                    orientation = "Landscape" if self.pdf_landscape.IsChecked else "Portrait"
+
+                for fmt in formats:
+                    preview_item = ExportPreviewItem(item, fmt, size, orientation)
+                    self.export_items.append(preview_item)
+
+            # Update preview list
+            self.export_preview_list.ItemsSource = to_items_source(self.export_items)
+            self.progress_text.Text = "Ready to export {} items".format(len(self.export_items))
+        except Exception as ex:
+            logger.error("Error building export preview: {}".format(ex))
+            if hasattr(self, 'progress_text') and self.progress_text:
+                self.progress_text.Text = "Error preparing preview: {}".format(ex)
 
     def get_export_filename(self, item):
         """Generate export filename based on naming pattern.

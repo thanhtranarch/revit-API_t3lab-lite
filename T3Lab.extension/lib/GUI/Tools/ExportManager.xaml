@@ -1683,16 +1683,17 @@
                                                 </GridViewColumn.Header>
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                                   Style="{StaticResource T3.CheckBox}"
-                                                                  HorizontalAlignment="Center"/>
+                                                                  HorizontalAlignment="Center"
+                                                                  Click="row_checkbox_clicked"/>
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
                                             </GridViewColumn>
-                                            <GridViewColumn x:Name="col_number" Header="SHEET NUMBER" Width="150">
+                                            <GridViewColumn x:Name="col_number" Header="SHEET NUMBER" Width="220">
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <TextBlock Text="{Binding SheetNumber}" Style="{StaticResource T3.Cell.Mono}"/>
+                                                        <TextBlock Text="{Binding SheetNumber}" Style="{StaticResource T3.Cell.Mono}" ToolTip="{Binding SheetNumber}"/>
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
                                             </GridViewColumn>
@@ -2312,7 +2313,7 @@
                                                             <RowDefinition Height="Auto"/>
                                                         </Grid.RowDefinitions>
                                                         <ProgressBar Grid.Row="0" Value="{Binding Progress}" Height="6" Minimum="0" Maximum="100" Margin="0,0,0,4" Style="{StaticResource T3.ProgressBar}"/>
-                                                        <TextBlock Grid.Row="1" Text="{Binding Status}" Style="{StaticResource T3.Caption}" Foreground="{StaticResource T3.Success.Accent}">
+                                                        <TextBlock Grid.Row="1" Text="{Binding Status}" Foreground="{StaticResource T3.Success.Accent}">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock" BasedOn="{StaticResource T3.Caption}">
                                                                     <Style.Triggers>

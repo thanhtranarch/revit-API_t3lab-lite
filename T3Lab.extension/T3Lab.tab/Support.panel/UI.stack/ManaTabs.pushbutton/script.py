@@ -49,7 +49,7 @@ except Exception:
 # ──────────────────────────────────────────────────────────────────────────────
 
 # System library
-from pyrevit.forms import alert, TemplateListItem
+from pyrevit.forms import alert
 from pyrevit.api import AdWindows
 import codecs
 from System import DateTime
@@ -102,7 +102,11 @@ def TempMemory(tool_name, bool):
     output.append(memory_data_path)  # output 5
     return output
 
-class MyOption(TemplateListItem):
+class MyOption(object):
+    def __init__(self, item, state=False):
+        self.item = item
+        self.state = state
+
     @property
     def name(self):
         return self.item
@@ -110,9 +114,7 @@ class MyOption(TemplateListItem):
 def CheckBoxForListItem(nameLst, activeLst):
     currentLst = []
     for n in nameLst:
-        item = MyOption(n)
-        if n in activeLst:
-            item = MyOption(n, True)
+        item = MyOption(n, n in activeLst)
         currentLst.append(item)
     return currentLst
 
@@ -151,7 +153,13 @@ def main_task():
 
     currentLst = CheckBoxForListItem(extensionTabNameLst, visibleTabNameLst)
     
-    # Import custom Tab Manager Dialog from lib/GUI
+    # Import custom Tab Manager Dialog from lib/GUI (with dynamic reload for live updates)
+    import importlib
+    try:
+        import GUI.ManaTabsDialog
+        importlib.reload(GUI.ManaTabsDialog)
+    except Exception:
+        pass
     from GUI.ManaTabsDialog import show_tab_manager_dialog
     
     selectedTabNameLst = show_tab_manager_dialog(currentLst)

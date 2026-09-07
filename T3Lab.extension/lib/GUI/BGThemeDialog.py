@@ -40,9 +40,11 @@ except Exception:
 
 try:
     from System.Windows import (WindowState, Thickness, CornerRadius,
-                                Visibility, Clipboard, VerticalAlignment)
+                                Visibility, Clipboard, VerticalAlignment,
+                                HorizontalAlignment, FontWeights, TextTrimming)
 except Exception:
     WindowState = Thickness = CornerRadius = Visibility = Clipboard = VerticalAlignment = None
+    HorizontalAlignment = FontWeights = TextTrimming = None
 
 try:
     from System.Windows.Input import Cursors, Key
@@ -570,33 +572,66 @@ class BackgroundThemeWindow(T3WPFWindow):
         self._stop_eyedrop("Picked %s from screen" % to_hex(self._r, self._g, self._b))
         args.Handled = True
 
+    # ------------------------------------------------------------ style helper
+
+    def _apply_button_style(self, btn, style_key):
+        if not btn or not style_key:
+            return
+        try:
+            st = self.TryFindResource(style_key)
+            if st is not None:
+                btn.Style = st
+                return
+        except Exception:
+            pass
+        try:
+            if hasattr(self.Resources, "Contains") and self.Resources.Contains(style_key):
+                btn.Style = self.Resources[style_key]
+        except Exception:
+            pass
+
     # ------------------------------------------------------------ presets
 
     def _make_chip(self, name, rgb, click_handler, tag):
         btn = Button()
-        if "T3.Button.Secondary" in self.Resources:
-            btn.Style = self.Resources["T3.Button.Secondary"]
-        btn.Height = 24
-        btn.Padding = Thickness(8, 0, 8, 0)
+        self._apply_button_style(btn, "T3.Button.Base")
+        btn.Background = solid(rgb)
+
+        lum = luminance(rgb[0], rgb[1], rgb[2])
+        if lum > 180:
+            btn.BorderBrush = brush("#C8C8D0")
+        elif lum < 50:
+            btn.BorderBrush = brush("#3A3A42")
+        else:
+            btn.BorderBrush = solid((max(0, rgb[0] - 25), max(0, rgb[1] - 25), max(0, rgb[2] - 25)))
+        btn.BorderThickness = Thickness(1)
+
+        btn.Height = 26
+        btn.Padding = Thickness(6, 0, 6, 0)
         btn.Margin = Thickness(0, 0, 4, 4)
-        sp = StackPanel()
-        sp.Orientation = Orientation.Horizontal
-        dot = Ellipse()
-        dot.Width = 8
-        dot.Height = 8
-        dot.Fill = solid(rgb)
-        dot.Stroke = brush("#DCDCE0")
-        dot.StrokeThickness = 1
-        dot.Margin = Thickness(0, 0, 4, 0)
-        dot.VerticalAlignment = VerticalAlignment.Center
+        if Cursors is not None:
+            btn.Cursor = Cursors.Hand
+
         txt = TextBlock()
         txt.Text = name
         txt.FontSize = 11.5
-        txt.VerticalAlignment = VerticalAlignment.Center
-        sp.Children.Add(dot)
-        sp.Children.Add(txt)
-        btn.Content = sp
+        if FontWeights is not None:
+            txt.FontWeight = FontWeights.SemiBold
+        if VerticalAlignment is not None:
+            txt.VerticalAlignment = VerticalAlignment.Center
+        if HorizontalAlignment is not None:
+            txt.HorizontalAlignment = HorizontalAlignment.Center
+        if TextTrimming is not None:
+            txt.TextTrimming = TextTrimming.CharacterEllipsis
+
+        if lum < 140:
+            txt.Foreground = brush("#FFFFFF")
+        else:
+            txt.Foreground = brush("#18181B")
+
+        btn.Content = txt
         btn.Tag = tag
+        btn.ToolTip = "%s (%s)" % (name, to_hex(*rgb))
         btn.Click += click_handler
         return btn
 
@@ -755,8 +790,7 @@ class BackgroundThemeWindow(T3WPFWindow):
         for idx, item in enumerate(GRADIENT_PRESETS):
             name = item[0]
             btn = Button()
-            if "T3.Button.Secondary" in self.Resources:
-                btn.Style = self.Resources["T3.Button.Secondary"]
+            self._apply_button_style(btn, "T3.Button.Secondary")
             btn.Height = 24
             btn.Padding = Thickness(8, 0, 8, 0)
             btn.Margin = Thickness(0, 0, 4, 4)
@@ -857,8 +891,7 @@ class BackgroundThemeWindow(T3WPFWindow):
             btn.Width = 110
             btn.Margin = Thickness(0, 0, 8, 0)
             style_key = "T3.Button.Primary" if name == current else "T3.Button.Secondary"
-            if style_key in self.Resources:
-                btn.Style = self.Resources[style_key]
+            self._apply_button_style(btn, style_key)
             btn.Tag = name
             btn.Click += self._on_theme_click
             self.ThemeBtnPanel.Children.Add(btn)
@@ -874,8 +907,7 @@ class BackgroundThemeWindow(T3WPFWindow):
                 btn.Margin = Thickness(0, 0, 8, 0)
                 style_key = ("T3.Button.Primary" if name == canvas_current
                              else "T3.Button.Secondary")
-                if style_key in self.Resources:
-                    btn.Style = self.Resources[style_key]
+                self._apply_button_style(btn, style_key)
                 btn.Tag = name
                 btn.Click += self._on_canvas_theme_click
                 self.CanvasBtnPanel.Children.Add(btn)

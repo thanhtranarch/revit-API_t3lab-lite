@@ -373,7 +373,13 @@ def main():
 
         config = load_config()
 
-        # Import the custom WPF Dialog from lib/GUI
+        # Import the custom WPF Dialog from lib/GUI (with dynamic reload for live updates)
+        import importlib
+        try:
+            import GUI.BGThemeDialog
+            importlib.reload(GUI.BGThemeDialog)
+        except Exception:
+            pass
         from GUI.BGThemeDialog import show_bg_theme_dialog
 
         callbacks = {

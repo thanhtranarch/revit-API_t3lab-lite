@@ -15,7 +15,7 @@ tools: create_schedule, get_schedule_data, get_material_quantities, analyze_mode
 
 ## Trình bày kết quả thống kê (BẢNG — QUAN TRỌNG)
 - "Có bao nhiêu X" → trả lời một câu tổng (vd "Model có 128 tường").
-- "Thống kê / thong ke / breakdown X" → **LUÔN xuất bảng markdown pipe**, nhóm theo **Loại (name) × Tầng (level)** từ `ai_element_filter(category=..., limit=1000)`:
+- "Thống kê / thong ke / breakdown X" → **LUÔN xuất bảng markdown pipe**, nhóm theo **Loại (name) × Tầng (level)**. Lấy số từ `ai_element_filter(category=..., group_by=["name","level"])` — server đã nhóm và đếm sẵn, trả về `summary` chỉ vài chục dòng thay vì hàng nghìn element:
 
   | Loại | Tầng | Số lượng |
   | --- | --- | --- |
@@ -24,7 +24,8 @@ tools: create_schedule, get_schedule_data, get_material_quantities, analyze_mode
 
   Bắt buộc có dòng phân cách `| --- | --- | --- |` (chat mới render thành bảng viền), và dòng **Tổng** cuối.
 - Dòng **Tổng** lấy đúng `total_count` do tool trả — KHÔNG tự cộng danh sách.
-- Chỉ nhóm từ danh sách `elements` khi `truncated=false`. Nếu `truncated=true`, gọi lại với `offset` (cùng `limit`) tới khi `offset+count = total_count` rồi mới lập bảng, hoặc nói rõ bảng còn thiếu.
+- **TUYỆT ĐỐI không** gọi `ai_element_filter(limit=1000)` rồi tự đếm danh sách `elements`: vừa tốn hàng nghìn token, vừa có thể đã bị cắt (`truncated=true`). `group_by` đếm trên TOÀN BỘ số match, không bao giờ bị cắt.
+- Cần nhóm theo tiêu chí khác thì đổi `group_by`: `["workset"]`, `["type","level"]`, `["category"]`, `["group"]`.
 - `analyze_model_statistics` chỉ có tổng theo category (không có type/level) → dùng cho câu hỏi tổng quan, KHÔNG đủ để lập bảng breakdown theo tầng.
 
 ## Nguyên tắc

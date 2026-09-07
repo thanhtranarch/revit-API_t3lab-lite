@@ -145,7 +145,28 @@ else:
     _FileTaskEventHandler = None
 
 
-# ─── Watcher ───────────────────────────────────────────────────────────────────
+_PROCESS_WATCHER_KEY = '_t3lab_task_watcher_singleton'
+
+
+def _get_process_watcher():
+    try:
+        from System import AppDomain
+        existing = AppDomain.CurrentDomain.GetData(_PROCESS_WATCHER_KEY)
+        if existing is not None:
+            return existing
+    except Exception:
+        pass
+    return getattr(sys, _PROCESS_WATCHER_KEY, None)
+
+
+def _set_process_watcher(inst):
+    try:
+        from System import AppDomain
+        AppDomain.CurrentDomain.SetData(_PROCESS_WATCHER_KEY, inst)
+    except Exception:
+        pass
+    setattr(sys, _PROCESS_WATCHER_KEY, inst)
+
 
 class TaskFileWatcher(object):
     """
@@ -158,10 +179,20 @@ class TaskFileWatcher(object):
 
     @classmethod
     def get_instance(cls):
+        existing = _get_process_watcher()
+        if existing is not None:
+            cls._instance = existing
+            return existing
         if cls._instance is None:
             with cls._lock:
+                existing = _get_process_watcher()
+                if existing is not None:
+                    cls._instance = existing
+                    return existing
                 if cls._instance is None:
-                    cls._instance = cls()
+                    inst = cls()
+                    cls._instance = inst
+                    _set_process_watcher(inst)
         return cls._instance
 
     def __init__(self):
@@ -211,16 +242,19 @@ class TaskFileWatcher(object):
     # ── watch loop ─────────────────────────────────────────────────────────────
 
     def _watch_loop(self):
-        while self._running:
-            try:
-                self._check_json_task()
-            except Exception:
-                pass
-            try:
-                self._check_plain_task()
-            except Exception:
-                pass
-            time.sleep(0.5)
+        try:
+            while self._running:
+                try:
+                    self._check_json_task()
+                except Exception:
+                    pass
+                try:
+                    self._check_plain_task()
+                except Exception:
+                    pass
+                time.sleep(0.5)
+        except Exception:
+            pass
 
     # ── JSON mode ──────────────────────────────────────────────────────────────
 

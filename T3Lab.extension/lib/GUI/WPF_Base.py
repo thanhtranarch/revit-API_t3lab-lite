@@ -334,7 +334,7 @@ class T3WPFWindow(Window):
             else:
                 xaml_path = xaml_source
 
-            with io.open(xaml_path, 'r', encoding='utf-8') as f:
+            with io.open(xaml_path, 'r', encoding='utf-8-sig') as f:
                 xaml_content = f.read()
 
         if IRONPY:
@@ -358,6 +358,8 @@ class T3WPFWindow(Window):
 
     def _load_via_xaml_reader(self, xaml_content):
         """Hydrates Window via System.Windows.Markup.XamlReader."""
+        if xaml_content is not None:
+            xaml_content = xaml_content.lstrip('\ufeff \t\r\n')
         clean_xaml, event_bindings, named_elements = _sanitize_xaml(xaml_content)
 
         loaded_win = None
@@ -870,6 +872,8 @@ class T3WPFWindow(Window):
             disp.PushFrame(frame)
         except Exception:
             pass
+
+    _pump_events = _do_events
 
     def _update_progress(self, value, maximum=None):
         """Set bar value (and Maximum), show the panel, pump events."""

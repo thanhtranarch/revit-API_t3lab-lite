@@ -24,10 +24,14 @@ standard: project
 - KHÔNG để element rơi vào `Workset1` — dấu hiệu model chưa được tổ chức.
 
 ## Quy trình khi được yêu cầu tổ chức workset
-1. **Tra BEP/tiêu chuẩn dự án trước** để lấy đúng danh mục workset; rồi `list_worksets` để xem hiện trạng.
+1. **Tra BEP/tiêu chuẩn dự án trước** để lấy đúng danh mục workset; rồi `list_worksets` để xem hiện trạng (có `name_contains` để lọc thẳng, đừng kéo cả danh sách khi chỉ cần một workset).
 2. Thiếu workset chuẩn nào → `create_workset` bổ sung theo tên ở trên.
-3. Phân bổ element: dùng `ai_element_filter` gom element theo category/bộ môn, rồi `set_element_workset` theo lô.
-4. Báo cáo bảng: | Workset | Số element | Ghi chú |.
+3. **Phân bổ element — KHÔNG BAO GIỜ chuyển id qua hội thoại:**
+   - Cả một category → `set_element_workset(category=..., workset_name=...)`, không cần id.
+   - Tập con bất kỳ (theo group, tầng, type, tên, parameter) → `ai_element_filter(<bộ lọc>, store_as="sel")` rồi `set_element_workset(element_ids=["@sel"], workset_name=...)`. Toàn bộ tập match được chuyển, không giới hạn số lượng.
+   - "Element nằm trong các group tên chứa `_F1_`" → `ai_element_filter(group_name="_F1_", store_as="sel")`. Đây là cách duy nhất lọc theo group — đừng nói là không có công cụ.
+4. Trước khi chuyển: báo `total_count` (và `group_count` nếu lọc theo group) để người dùng xác nhận số lượng.
+5. Báo cáo bảng: | Workset | Số element | Ghi chú | — số lấy từ `ai_element_filter(group_by=["workset"])`.
 
 ## Lưu ý an toàn
 - Đổi workset hàng loạt là thao tác lớn — nêu số lượng element trước khi thực hiện.

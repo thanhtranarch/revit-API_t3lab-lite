@@ -118,29 +118,83 @@ class _NullStream(object):
         return False
 
 
-def fix_std_streams():
-    """Make `print()` safe.
+class _STASafeStream(object):
+    """Wraps sys.stdout / sys.stderr so background threads (MTA) never touch
+    pyRevit's ScriptIO / ScriptOutput window.
 
-    Under the CPython engine sys.stdout can be a pyRevit ScriptIO with no
-    `write`, so a bare print() raises `'ScriptIO' object has no attribute
-    'write'`. That most often fires from inside an `except` block, replacing the
-    real error with a bogus one.
+    In pyRevit, ScriptIO.Write attempts to get or create a WPF MetroWindow
+    output window. Calling Window..ctor() from a non-STA (background) thread
+    causes WPF to throw System.InvalidOperationException:
+        'The calling thread must be STA, because many UI components require this.'
+    which immediately crashes Revit.exe.
+
+    This wrapper detects whether the current thread is an STA thread. If not,
+    it absorbs the write safely without calling ScriptIO, protecting Revit
+    from fatal background thread crashes.
+    """
+
+    def __init__(self, target):
+        self._target = target
+
+    def write(self, s):
+        try:
+            import System.Threading
+            if System.Threading.Thread.CurrentThread.GetApartmentState() == System.Threading.ApartmentState.STA:
+                if hasattr(self._target, 'write'):
+                    return self._target.write(s)
+            return len(s) if s else 0
+        except Exception:
+            # Outside .NET (e.g. pure Python dev test runners), forward normally
+            try:
+                if hasattr(self._target, 'write'):
+                    return self._target.write(s)
+            except Exception:
+                pass
+            return len(s) if s else 0
+
+    def flush(self):
+        try:
+            import System.Threading
+            if System.Threading.Thread.CurrentThread.GetApartmentState() == System.Threading.ApartmentState.STA:
+                if hasattr(self._target, 'flush'):
+                    return self._target.flush()
+        except Exception:
+            try:
+                if hasattr(self._target, 'flush'):
+                    return self._target.flush()
+            except Exception:
+                pass
+
+    def isatty(self):
+        return False
+
+    def writelines(self, lines):
+        for line in lines:
+            self.write(line)
+
+    def __getattr__(self, name):
+        return getattr(self._target, name)
+
+
+def fix_std_streams():
+    """Make `print()` and standard streams STA-safe and crash-proof.
+
+    Under CPython, pyRevit ScriptIO can have no `write` method.
+    Under IronPython (and CPython), pyRevit ScriptIO tries to instantiate
+    a WPF MetroWindow on write(). Calling this from any background thread
+    (MTA) throws `InvalidOperationException: The calling thread must be STA`,
+    instantly crashing Revit.exe.
+    This installs a stream wrapper that only forwards writes on STA threads.
     """
     for name in ('stdout', 'stderr'):
         try:
             stream = getattr(sys, name, None)
-            usable = False
-            if stream is not None:
-                try:
-                    # Probe by writing. hasattr() is not enough: pyRevit's
-                    # ScriptIO can answer attribute lookups with an exception
-                    # that is not AttributeError, which hasattr re-raises.
-                    stream.write('')
-                    usable = True
-                except Exception:
-                    usable = False
-            if not usable:
-                setattr(sys, name, _NullStream())
+            if isinstance(stream, _STASafeStream):
+                continue
+            if stream is None:
+                setattr(sys, name, _STASafeStream(_NullStream()))
+            else:
+                setattr(sys, name, _STASafeStream(stream))
         except Exception:
             pass
 

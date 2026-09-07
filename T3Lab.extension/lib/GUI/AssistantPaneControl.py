@@ -63,7 +63,11 @@ def _apply_initial_dock_state(data):
             from Autodesk.Revit.UI import DockablePanes
             state.TabBehind = DockablePanes.BuiltInDockablePanes.ProjectBrowser
         except Exception:
-            pass
+            try:
+                from Autodesk.Revit.UI import DockablePanes
+                state.TabBehind = DockablePanes.BuiltInDockablePanes.PropertiesPalette
+            except Exception:
+                pass
         data.InitialState = state
         return True
     except Exception as ex:
@@ -113,6 +117,7 @@ class AssistantPaneProvider(IDockablePaneProvider):
                     import importlib.util
                     spec = importlib.util.spec_from_file_location('t3lab_assistant_full', script_path)
                     mod = importlib.util.module_from_spec(spec)
+                    sys.modules['t3lab_assistant_full'] = mod
                     spec.loader.exec_module(mod)
                 except Exception:
                     import imp

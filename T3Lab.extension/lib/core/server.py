@@ -181,8 +181,13 @@ class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
     # On Windows, SO_REUSEADDR lets a second process bind an already-listening
     # port SILENTLY (two T3Lab/Routes listeners ended up sharing 48884). Fail
-    # loudly with WSAEADDRINUSE instead — start_server() walks to the next port.
     allow_reuse_address = False
+
+    def handle_error(self, request, client_address):
+        """Suppress default SocketServer traceback printing on MTA worker threads.
+        Without this, connection resets or socket aborts during pyRevit reload
+        print to sys.stderr, triggering WPF MetroWindow instantiation on a non-STA thread."""
+        pass
 
     def server_bind(self):
         TCPServer.server_bind(self)
@@ -467,6 +472,11 @@ class T3LabAIServer(object):
         # Monotonic time the last write tool finished on the Revit main thread.
         # Gates the read fallback: see _READ_FALLBACK_WAIT.
         self._last_write_done = 0.0
+        # Saved element-id sets built by ai_element_filter(store_as=...), keyed
+        # by document title. Let a caller say element_ids="@name" instead of
+        # ferrying thousands of ids through the model's context — see
+        # _expand_id_handles.
+        self._selection_sets = {}
 
         # ── Teaching capture (Opus distils via MCP) ──────────────────────────
         # When ON, the EXTERNAL MCP path (_handle_tool_call, i.e. Claude Desktop
@@ -737,9 +747,9 @@ class T3LabAIServer(object):
                         'element_ids': {
                             'type': 'array',
                             'items': {
-                                'type': 'integer'
+                                'type': ['integer', 'string']
                             },
-                            'description': 'Optional list of Revit element IDs for a specific subset. If both this and category are omitted, applies to the currently selected elements.'
+                            'description': 'Optional list of Revit element IDs for a specific subset, or ["@name"] naming a set saved by ai_element_filter(store_as="name"). If both this and category are omitted, applies to the currently selected elements.'
                         },
                         'halftone': {
                             'type': 'boolean',
@@ -907,13 +917,52 @@ class T3LabAIServer(object):
             },
             'ai_element_filter': {
                 'name': 'ai_element_filter',
-                'description': 'Intelligent element querying tool for AI assistants — filter by category, parameter name, and value. Returns total_count (true uncapped total) and, for TextNotes, each note\'s text content.',
+                'description': (
+                    'THE element finder. Combine any of category/categories, group_name, '
+                    'workset, level_name, type_name, name_contains and a parameter filter in '
+                    'ONE call — the server narrows with Revit\'s own filters, so this is far '
+                    'faster than fetching a category and sifting it yourself, and it answers '
+                    '"elements inside the groups named X" and "elements on workset Y", which '
+                    'no other tool can. Returns total_count = the TRUE uncapped match count. '
+                    'THREE ways to keep the reply small: `group_by` returns counts per '
+                    'type/level/workset with NO element rows (use it for every "how many" / '
+                    '"thống kê" / breakdown question); `fields` trims each row (fields=["id"] '
+                    'returns a bare id list); `store_as="x"` keeps the FULL matched id set on '
+                    'the server and returns just the handle "@x" — pass "@x" as element_ids to '
+                    'set_element_workset, select_elements, bulk_set_parameter, '
+                    'revit_override_color, color_elements, edit_elements, operate_element or '
+                    'tag_elements instead of ferrying ids. At least one filter is required.'
+                ),
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
                         'category': {
                             'type': 'string',
-                            'description': 'Element category to search: Walls, Floors, Doors, Windows, Rooms, Columns, Beams, Ceilings, Roofs, Grids, Levels, Sheets, TextNotes, Dimensions, Stairs, Railings, Pipes, Ducts, Furniture, CurtainPanels... (unknown names return the full supported list)'
+                            'description': 'Element category to search: Walls, Floors, Doors, Windows, Rooms, Columns, Beams, Ceilings, Roofs, Grids, Levels, Sheets, TextNotes, Dimensions, Stairs, Railings, Pipes, Ducts, Furniture, CurtainPanels... (unknown names return the closest matches)'
+                        },
+                        'categories': {
+                            'type': 'array', 'items': {'type': 'string'},
+                            'description': 'Several categories in ONE call (e.g. ["Walls","Floors","Columns"]) instead of one call each. Combines with category.'
+                        },
+                        'group_name': {
+                            'type': 'string',
+                            'description': 'Return the elements INSIDE the model/detail groups whose instance name or group-type name contains this text (case-insensitive substring, e.g. "_F1_"). Nested groups are included. This is the only way to query group membership — there is no group filter anywhere else.'
+                        },
+                        'workset': {
+                            'type': 'string',
+                            'description': 'Only elements on worksets whose name contains this text (case-insensitive substring). Workshared models only.'
+                        },
+                        'level_name': {
+                            'type': 'string',
+                            'description': 'Only elements whose level name contains this text (case-insensitive substring). Works for host-based elements that report their level through a parameter.'
+                        },
+                        'type_name': {
+                            'type': 'string',
+                            'description': 'Only elements whose TYPE name contains this text (case-insensitive substring, e.g. "Generic - 200mm").'
+                        },
+                        'name_contains': {
+                            'type': 'string',
+                            'description': 'Only elements whose own name contains this text (case-insensitive substring).'
                         },
                         'parameter_name': {
                             'type': 'string',
@@ -923,16 +972,35 @@ class T3LabAIServer(object):
                             'type': 'string',
                             'description': 'Optional value to match (partial match supported)'
                         },
+                        'group_by': {
+                            'type': 'array',
+                            'items': {'type': 'string',
+                                      'enum': ['category', 'name', 'type',
+                                               'level', 'workset', 'group']},
+                            'description': 'Return COUNTS per combination of these keys instead of element rows — e.g. ["name","level"] for a Type x Level breakdown, ["workset"] for "how many elements per workset". total_count stays exact. Use this for any counting/statistics question: it costs a handful of rows instead of thousands.'
+                        },
+                        'fields': {
+                            'type': 'array',
+                            'items': {'type': 'string',
+                                      'enum': ['id', 'name', 'category', 'level',
+                                               'type', 'workset', 'group',
+                                               'param_value', 'text', 'view']},
+                            'description': 'Which fields each element row carries. Default ["id","name","category","level","param_value"]. Pass fields=["id"] to get a bare "ids" array — the cheapest listing there is.'
+                        },
+                        'store_as': {
+                            'type': 'string',
+                            'description': 'Save the FULL matched id set on the server under this name (no cap, no paging) and return the handle "@<name>" instead of the ids. Then call any element_ids tool with element_ids="@<name>". Sets last for this Revit session and this document.'
+                        },
                         'limit': {
                             'type': 'integer',
-                            'description': 'Max results to return (default 50)'
+                            'description': 'Max element rows to return (default 50). Ignored when group_by is used. Never raise this just to count — read total_count.'
                         },
                         'offset': {
                             'type': 'integer',
-                            'description': 'Skip the first N matches (paging). When the result says truncated=true, call again with offset=offset+count until offset+count reaches total_count — never conclude from a truncated list.'
+                            'description': 'Skip the first N matches (paging). When the result says truncated=true, call again with offset=offset+count until offset+count reaches total_count — never conclude from a truncated list. Prefer store_as or group_by over paging.'
                         }
                     },
-                    'required': ['category']
+                    'required': []
                 }
             },
             'analyze_model_statistics': {
@@ -1085,7 +1153,7 @@ class T3LabAIServer(object):
                     'properties': {
                         'element_ids': {
                             'type': 'array',
-                            'items': {'type': 'integer'},
+                            'items': {'type': ['integer', 'string']},
                             'description': 'List of element IDs to delete'
                         },
                         'dry_run': {
@@ -1126,7 +1194,7 @@ class T3LabAIServer(object):
                         },
                         'element_ids': {
                             'type': 'array',
-                            'items': {'type': 'integer'},
+                            'items': {'type': ['integer', 'string']},
                             'description': 'Element IDs for a specific subset (omit when using category). For select_similar these are the SEED elements; omit to seed from the current selection.'
                         },
                         'transparency': {
@@ -1188,7 +1256,7 @@ class T3LabAIServer(object):
                         },
                         'element_ids': {
                             'type': 'array',
-                            'items': {'type': 'integer'},
+                            'items': {'type': ['integer', 'string']},
                             'description': 'Element IDs for a specific subset. Omit to use `category`, or omit both to use the current Revit selection.'
                         },
                         'axis': {
@@ -1236,7 +1304,7 @@ class T3LabAIServer(object):
                         },
                         'view_ids': {
                             'type': 'array',
-                            'items': {'type': 'integer'},
+                            'items': {'type': ['integer', 'string']},
                             'description': 'View element IDs. Omit to target the ACTIVE view.'
                         },
                         'scale': {
@@ -1365,7 +1433,7 @@ class T3LabAIServer(object):
                         },
                         'sheet_ids': {
                             'type': 'array',
-                            'items': {'type': 'integer'},
+                            'items': {'type': ['integer', 'string']},
                             'description': 'For assign_to_sheets: sheet element IDs, as an alternative to sheet_numbers.'
                         }
                     },
@@ -1390,7 +1458,7 @@ class T3LabAIServer(object):
                         },
                         'sheet_ids': {
                             'type': 'array',
-                            'items': {'type': 'integer'},
+                            'items': {'type': ['integer', 'string']},
                             'description': 'Sheets to act on, by element ID.'
                         },
                         'new_number': {
@@ -1450,7 +1518,7 @@ class T3LabAIServer(object):
                     'properties': {
                         'view_ids': {
                             'type': 'array',
-                            'items': {'type': 'integer'},
+                            'items': {'type': ['integer', 'string']},
                             'description': 'Views to scan. Omit to scan the ACTIVE view.'
                         },
                         'category': {
@@ -1486,7 +1554,7 @@ class T3LabAIServer(object):
                         },
                         'element_ids': {
                             'type': 'array',
-                            'items': {'type': 'integer'},
+                            'items': {'type': ['integer', 'string']},
                             'description': 'For get_element_materials: which elements to inspect.'
                         },
                         'category': {
@@ -1704,7 +1772,7 @@ class T3LabAIServer(object):
                     'type': 'object',
                     'properties': {
                         'element_ids': {
-                            'type': 'array', 'items': {'type': 'integer'},
+                            'type': 'array', 'items': {'type': ['integer', 'string']},
                             'description': 'Element IDs to move'
                         },
                         'dx': {'type': 'number', 'description': 'Delta X in meters'},
@@ -1721,7 +1789,7 @@ class T3LabAIServer(object):
                     'type': 'object',
                     'properties': {
                         'element_ids': {
-                            'type': 'array', 'items': {'type': 'integer'},
+                            'type': 'array', 'items': {'type': ['integer', 'string']},
                             'description': 'Element IDs to copy'
                         },
                         'dx': {'type': 'number', 'description': 'Delta X in meters'},
@@ -1738,7 +1806,7 @@ class T3LabAIServer(object):
                     'type': 'object',
                     'properties': {
                         'element_ids': {
-                            'type': 'array', 'items': {'type': 'integer'},
+                            'type': 'array', 'items': {'type': ['integer', 'string']},
                             'description': 'Element IDs to rotate'
                         },
                         'angle_degrees': {'type': 'number', 'description': 'Rotation angle in degrees (counter-clockwise)'},
@@ -1780,7 +1848,7 @@ class T3LabAIServer(object):
                         'name': {'type': 'string', 'description': 'Name for the new view'},
                         'room_ids': {
                             'type': 'array',
-                            'items': {'type': 'integer'},
+                            'items': {'type': ['integer', 'string']},
                             'description': 'Room element ids. Creates ONE 3D view per room, each cropped to that room by a section box (view_type must be "3d"; `name` is ignored, views are named "3D - <number> <room name>"). There is deliberately NO "all rooms" default — get the ids from ai_element_filter(category="Rooms") or revit_get_selected_elements first, and confirm the count with the user: one view per room in a large model means dozens of views.'
                         },
                         'margin_mm': {
@@ -1883,12 +1951,21 @@ class T3LabAIServer(object):
             # ── Collaboration / worksets ──────────────────────────────────────
             'list_worksets': {
                 'name': 'list_worksets',
-                'description': 'List all user worksets in a workshared model with their open/close status',
-                'inputSchema': {'type': 'object', 'properties': {}, 'required': []}
+                'description': 'List user worksets in a workshared model with their open/close status. Pass name_contains to get only the ones you are looking for instead of the whole list.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'name_contains': {
+                            'type': 'string',
+                            'description': 'Only worksets whose name contains this text (case-insensitive substring, e.g. "_F1_"). total_count still reports how many worksets the model has.'
+                        }
+                    },
+                    'required': []
+                }
             },
             'set_element_workset': {
                 'name': 'set_element_workset',
-                'description': 'Move elements to a specified workset. Pass category to move ALL elements of that category (no ids needed, no count limit), or element_ids for a subset.',
+                'description': 'Move elements to a specified workset. Pass category to move ALL elements of that category (no ids needed, no count limit), or element_ids for a subset. For any other selection — the elements of a named group, a level, a type — call ai_element_filter with store_as="x" first and pass element_ids="@x" here.',
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
@@ -1897,8 +1974,8 @@ class T3LabAIServer(object):
                             'description': 'Optional category name (Walls, Floors, ...). When given and element_ids is omitted, EVERY element of this category in the project is moved — no count limit.'
                         },
                         'element_ids': {
-                            'type': 'array', 'items': {'type': 'integer'},
-                            'description': 'Element IDs for a specific subset (omit when using category)'
+                            'type': 'array', 'items': {'type': ['integer', 'string']},
+                            'description': 'Element IDs for a specific subset (omit when using category). Also accepts a one-entry list ["@name"] naming a set saved by ai_element_filter(store_as="name") — that moves every element in the set, with no id list and no count limit.'
                         },
                         'workset_name': {'type': 'string', 'description': 'Target workset name'}
                     },
@@ -1995,7 +2072,7 @@ class T3LabAIServer(object):
                         'value': {'type': 'string', 'description': 'New value (string; coerced to the parameter storage type)'},
                         'filter_parameter': {'type': 'string', 'description': 'Optional parameter to filter elements by before setting'},
                         'filter_value': {'type': 'string', 'description': 'Optional value substring the filter_parameter must contain'},
-                        'element_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Optional explicit element IDs (overrides category collection)'},
+                        'element_ids': {'type': 'array', 'items': {'type': ['integer', 'string']}, 'description': 'Optional explicit element IDs (overrides category collection)'},
                         'limit': {'type': 'integer', 'description': 'Optional cap on elements to modify. Omit (default) for NO limit — every matching element is modified.'}
                     },
                     'required': ['parameter_name', 'value']
@@ -2010,7 +2087,7 @@ class T3LabAIServer(object):
                         'category': {'type': 'string', 'description': 'Category to select (e.g. Walls, Doors)'},
                         'parameter_name': {'type': 'string', 'description': 'Optional parameter to filter on'},
                         'parameter_value': {'type': 'string', 'description': 'Optional value substring to match'},
-                        'element_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Optional explicit IDs to select (overrides category)'},
+                        'element_ids': {'type': 'array', 'items': {'type': ['integer', 'string']}, 'description': 'Optional explicit IDs to select (overrides category)'},
                         'add_to_selection': {'type': 'boolean', 'description': 'Add to the current selection instead of replacing (default false)'},
                         'limit': {'type': 'integer', 'description': 'Optional cap on selection size. Omit (default) for NO limit — every match is selected.'},
                         'show': {'type': 'boolean', 'description': 'Also zoom the view onto the selected elements (default false)'}
@@ -2038,7 +2115,7 @@ class T3LabAIServer(object):
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
-                        'element_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'IDs of grids (or line-based elements) to dimension between — at least 2'},
+                        'element_ids': {'type': 'array', 'items': {'type': ['integer', 'string']}, 'description': 'IDs of grids (or line-based elements) to dimension between — at least 2'},
                         'offset': {'type': 'number', 'description': 'Perpendicular offset of the dimension line in meters (default 1.0)'}
                     },
                     'required': ['element_ids']
@@ -2093,7 +2170,7 @@ class T3LabAIServer(object):
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
-                        'view_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'View IDs to apply the template to'},
+                        'view_ids': {'type': 'array', 'items': {'type': ['integer', 'string']}, 'description': 'View IDs to apply the template to'},
                         'template_name': {'type': 'string', 'description': 'View template name (partial match allowed)'}
                     },
                     'required': ['view_ids', 'template_name']
@@ -2123,7 +2200,7 @@ class T3LabAIServer(object):
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
-                        'view_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'View IDs to place'},
+                        'view_ids': {'type': 'array', 'items': {'type': ['integer', 'string']}, 'description': 'View IDs to place'},
                         'title_block': {'type': 'string', 'description': 'Title block family type name (optional)'},
                         'sheet_id': {'type': 'integer', 'description': 'Existing sheet to place all views on (optional; otherwise a sheet is created per view)'}
                     },
@@ -2136,8 +2213,8 @@ class T3LabAIServer(object):
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
-                        'sheet_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Sheet IDs to export'},
-                        'view_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'View IDs to export (used if sheet_ids omitted)'},
+                        'sheet_ids': {'type': 'array', 'items': {'type': ['integer', 'string']}, 'description': 'Sheet IDs to export'},
+                        'view_ids': {'type': 'array', 'items': {'type': ['integer', 'string']}, 'description': 'View IDs to export (used if sheet_ids omitted)'},
                         'output_folder': {'type': 'string', 'description': 'Destination folder (default: same folder as the .rvt)'}
                     },
                     'required': []
@@ -2179,7 +2256,7 @@ class T3LabAIServer(object):
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
-                        'room_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Room element IDs to build floors from'},
+                        'room_ids': {'type': 'array', 'items': {'type': ['integer', 'string']}, 'description': 'Room element IDs to build floors from'},
                         'room_id': {'type': 'integer', 'description': 'Single room element ID (alternative to room_ids)'},
                         'floor_type': {'type': 'string', 'description': 'Floor type name (optional)'}
                     },
@@ -2338,7 +2415,7 @@ class T3LabAIServer(object):
                     'type': 'object',
                     'properties': {
                         'sheet_ids': {
-                            'type': 'array', 'items': {'type': 'integer'},
+                            'type': 'array', 'items': {'type': ['integer', 'string']},
                             'description': 'Sheet element IDs to export (omit to export all sheets)'
                         },
                         'output_folder': {
@@ -3604,6 +3681,567 @@ class T3LabAIServer(object):
                          'Ducts, Areas, ...).')}
         return bic, name, None
 
+    # ── Element finding: saved id sets ("@handle") ───────────────────────────
+    #
+    # The biggest token cost in this server was never the answer — it was the
+    # ids. "Move every element of the groups named _F1_ onto workset _F1_"
+    # meant paging thousands of element ids OUT of ai_element_filter, through
+    # the model's context, and back INTO set_element_workset: tens of thousands
+    # of tokens, and silently truncated the moment the id list outgrew the
+    # filter's page size.
+    #
+    # ai_element_filter(store_as="x") parks the FULL matched id set here, on
+    # the server, and hands back the handle "@x". Every tool that takes
+    # element_ids accepts that handle instead (expanded in _expand_id_handles
+    # before dispatch), so the ids never enter the conversation at all.
+    #
+    # Sets live in memory for the Revit session, keyed by document title.
+    # Nothing invalidates them: they are a token shortcut, not a cache of model
+    # state, so a set is only ever as fresh as the filter that built it.
+    _SELSET_MAX = 24
+
+    def _selset_key(self, doc):
+        try:
+            return doc.Title
+        except Exception:
+            return '<doc>'
+
+    def _selset_bucket(self, doc):
+        sets = getattr(self, '_selection_sets', None)
+        if sets is None:
+            sets = {}
+            self._selection_sets = sets
+        return sets.setdefault(self._selset_key(doc), {})
+
+    def _selset_store(self, doc, name, ids):
+        bucket = self._selset_bucket(doc)
+        bucket.pop(name, None)
+        bucket[name] = [int(v) for v in ids]
+        while len(bucket) > self._SELSET_MAX:
+            bucket.pop(next(iter(bucket)))
+        return len(bucket[name])
+
+    def _selset_get(self, doc, name):
+        return self._selset_bucket(doc).get(name)
+
+    # Argument names across the registry that carry Revit element ids and may
+    # therefore be given a "@name" handle in place of a literal list.
+    _HANDLE_ARG_KEYS = ('element_ids', 'ids', 'room_ids', 'view_ids',
+                        'sheet_ids', 'element_id')
+
+    def _expand_id_handles(self, doc, tool_name, arguments):
+        """Replace "@name" saved-set references in id arguments with real ids.
+
+        Mutates `arguments` in place. Returns an error dict for an unknown
+        handle, None otherwise — expanding a typo to an empty list would make
+        the tool either do nothing or (for the tools that fall back to the
+        active selection, or to the whole category) do something else
+        entirely, and report success either way.
+        """
+        if doc is None or not isinstance(arguments, dict):
+            return None
+        for key in self._HANDLE_ARG_KEYS:
+            if key not in arguments:
+                continue
+            raw = arguments.get(key)
+            if raw is None:
+                continue
+            items = list(raw) if isinstance(raw, (list, tuple)) else [raw]
+            out, used = [], False
+            for item in items:
+                text = item.strip() if hasattr(item, 'strip') else None
+                if text and text.startswith('@'):
+                    ids = self._selset_get(doc, text[1:])
+                    if ids is None:
+                        return {
+                            'error': "No saved element set named '{}'.".format(
+                                text[1:]),
+                            'saved_sets': sorted(self._selset_bucket(doc)),
+                            'hint': ('Saved sets last for this Revit session and '
+                                     'this document only. Re-run ai_element_filter '
+                                     'with store_as="{}" to rebuild it, or pass '
+                                     'literal ids.').format(text[1:]),
+                            'tool': tool_name,
+                        }
+                    out.extend(ids)
+                    used = True
+                else:
+                    out.append(item)
+            if not used:
+                continue
+            if key == 'element_id':
+                # Singular argument: a handle only makes sense here when it
+                # resolved to exactly one element.
+                if len(out) != 1:
+                    return {
+                        'error': ('{} takes ONE element, but that saved set holds '
+                                  '{}.').format(tool_name, len(out)),
+                        'hint': ('Use a tool that accepts element_ids, or pass a '
+                                 'single numeric id.'),
+                        'tool': tool_name,
+                    }
+                arguments[key] = out[0]
+            else:
+                arguments[key] = out
+        return None
+
+    # ── Element finding: shared fast collector ───────────────────────────────
+    _FILTER_FIELDS = ('id', 'name', 'category', 'level', 'type', 'workset',
+                      'group', 'param_value', 'text', 'view')
+    _FILTER_DEFAULT_FIELDS = ('id', 'name', 'category', 'level', 'param_value')
+    _GROUP_BY_KEYS = ('category', 'name', 'type', 'level', 'workset', 'group')
+
+    def _worksets_matching(self, doc, needle):
+        """(WorksetId list, name list, error) for the user worksets whose name
+        contains `needle`, case-insensitively."""
+        from Autodesk.Revit.DB import FilteredWorksetCollector, WorksetKind
+        if not doc.IsWorkshared:
+            return None, None, {
+                'error': 'This document is not workshared — it has no worksets.',
+                'hint': 'Drop the workset filter.',
+                'tool': 'ai_element_filter'}
+        low = needle.lower()
+        all_ws = list(FilteredWorksetCollector(doc)
+                      .OfKind(WorksetKind.UserWorkset).ToWorksets())
+        hits = [ws for ws in all_ws if low in (ws.Name or '').lower()]
+        if not hits:
+            return None, None, {
+                'error': "No workset name contains '{}'.".format(needle),
+                'worksets_in_model': sorted(ws.Name for ws in all_ws)[:40],
+                'hint': 'Retry with one of worksets_in_model.',
+                'tool': 'ai_element_filter'}
+        return [ws.Id for ws in hits], [ws.Name for ws in hits], None
+
+    def _group_member_ids(self, doc, needle):
+        """(ids, matched-group info, error) for every element inside the model
+        or detail groups whose instance name OR group-type name contains
+        `needle`.
+
+        There is no ElementGroupFilter in the Revit API, so "the elements
+        inside the groups called _F1_" cannot be expressed as a collector
+        filter at all — Group.GetMemberIds() is the only route, and it is also
+        the fast one. Nested groups are walked (depth-capped) so a member that
+        is itself a group contributes its own members; the matched group
+        instances are part of the id set too, because a group instance carries
+        a workset and a type of its own.
+        """
+        from Autodesk.Revit.DB import FilteredElementCollector, Group
+        low = (needle or '').lower()
+        groups = list(FilteredElementCollector(doc).OfClass(Group)
+                      .WhereElementIsNotElementType())
+
+        def _names(grp):
+            try:
+                inst = elem_name(grp) or ''
+            except Exception:
+                inst = ''
+            try:
+                gtype = doc.GetElement(grp.GetTypeId())
+                typ = (elem_name(gtype) or '') if gtype is not None else ''
+            except Exception:
+                typ = ''
+            return inst, typ
+
+        hits = []
+        for grp in groups:
+            inst, typ = _names(grp)
+            if low in inst.lower() or low in typ.lower():
+                hits.append((grp, typ or inst))
+        if not hits:
+            catalogue = set()
+            for grp in groups:
+                inst, typ = _names(grp)
+                if typ or inst:
+                    catalogue.add(typ or inst)
+            return None, None, {
+                'error': "No group name contains '{}'.".format(needle),
+                'groups_in_model': sorted(catalogue)[:30],
+                'total_groups': len(groups),
+                'hint': ('Retry with one of groups_in_model, or drop group_name. '
+                         'The match is a case-insensitive substring of the group '
+                         'instance name or of its group type name.'),
+                'tool': 'ai_element_filter'}
+
+        ids, seen, matched = [], set(), []
+
+        def _walk(grp, depth):
+            if depth > 8:
+                return
+            try:
+                members = grp.GetMemberIds()
+            except Exception:
+                return
+            for mid in members:
+                val = eid_value(mid)
+                if val in seen:
+                    continue
+                seen.add(val)
+                ids.append(val)
+                sub = doc.GetElement(mid)
+                if isinstance(sub, Group):
+                    _walk(sub, depth + 1)
+
+        for grp, label in hits:
+            val = eid_value(grp.Id)
+            if val not in seen:
+                seen.add(val)
+                ids.append(val)
+            matched.append({'id': val, 'name': label})
+            _walk(grp, 0)
+        return ids, matched, None
+
+    def _find_elements(self, doc, arguments):
+        """(elements, meta, error) — the shared element finder.
+
+        Every narrowing Revit can do in native code is pushed into the
+        collector: category, workset and level are quick filters, and group
+        membership restricts the collector's id set up front. Only the checks
+        Revit has no filter for (type name, element name, parameter substring)
+        run per element — and only over whatever survived the quick filters,
+        instead of over every element in the model as before.
+        """
+        from Autodesk.Revit.DB import (FilteredElementCollector, ElementId,
+                                       ElementFilter, ElementWorksetFilter,
+                                       LogicalOrFilter, BuiltInCategory, Level)
+        try:
+            from System.Collections.Generic import List as NetList
+        except Exception:
+            NetList = None
+
+        # Name caches are per-query, not per-session: level / type / workset
+        # ids are only meaningful inside one document, and this server switches
+        # documents. A cache that outlived the query would answer a Level 3
+        # lookup in model B with model A's level name.
+        self._level_name_cache = {}
+        self._type_name_cache = {}
+        self._workset_name_cache = {}
+
+        meta = {}
+        # 1 · Categories — one or many.
+        cat_args = []
+        if arguments.get('category'):
+            cat_args.append(arguments.get('category'))
+        for extra in (arguments.get('categories') or []):
+            if extra:
+                cat_args.append(extra)
+        bics, cat_names = [], []
+        for raw in cat_args:
+            bic, name, err = self._resolve_bic(raw)
+            if err:
+                err['tool'] = 'ai_element_filter'
+                return None, None, err
+            if name not in cat_names:
+                cat_names.append(name)
+                bics.append(bic)
+        meta['categories'] = cat_names
+
+        group_arg = (arguments.get('group_name') or '').strip()
+        ws_arg    = (arguments.get('workset') or '').strip()
+        lvl_arg   = (arguments.get('level_name') or '').strip()
+        type_arg  = (arguments.get('type_name') or '').strip()
+        name_arg  = (arguments.get('name_contains') or '').strip()
+
+        if not (bics or group_arg or ws_arg or lvl_arg or type_arg or name_arg):
+            return None, None, {
+                'error': 'ai_element_filter needs at least one filter.',
+                'hint': ('Pass category (or categories), and/or group_name, '
+                         'workset, level_name, type_name, name_contains. For a '
+                         'whole-model overview call analyze_model_statistics — '
+                         'an unfiltered scan of every element is never the '
+                         'right query.'),
+                'tool': 'ai_element_filter'}
+
+        # 2 · Group membership restricts the collector's id set up front.
+        base_ids = None
+        if group_arg:
+            base_ids, matched_groups, gerr = self._group_member_ids(
+                doc, group_arg)
+            if gerr:
+                return None, None, gerr
+            meta['group_count'] = len(matched_groups)
+            meta['groups_matched'] = matched_groups[:20]
+            if not base_ids:
+                return [], meta, None
+
+        if base_ids is not None and NetList is not None:
+            seed = NetList[ElementId]()
+            for val in base_ids:
+                seed.Add(make_eid(val))
+            collector = FilteredElementCollector(doc, seed)
+        else:
+            collector = FilteredElementCollector(doc)
+        collector = collector.WhereElementIsNotElementType()
+
+        # 3 · Category quick filter.
+        py_cats = None
+        if len(bics) == 1:
+            collector = collector.OfCategory(bics[0])
+        elif bics:
+            applied = False
+            try:
+                from Autodesk.Revit.DB import ElementMulticategoryFilter
+                if NetList is not None:
+                    net_cats = NetList[BuiltInCategory]()
+                    for bic in bics:
+                        net_cats.Add(bic)
+                    collector = collector.WherePasses(
+                        ElementMulticategoryFilter(net_cats))
+                    applied = True
+            except Exception:
+                applied = False
+            if not applied:
+                py_cats = set(n.lower() for n in cat_names)
+
+        # 4 · Workset quick filter.
+        if ws_arg:
+            ws_ids, ws_names, werr = self._worksets_matching(doc, ws_arg)
+            if werr:
+                return None, None, werr
+            try:
+                ws_filters = [ElementWorksetFilter(w) for w in ws_ids]
+                if len(ws_filters) == 1:
+                    collector = collector.WherePasses(ws_filters[0])
+                elif NetList is not None:
+                    net_f = NetList[ElementFilter]()
+                    for one in ws_filters:
+                        net_f.Add(one)
+                    collector = collector.WherePasses(LogicalOrFilter(net_f))
+                meta['worksets_matched'] = ws_names
+            except Exception as exc:
+                return None, None, {
+                    'error': 'Workset filter failed: {}'.format(exc),
+                    'tool': 'ai_element_filter'}
+
+        # 5 · Level. Deliberately NOT ElementLevelFilter: that filter only sees
+        #     elements carrying a LevelId, while host-based elements (doors,
+        #     windows, most families) report their level through a parameter —
+        #     so a quick-filtered miss is indistinguishable from "nothing on
+        #     that level". Levels are resolved to names once and compared
+        #     against each element's resolved level name, which is cached.
+        py_level = None
+        if lvl_arg:
+            low = lvl_arg.lower()
+            level_names = []
+            all_names = []
+            for lvl in FilteredElementCollector(doc).OfClass(Level):
+                try:
+                    lname = elem_name(lvl) or ''
+                except Exception:
+                    continue
+                all_names.append(lname)
+                if low in lname.lower():
+                    level_names.append(lname)
+            if not level_names:
+                return None, None, {
+                    'error': "No level name contains '{}'.".format(lvl_arg),
+                    'levels_in_model': sorted(all_names)[:40],
+                    'hint': 'Retry with one of levels_in_model.',
+                    'tool': 'ai_element_filter'}
+            meta['levels_matched'] = level_names
+            py_level = set(n.lower() for n in level_names)
+
+        # 6 · Type name — resolved to a set of type ids ONCE, then compared by
+        #     id per element instead of reading a name off every instance.
+        type_ids = None
+        if type_arg:
+            low = type_arg.lower()
+            tcol = FilteredElementCollector(doc).WhereElementIsElementType()
+            if len(bics) == 1:
+                tcol = tcol.OfCategory(bics[0])
+            type_ids, sample = set(), []
+            for etype in tcol:
+                try:
+                    tname = elem_name(etype) or ''
+                except Exception:
+                    continue
+                if low in tname.lower():
+                    type_ids.add(eid_value(etype.Id))
+                elif len(sample) < 400:
+                    sample.append(tname)
+            if not type_ids:
+                return None, None, {
+                    'error': "No element type name contains '{}'.".format(
+                        type_arg),
+                    'types_seen': sorted(set(sample))[:25],
+                    'hint': ('Retry with one of types_seen, or call '
+                             'get_available_family_types to list them.'),
+                    'tool': 'ai_element_filter'}
+            meta['type_matches'] = len(type_ids)
+
+        elements = self._scan_collector(doc, collector, py_cats, py_level,
+                                        type_ids, name_arg)
+        return elements, meta, None
+
+    def _scan_collector(self, doc, collector, py_cats, py_level, type_ids,
+                        name_arg):
+        """Apply the checks Revit has no native filter for, in one pass."""
+        name_low = (name_arg or '').lower()
+        out = []
+        for elem in collector:
+            try:
+                if py_cats is not None:
+                    cat = elem.Category
+                    if cat is None or (cat.Name or '').lower() not in py_cats:
+                        continue
+                if type_ids is not None:
+                    if eid_value(elem.GetTypeId()) not in type_ids:
+                        continue
+                if name_low:
+                    try:
+                        if name_low not in (elem_name(elem) or '').lower():
+                            continue
+                    except Exception:
+                        continue
+                if py_level is not None:
+                    if (self._element_level_name(doc, elem) or '').lower() \
+                            not in py_level:
+                        continue
+                out.append(elem)
+            except Exception:
+                continue
+        return out
+
+    def _element_level_name(self, doc, elem):
+        """Level name of an element, cached by level id.
+
+        Two-step, same as get_material_quantities: LevelId first, then a
+        'Level' parameter for host-based elements that have no LevelId.
+        """
+        cache = getattr(self, '_level_name_cache', None)
+        if cache is None:
+            cache = {}
+            self._level_name_cache = cache
+        try:
+            lid = eid_value(elem.LevelId)
+        except Exception:
+            lid = -1
+        if lid > 0:
+            if lid not in cache:
+                try:
+                    lvl = doc.GetElement(elem.LevelId)
+                    cache[lid] = (elem_name(lvl) if lvl is not None else '')
+                except Exception:
+                    cache[lid] = ''
+            if cache[lid]:
+                return cache[lid]
+        try:
+            par = elem.LookupParameter('Level')
+            if par:
+                return par.AsValueString() or ''
+        except Exception:
+            pass
+        return ''
+
+    def _element_workset_name(self, doc, elem):
+        cache = getattr(self, '_workset_name_cache', None)
+        if cache is None:
+            cache = {}
+            self._workset_name_cache = cache
+        try:
+            wid = elem.WorksetId
+            key = eid_value(wid)
+        except Exception:
+            return ''
+        if key not in cache:
+            try:
+                cache[key] = doc.GetWorksetTable().GetWorkset(wid).Name
+            except Exception:
+                cache[key] = ''
+        return cache[key]
+
+    def _element_type_name(self, doc, elem):
+        cache = getattr(self, '_type_name_cache', None)
+        if cache is None:
+            cache = {}
+            self._type_name_cache = cache
+        try:
+            tid = eid_value(elem.GetTypeId())
+        except Exception:
+            return ''
+        if tid <= 0:
+            return ''
+        if tid not in cache:
+            try:
+                etype = doc.GetElement(elem.GetTypeId())
+                cache[tid] = (elem_name(etype) if etype is not None else '')
+            except Exception:
+                cache[tid] = ''
+        return cache[tid]
+
+    def _element_group_name(self, doc, elem):
+        try:
+            gid = elem.GroupId
+            if eid_value(gid) <= 0:
+                return ''
+            grp = doc.GetElement(gid)
+            if grp is None:
+                return ''
+            gtype = doc.GetElement(grp.GetTypeId())
+            return (elem_name(gtype) if gtype is not None
+                    else elem_name(grp)) or ''
+        except Exception:
+            return ''
+
+    def _filter_row(self, doc, elem, fields, param_val):
+        """One result row, carrying only the requested fields.
+
+        Every field costs tokens on every row, so the caller picks. `level`,
+        `type` and `workset` also cost a document lookup per element when they
+        are not already cached — leaving them out is a speed win as well.
+        """
+        row = {}
+        for field in fields:
+            try:
+                if field == 'id':
+                    row['id'] = eid_value(elem.Id)
+                elif field == 'name':
+                    row['name'] = elem_name(elem)
+                elif field == 'category':
+                    row['category'] = elem.Category.Name if elem.Category else ''
+                elif field == 'level':
+                    row['level'] = self._element_level_name(doc, elem)
+                elif field == 'type':
+                    row['type'] = self._element_type_name(doc, elem)
+                elif field == 'workset':
+                    row['workset'] = self._element_workset_name(doc, elem)
+                elif field == 'group':
+                    row['group'] = self._element_group_name(doc, elem)
+                elif field == 'param_value':
+                    row['param_value'] = param_val
+                elif field == 'text':
+                    if hasattr(elem, 'Text'):
+                        row['text'] = elem.Text
+                elif field == 'view':
+                    ov = doc.GetElement(elem.OwnerViewId)
+                    if ov is not None:
+                        row['view'] = elem_name(ov)
+            except Exception:
+                pass
+        return row
+
+    def _group_key_value(self, doc, elem, key, param_val):
+        if key == 'category':
+            try:
+                return elem.Category.Name if elem.Category else ''
+            except Exception:
+                return ''
+        if key == 'name':
+            try:
+                return elem_name(elem) or ''
+            except Exception:
+                return ''
+        if key == 'type':
+            return self._element_type_name(doc, elem)
+        if key == 'level':
+            return self._element_level_name(doc, elem)
+        if key == 'workset':
+            return self._element_workset_name(doc, elem)
+        if key == 'group':
+            return self._element_group_name(doc, elem)
+        if key == 'param_value':
+            return param_val
+        return ''
+
     def _solid_fill_id(self, doc):
         """ElementId of a solid FillPatternElement, or InvalidElementId.
 
@@ -3761,6 +4399,14 @@ class T3LabAIServer(object):
                     return no_doc_err
         except ImportError:
             return {'error': 'Revit API not available', 'tool': tool_name}
+
+        # ── Saved-set handles ("@name") ──────────────────────────────────────
+        # Expanded once, here, for EVERY tool rather than in each id-consuming
+        # branch: the branches below all read arguments['element_ids'] and must
+        # see plain integers whether the caller passed ids or a handle.
+        _handle_err = self._expand_id_handles(doc, tool_name, arguments)
+        if _handle_err is not None:
+            return _handle_err
 
         # ── Teaching sandbox write-guard ─────────────────────────────────────
         # When teaching mode is ON, a model-MODIFYING tool may only run against
@@ -4651,129 +5297,181 @@ class T3LabAIServer(object):
 
         # ── ai_element_filter ────────────────────────────────────────────────
         elif tool_name == 'ai_element_filter':
-            cat_arg   = arguments.get('category', 'Walls')
             param_arg = arguments.get('parameter_name')
             val_arg   = (arguments.get('parameter_value') or '').lower()
-            limit_arg = int(arguments.get('limit', 50))
+            try:
+                limit_arg = max(0, int(arguments.get('limit', 50)))
+            except Exception:
+                limit_arg = 50
             try:
                 offset_arg = max(0, int(arguments.get('offset', 0)))
             except Exception:
                 offset_arg = 0
-            # Shared category vocabulary (_bic_map) instead of a private
-            # 10-entry subset — TextNotes/Dimensions/Levels/Sheets etc. were
-            # unreachable here, which made e.g. spell-check scans return
-            # nothing. Unknown names now error with the supported list
-            # instead of silently scanning EVERY element in the project.
-            bic, cat_arg, _cat_err = self._resolve_bic(cat_arg)
-            if _cat_err:
-                return _cat_err
-            collector = FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType()
-            # total_count is the REAL number of matches (uncapped) so
-            # statistics questions ("how many windows?") get the true total
-            # even though the element list itself is capped at limit_arg.
-            # Without a parameter filter the collector can count directly;
-            # with one we keep scanning past the cap just to count.
-            results = []
-            total_matches = 0
-            if not param_arg:
-                try:
-                    total_matches = collector.GetElementCount()
-                except Exception:
-                    total_matches = 0
-            scanned = 0
+
+            # Requested fields, validated: an unknown field name silently
+            # dropped would look like "this element has no level" rather than
+            # "you asked for a field that does not exist".
+            fields = arguments.get('fields')
+            if fields:
+                bad = [f for f in fields if f not in self._FILTER_FIELDS]
+                if bad:
+                    return {'error': 'Unknown fields: {}.'.format(
+                                ', '.join(u'{}'.format(b) for b in bad)),
+                            'supported_fields': list(self._FILTER_FIELDS),
+                            'tool': tool_name}
+                fields = [f for f in fields]
+            else:
+                fields = list(self._FILTER_DEFAULT_FIELDS)
+
+            group_by = arguments.get('group_by') or []
+            if group_by:
+                bad = [g for g in group_by if g not in self._GROUP_BY_KEYS]
+                if bad:
+                    return {'error': 'Unknown group_by keys: {}.'.format(
+                                ', '.join(u'{}'.format(b) for b in bad)),
+                            'supported_keys': list(self._GROUP_BY_KEYS),
+                            'tool': tool_name}
+
+            elements, meta, err = self._find_elements(doc, arguments)
+            if err:
+                return err
+
+            # Parameter filter is the one narrowing Revit cannot do for us
+            # cheaply across arbitrary parameter names, so it runs here — but
+            # only over whatever survived the quick filters above.
+            matched, param_values = [], {}
             param_missing = 0
-            matched_seen = 0
-            for elem in collector:
-                if not param_arg and len(results) >= limit_arg:
-                    break
-                try:
-                    scanned += 1
-                    match = True
-                    param_val = ''
-                    if param_arg:
-                        p = elem.LookupParameter(param_arg)
-                        if p:
-                            param_val = p.AsValueString() or p.AsString() or ''
-                            if val_arg and val_arg not in param_val.lower():
-                                match = False
-                        else:
-                            param_missing += 1
-                            match = False
-                    if match:
-                        if param_arg:
-                            total_matches += 1
-                        matched_seen += 1
-                        # offset = paging support: skip the first N matches so
-                        # callers can walk a large model page by page instead
-                        # of only ever seeing the first `limit` elements.
-                        if matched_seen > offset_arg and len(results) < limit_arg:
-                            # Level name — same two-step resolution as
-                            # get_material_quantities (LevelId, then a 'Level'
-                            # parameter for host-based elements that lack one)
-                            # so "thống kê" breakdown tables have Type × Level.
-                            lvl_name = ''
-                            try:
-                                _lv = doc.GetElement(elem.LevelId)
-                                lvl_name = _lv.Name if _lv else ''
-                            except Exception:
-                                pass
-                            if not lvl_name:
-                                try:
-                                    _lp = elem.LookupParameter('Level')
-                                    if _lp:
-                                        lvl_name = _lp.AsValueString() or ''
-                                except Exception:
-                                    pass
-                            entry = {
-                                'id': eid_value(elem.Id),
-                                'name': elem.Name if hasattr(elem, 'Name') else '',
-                                'category': elem.Category.Name if elem.Category else '',
-                                'level': lvl_name,
-                                'param_value': param_val,
-                            }
-                            # Text-bearing elements (TextNote, ModelText):
-                            # surface the actual content + owner view — that
-                            # is what spell-check / annotation queries need.
-                            try:
-                                if hasattr(elem, 'Text'):
-                                    entry['text'] = elem.Text
-                                    try:
-                                        _ov = doc.GetElement(elem.OwnerViewId)
-                                        if _ov is not None:
-                                            entry['view'] = _ov.Name
-                                    except Exception:
-                                        pass
-                            except Exception:
-                                pass
-                            results.append(entry)
-                except Exception:
-                    pass
-            out = {'category': cat_arg, 'filter_param': param_arg,
-                   'count': len(results), 'total_count': total_matches,
-                   'offset': offset_arg,
-                   'truncated': total_matches > offset_arg + len(results),
-                   'elements': results}
+            if param_arg:
+                for elem in elements:
+                    try:
+                        par = elem.LookupParameter(param_arg)
+                    except Exception:
+                        par = None
+                    if not par:
+                        param_missing += 1
+                        continue
+                    try:
+                        pval = par.AsValueString() or par.AsString() or ''
+                    except Exception:
+                        pval = ''
+                    if val_arg and val_arg not in pval.lower():
+                        continue
+                    matched.append(elem)
+                    param_values[eid_value(elem.Id)] = pval
+            else:
+                matched = elements
+
+            total = len(matched)
+            cat_names = meta.get('categories') or []
+            out = {
+                'category': (cat_names[0] if len(cat_names) == 1
+                             else (cat_names or None)),
+                'filter_param': param_arg,
+                'total_count': total,
+            }
+            for key in ('groups_matched', 'group_count', 'worksets_matched',
+                        'levels_matched', 'type_matches'):
+                if key in meta:
+                    out[key] = meta[key]
+
+            # store_as parks the WHOLE id set server-side. This is the path
+            # that makes bulk edits possible at all: no cap, no paging, and
+            # the ids never enter the conversation.
+            if arguments.get('store_as'):
+                handle = u'{}'.format(arguments['store_as']).lstrip('@').strip()
+                if not handle:
+                    return {'error': 'store_as must be a non-empty name.',
+                            'tool': tool_name}
+                stored = self._selset_store(
+                    doc, handle, [eid_value(e.Id) for e in matched])
+                out['saved_set'] = '@' + handle
+                out['saved_count'] = stored
+                out['hint'] = ('Pass element_ids="@{}" to set_element_workset, '
+                               'select_elements, bulk_set_parameter, '
+                               'revit_override_color, color_elements, '
+                               'edit_elements, operate_element or tag_elements '
+                               '— all {} elements, no ids needed.'
+                               ).format(handle, stored)
+
+            # ── Aggregated mode: counts, not rows ────────────────────────────
+            if group_by:
+                buckets = {}
+                for elem in matched:
+                    key = tuple(self._group_key_value(
+                        doc, elem, gkey,
+                        param_values.get(eid_value(elem.Id), ''))
+                        for gkey in group_by)
+                    buckets[key] = buckets.get(key, 0) + 1
+                rows = []
+                for key in sorted(buckets, key=lambda k: (-buckets[k], k)):
+                    row = dict(zip(group_by, key))
+                    row['count'] = buckets[key]
+                    rows.append(row)
+                out['group_by'] = list(group_by)
+                out['summary'] = rows[:300]
+                out['group_count_rows'] = len(rows)
+                if len(rows) > 300:
+                    out['note'] = ('Showing the 300 largest of {} groups; '
+                                   'total_count still covers all of them.'
+                                   ).format(len(rows))
+                if not matched:
+                    out['summary'] = []
+                return out
+
+            # ── Listing mode ────────────────────────────────────────────────
+            page = matched[offset_arg:offset_arg + limit_arg]
+            if list(fields) == ['id']:
+                # Cheapest possible listing: a bare id array, ~1 token an id
+                # instead of a dict per element.
+                out['ids'] = [eid_value(e.Id) for e in page]
+                out['count'] = len(out['ids'])
+            else:
+                rows = []
+                for elem in page:
+                    row = self._filter_row(
+                        doc, elem, fields,
+                        param_values.get(eid_value(elem.Id), ''))
+                    # Text-bearing elements (TextNote, ModelText) carry their
+                    # content and owner view by default — that is what
+                    # spell-check and annotation queries are after.
+                    if 'text' not in fields:
+                        try:
+                            if hasattr(elem, 'Text'):
+                                row['text'] = elem.Text
+                                ov = doc.GetElement(elem.OwnerViewId)
+                                if ov is not None:
+                                    row['view'] = elem_name(ov)
+                        except Exception:
+                            pass
+                    rows.append(row)
+                out['elements'] = rows
+                out['count'] = len(rows)
+            out['offset'] = offset_arg
+            out['truncated'] = total > offset_arg + out['count']
+
             # A truncated list silently read as "the whole model" is how the
             # assistant ends up reporting "scanned 4495 notes, 0 errors" after
-            # seeing 50 of them — spell out the incomplete coverage and how to
-            # page for the rest.
+            # seeing 50 of them — spell out the incomplete coverage, and point
+            # at the two ways that do NOT need paging at all.
             if out['truncated']:
                 out['warning'] = (
-                    'INCOMPLETE LIST: elements {}-{} of {} matches. Call again '
-                    'with offset={} (same limit) to continue paging. Do NOT '
-                    'claim full coverage or report totals as "scanned" until '
-                    'offset+count reaches total_count.'
-                ).format(offset_arg + 1, offset_arg + len(results),
-                         total_matches, offset_arg + len(results))
+                    'INCOMPLETE LIST: elements {}-{} of {} matches. Do NOT claim '
+                    'full coverage from this page. To act on ALL of them, re-call '
+                    'with store_as="sel" and pass element_ids="@sel"; to COUNT or '
+                    'break them down, re-call with group_by. Only page '
+                    '(offset={}) when you genuinely need to read every row.'
+                ).format(offset_arg + 1, offset_arg + out['count'], total,
+                         offset_arg + out['count'])
+
             # "0 results" caused by a parameter that simply doesn't exist on
             # this category reads like "no elements" to the model — tell it
             # what actually happened so it can rephrase the query.
-            if param_arg and not results and scanned and param_missing == scanned:
+            if param_arg and not matched and param_missing:
                 out['note'] = ("Parameter '{}' does not exist on any of the {} "
-                               "'{}' elements scanned. Element names are already "
+                               "elements scanned. Element names are already "
                                "returned in the 'name' field — query again "
                                "without parameter_name.").format(
-                                   param_arg, scanned, cat_arg)
+                                   param_arg, param_missing)
             return out
 
         # ── analyze_model_statistics ─────────────────────────────────────────
@@ -7835,16 +8533,28 @@ class T3LabAIServer(object):
                 from Autodesk.Revit.DB import FilteredWorksetCollector, WorksetKind
                 if not doc.IsWorkshared:
                     return {'workshared': False, 'worksets': []}
-                worksets = FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset).ToWorksets()
+                worksets = list(FilteredWorksetCollector(doc)
+                                .OfKind(WorksetKind.UserWorkset).ToWorksets())
+                needle = (arguments.get('name_contains') or '').strip().lower()
                 result = []
                 for ws in worksets:
+                    if needle and needle not in (ws.Name or '').lower():
+                        continue
                     result.append({
                         'id': eid_value(ws.Id),
                         'name': ws.Name,
                         'is_open': ws.IsOpen,
                         'owner': ws.Owner or ''
                     })
-                return {'workshared': True, 'worksets': result, 'count': len(result)}
+                out = {'workshared': True, 'worksets': result,
+                       'count': len(result), 'total_count': len(worksets)}
+                if needle:
+                    out['name_contains'] = arguments.get('name_contains')
+                    if not result:
+                        out['hint'] = ('No workset name contains that text. '
+                                       'Call again without name_contains to see '
+                                       'all {} worksets.'.format(len(worksets)))
+                return out
             except Exception as e:
                 return {'error': str(e)}
 
@@ -9695,9 +10405,9 @@ class T3LabAIServer(object):
                 self._is_running = True
                 http_server.serve_forever()
             except Exception as e:
-                self._is_running = False
                 self._start_error = e
-                raise e
+            finally:
+                self._is_running = False
 
         self._server_thread = threading.Thread(target=run_server)
         self._server_thread.daemon = True

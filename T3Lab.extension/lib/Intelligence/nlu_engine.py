@@ -1302,8 +1302,8 @@ _CAP_HIDE = frozenset([
 _CAP_MAP = [
     (u"📖", u"ĐỌC / QUERY", u"READ / QUERY", [
         ((u"ai_element_filter",),
-         u"`ai_element_filter` — lọc element theo category + parameter (Walls, Doors, Rooms, Grids, Pipes…)",
-         u"`ai_element_filter` — filter elements by category + parameter (Walls, Doors, Rooms, Grids, Pipes…)"),
+         u"`ai_element_filter` — lọc element theo category, group, workset, tầng, type, tên, parameter (gộp trong 1 lần gọi); `group_by` để đếm/thống kê, `store_as` để thao tác hàng loạt không cần chuyển id",
+         u"`ai_element_filter` — filter elements by category, group, workset, level, type, name, parameter (all in one call); `group_by` for counts, `store_as` for bulk actions without ferrying ids"),
         ((u"get_all_parameters", u"get_parameter", u"revit_get_element_info"),
          u"`get_all_parameters` / `get_parameter` / `revit_get_element_info` — đọc mọi param & thông tin của 1 element",
          u"`get_all_parameters` / `get_parameter` / `revit_get_element_info` — read every parameter & info of an element"),

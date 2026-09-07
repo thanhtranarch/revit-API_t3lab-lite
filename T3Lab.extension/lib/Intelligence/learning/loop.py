@@ -245,6 +245,8 @@ def on_idling_tick(now=None):
                 _trainer.maybe_auto_train()
             except Exception:
                 pass
+        except Exception:
+            pass
         finally:
             with _run_lock:
                 _running = False

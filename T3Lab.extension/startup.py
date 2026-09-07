@@ -20,21 +20,22 @@ from __future__ import unicode_literals
 import os
 import sys
 
-for _env in ('APPDATA', 'PROGRAMDATA'):
-    _base = os.environ.get(_env, '')
-    if _base:
-        for _clone in ('pyRevit-Master', 'pyRevit'):
-            _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
-            if os.path.isdir(_ceng):
-                for _d in (_ceng, os.path.join(_ceng, 'Lib')):
-                    if hasattr(os, 'add_dll_directory'):
-                        try:
-                            os.add_dll_directory(_d)
-                        except Exception:
-                            pass
-                for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
-                    if os.path.exists(_p) and _p not in sys.path:
-                        sys.path.insert(0, _p)
+if sys.version_info >= (3, 0):
+    for _env in ('APPDATA', 'PROGRAMDATA'):
+        _base = os.environ.get(_env, '')
+        if _base:
+            for _clone in ('pyRevit-Master', 'pyRevit'):
+                _ceng = os.path.join(_base, _clone, 'bin', 'cengines', 'CPY3123')
+                if os.path.isdir(_ceng):
+                    for _d in (_ceng, os.path.join(_ceng, 'Lib')):
+                        if hasattr(os, 'add_dll_directory'):
+                            try:
+                                os.add_dll_directory(_d)
+                            except Exception:
+                                pass
+                    for _p in (_ceng, os.path.join(_ceng, 'Lib'), os.path.join(_ceng, 'python312.zip')):
+                        if os.path.exists(_p) and _p not in sys.path:
+                            sys.path.insert(0, _p)
 
 
 # ─── Path bootstrap ────────────────────────────────────────────────────────────
@@ -47,6 +48,7 @@ for _p in (_STARTUP_DIR, _LIB_DIR):
 try:
     import _cpython_bootstrap
     _cpython_bootstrap.init_cpython_paths()
+    _cpython_bootstrap.fix_std_streams()
 except Exception:
     pass
 
@@ -149,28 +151,52 @@ try:
     if DockablePane.PaneExists(pane_id):
         _log_dockable(u"DockablePane 'T3Lab Assistant' already registered.")
     else:
-        _uictrld = _get_uicontrolled_app()
-        _registered = False
+        # Collect candidate host application objects capable of RegisterDockablePane
+        _candidates = []
 
-        if _uictrld is not None and hasattr(_uictrld, 'RegisterDockablePane'):
-            try:
-                provider = AssistantPaneProvider()
-                _uictrld.RegisterDockablePane(pane_id, 'T3Lab Assistant', provider)
-                _log_dockable(u"SUCCESS: RegisterDockablePane succeeded on UIControlledApplication")
-                _registered = True
-            except Exception as ex_reg:
-                _log_dockable(u"FAILED RegisterDockablePane on UIControlledApplication: {}\n{}".format(
-                    ex_reg, traceback.format_exc()))
+        # 1. Genuine UIControlledApplication from pyRevit runtime
+        _uictrld = _get_uicontrolled_app()
+        if _uictrld is not None:
+            _candidates.append((_uictrld, "UIControlledApplication"))
+
+        # 2. pyRevit HOST_APP.uiapp (the standard pyRevit way used by pyRevitTools)
+        try:
+            from pyrevit import HOST_APP
+            if hasattr(HOST_APP, 'uiapp') and HOST_APP.uiapp is not None:
+                _candidates.append((HOST_APP.uiapp, "HOST_APP.uiapp"))
+        except Exception as ex_h:
+            _log_dockable(u"HOST_APP.uiapp lookup error: {}".format(ex_h))
+
+        # 3. Global __revit__ handle
+        try:
+            if '__revit__' in globals() and globals()['__revit__'] is not None:
+                _candidates.append((globals()['__revit__'], "__revit__"))
+        except Exception:
+            pass
+
+        _registered = False
+        provider = AssistantPaneProvider()
+
+        for app_obj, app_desc in _candidates:
+            if hasattr(app_obj, 'RegisterDockablePane'):
+                try:
+                    app_obj.RegisterDockablePane(pane_id, 'T3Lab Assistant', provider)
+                    _log_dockable(u"SUCCESS: RegisterDockablePane succeeded on {}".format(app_desc))
+                    _registered = True
+                    break
+                except Exception as ex_reg:
+                    _log_dockable(u"RegisterDockablePane failed on {}: {}\n{}".format(
+                        app_desc, ex_reg, traceback.format_exc()))
 
         if not _registered:
-            # Fallback: hook ApplicationInitialized event
+            # Fallback: hook ApplicationInitialized event if not yet fired
             def _on_app_initialized(sender, args):
                 try:
                     if not DockablePane.PaneExists(pane_id):
                         from Autodesk.Revit.UI import UIApplication
                         uiapp = UIApplication(sender) if type(sender).__name__ != "UIApplication" else sender
-                        provider = AssistantPaneProvider()
-                        uiapp.RegisterDockablePane(pane_id, 'T3Lab Assistant', provider)
+                        prov = AssistantPaneProvider()
+                        uiapp.RegisterDockablePane(pane_id, 'T3Lab Assistant', prov)
                         _log_dockable(u"SUCCESS: RegisterDockablePane succeeded in ApplicationInitialized event")
                 except Exception as ex_init:
                     _log_dockable(u"FAILED RegisterDockablePane in ApplicationInitialized: {}\n{}".format(

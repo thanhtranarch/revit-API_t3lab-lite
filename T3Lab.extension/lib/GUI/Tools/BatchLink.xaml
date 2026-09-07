@@ -1,24 +1,27 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="Background Theme"
-        Width="520" Height="720"
-        MinWidth="460" MinHeight="620"
+        mc:Ignorable="d"
+        Title="Batch Link Models"
+        Width="1080" Height="720" MinWidth="1000" MinHeight="660"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="False"
-        ResizeMode="CanResizeWithGrip"
-        ShowInTaskbar="True"
-        Background="{DynamicResource T3.Canvas}"
-        FontFamily="Segoe UI" FontSize="13"
-        UseLayoutRounding="True" SnapsToDevicePixels="True"
-        TextOptions.TextFormattingMode="Display">
+        Background="{DynamicResource T3.Surface}"
+        FontFamily="Segoe UI"
+        FontSize="13"
+        TextOptions.TextFormattingMode="Display"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True">
 
     <WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="48"
-                           ResizeBorderThickness="6"
-                           GlassFrameThickness="0"
-                           CornerRadius="0"/>
+                            ResizeBorderThickness="6"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
@@ -1393,446 +1396,715 @@
         </ResourceDictionary>
     </Window.Resources>
 
-    <!-- Outer Window Container (Zero-Gap) -->
-    <Border Background="{StaticResource T3.Surface}"
-            BorderBrush="{StaticResource T3.BorderStrong}"
-            BorderThickness="1.5"
-            CornerRadius="12" ClipToBounds="True">
+    <Border BorderBrush="{StaticResource T3.BorderStrong}" BorderThickness="1"
+            CornerRadius="12" ClipToBounds="True" Background="{DynamicResource T3.Surface}">
         <Grid>
             <Grid.RowDefinitions>
-                <!-- Row 0: Title Bar (48px) -->
-                <RowDefinition Height="48"/>
-                <!-- Row 1: Tab Navigation Strip (40px) -->
-                <RowDefinition Height="40"/>
-                <!-- Row 2: Content Area (*) -->
-                <RowDefinition Height="*"/>
-                <!-- Row 3: Footer Bar (48px) -->
-                <RowDefinition Height="48"/>
+                <RowDefinition Height="48"/>      <!-- Row 0: Title Bar -->
+                <RowDefinition Height="Auto"/>    <!-- Row 1: Tab Bar -->
+                <RowDefinition Height="*"/>       <!-- Row 2: Main Body -->
+                <RowDefinition Height="Auto"/>    <!-- Row 3: Progress -->
+                <RowDefinition Height="48"/>      <!-- Row 4: Footer Bar -->
             </Grid.RowDefinitions>
 
             <!-- ══════════════════ ROW 0: TITLE BAR ══════════════════ -->
-            <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}">
+            <Border Grid.Row="0" Style="{StaticResource T3.TitleBar}" Padding="12,0,8,0">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,0"
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
                                 shell:WindowChrome.IsHitTestVisibleInChrome="True">
                         <Image x:Name="logo_image" Height="28" Margin="0,0,12,0"
                                VerticalAlignment="Center"
                                RenderOptions.BitmapScalingMode="HighQuality"/>
                         <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                            <TextBlock Text="Background Theme" Style="{StaticResource T3.Title}"/>
-                            <TextBlock Text="Customize canvas gradient and interface color scheme" Style="{StaticResource T3.Subtitle}"/>
+                            <TextBlock Text="Batch Link Models" Style="{StaticResource T3.Title}"/>
+                            <TextBlock Text="Link, reload and control Revit links — worksets and per-view display"
+                                       Style="{StaticResource T3.Subtitle}"/>
                         </StackPanel>
                     </StackPanel>
-
-                    <!-- Window Controls -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0"
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
                                 shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                        <Button x:Name="btn_minimize" Style="{StaticResource T3.WinCtrl}"
-                                Click="minimize_button_clicked" ToolTip="Minimize">
+                        <Button x:Name="btn_minimize" Style="{StaticResource T3.WinCtrl}" ToolTip="Minimize"
+                                Click="minimize_button_clicked">
                             <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
                         </Button>
-                        <Button x:Name="btn_maximize" Style="{StaticResource T3.WinCtrl}"
-                                Click="maximize_button_clicked" ToolTip="Maximize">
+                        <Button x:Name="btn_maximize" Style="{StaticResource T3.WinCtrl}" ToolTip="Maximize"
+                                Click="maximize_button_clicked">
                             <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
                         </Button>
-                        <Button x:Name="btn_close" Style="{StaticResource T3.WinClose}"
-                                Click="close_button_clicked" ToolTip="Close">
+                        <Button x:Name="btn_close" Style="{StaticResource T3.WinClose}" ToolTip="Close"
+                                IsCancel="True" Click="close_button_clicked">
                             <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
                         </Button>
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- ══════════════════ ROW 1: TAB NAVIGATION STRIP ══════════════════ -->
-            <Border Grid.Row="1" Background="{StaticResource T3.SurfaceSunken}"
-                    BorderBrush="{StaticResource T3.Border}" BorderThickness="0,0,0,1"
-                    Padding="16,4">
+            <!-- ══════════════════ ROW 1: TAB BAR ══════════════════ -->
+            <Border Grid.Row="1" Margin="16,12,16,0" Style="{StaticResource T3.Pill}"
+                    HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <RadioButton x:Name="TabModel" Content="Model Background"
-                                 GroupName="BGThemeTabs"
-                                 Style="{StaticResource T3.Chip}" IsChecked="True"/>
-                    <RadioButton x:Name="Tab3D" Content="3D Gradient"
-                                 GroupName="BGThemeTabs"
-                                 Style="{StaticResource T3.Chip}"/>
-                    <RadioButton x:Name="TabTheme" Content="Revit UI Theme"
-                                 GroupName="BGThemeTabs"
-                                 Style="{StaticResource T3.Chip}"/>
+                    <RadioButton x:Name="chip_tab_link" Content="Link Models" GroupName="bl_tabs"
+                                 Style="{StaticResource T3.Chip}" IsChecked="True"
+                                 Checked="tab_chip_checked" Tag="0"/>
+                    <RadioButton x:Name="chip_tab_worksets" Content="Link Worksets" GroupName="bl_tabs"
+                                 Style="{StaticResource T3.Chip}"
+                                 Checked="tab_chip_checked" Tag="1"/>
+                    <RadioButton x:Name="chip_tab_display" Content="View Display" GroupName="bl_tabs"
+                                 Style="{StaticResource T3.Chip}"
+                                 Checked="tab_chip_checked" Tag="2"/>
                 </StackPanel>
             </Border>
 
-            <!-- ══════════════════ ROW 2: CONTENT (TabControl with hidden header) ══════════════════ -->
-            <TabControl Grid.Row="2" x:Name="MainTabs" BorderThickness="0" Background="Transparent" Padding="0">
+            <!-- ══════════════════ ROW 2: MAIN BODY ══════════════════ -->
+            <TabControl x:Name="tab_control" Grid.Row="2" Margin="0"
+                        Background="Transparent" BorderThickness="0">
                 <TabControl.ItemContainerStyle>
                     <Style TargetType="TabItem" BasedOn="{StaticResource T3.TabItem.Hidden}"/>
                 </TabControl.ItemContainerStyle>
 
-                <!-- ── TAB 0: MODEL BACKGROUND ── -->
-                <TabItem>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                  Padding="16,16,12,16">
-                        <StackPanel Margin="0">
+                <!-- ────────────────── TAB 1: LINK NEW MODELS ────────────────── -->
+                <TabItem x:Name="tab_item_link" IsSelected="True">
+                    <Grid Margin="16,12,16,12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/> <!-- Folder Picker -->
+                            <RowDefinition Height="Auto"/> <!-- Toolbar -->
+                            <RowDefinition Height="*"/>    <!-- DataGrid -->
+                            <RowDefinition Height="Auto"/> <!-- Link Options -->
+                        </Grid.RowDefinitions>
 
-                            <!-- Section 1: HSV Colour Picker -->
-                            <TextBlock Text="1. COLOUR PICKER &amp; PREVIEW" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
-                            <Border Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}"
-                                    BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,16">
-                                <Grid Height="160">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="130"/>
-                                    </Grid.ColumnDefinitions>
+                        <!-- SECTION: SOURCE FOLDER -->
+                        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                            <TextBlock Text="SOURCE FOLDER" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="tb_folder_path" Grid.Column="0"
+                                         Style="{StaticResource T3.TextBox}"
+                                         TextChanged="folder_path_changed"/>
+                                <Button x:Name="btn_browse" Grid.Column="1" Content="Browse..."
+                                        Style="{StaticResource T3.Button.Secondary}"
+                                        Margin="8,0,0,0" Padding="16,0" Height="28"
+                                        Click="browse_folder_clicked"/>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <CheckBox x:Name="chk_subfolders" Content="Include subfolders"
+                                          Style="{StaticResource T3.CheckBox}"
+                                          Margin="0,0,16,0" Click="subfolders_toggled"/>
+                                <CheckBox x:Name="chk_ignore_backups" Content="Ignore backup files (*.0001.rvt)"
+                                          Style="{StaticResource T3.CheckBox}" IsChecked="True"
+                                          Click="ignore_backups_toggled"/>
+                            </StackPanel>
+                        </StackPanel>
 
-                                    <!-- Saturation / Value square -->
-                                    <Border x:Name="SvBase" Grid.Column="0" CornerRadius="4">
-                                        <Grid>
-                                            <Border CornerRadius="4">
-                                                <Border.Background>
-                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                                        <GradientStop Color="White" Offset="0"/>
-                                                        <GradientStop Color="Transparent" Offset="1"/>
-                                                    </LinearGradientBrush>
-                                                </Border.Background>
-                                            </Border>
-                                            <Border CornerRadius="4">
-                                                <Border.Background>
-                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                        <GradientStop Color="Transparent" Offset="0"/>
-                                                        <GradientStop Color="Black" Offset="1"/>
-                                                    </LinearGradientBrush>
-                                                </Border.Background>
-                                            </Border>
-                                            <Canvas x:Name="SvCanvas" Background="Transparent" Cursor="Cross">
-                                                <Ellipse x:Name="SvThumb" Width="16" Height="16" Stroke="{StaticResource T3.Surface}" StrokeThickness="2"
-                                                         Fill="Transparent" IsHitTestVisible="False"/>
-                                            </Canvas>
-                                        </Grid>
-                                    </Border>
+                        <!-- SECTION: TOOLBAR -->
+                        <Grid Grid.Row="1" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="MODELS TO LINK" Style="{StaticResource T3.Label}" Margin="0,0,12,0"/>
+                                <TextBox x:Name="tb_filter" Width="200" Height="26"
+                                         Style="{StaticResource T3.Search}"
+                                         Tag="Search files..."
+                                         TextChanged="filter_text_changed"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button x:Name="btn_select_all" Content="Select All"
+                                        Style="{StaticResource T3.Button.Ghost}"
+                                        Margin="0,0,4,0" Padding="8,0" Height="24"
+                                        Click="select_all_clicked"/>
+                                <Button x:Name="btn_select_none" Content="Select None"
+                                        Style="{StaticResource T3.Button.Ghost}"
+                                        Margin="0,0,4,0" Padding="8,0" Height="24"
+                                        Click="select_none_clicked"/>
+                                <Button x:Name="btn_invert" Content="Invert"
+                                        Style="{StaticResource T3.Button.Ghost}"
+                                        Margin="0,0,12,0" Padding="8,0" Height="24"
+                                        Click="invert_selection_clicked"/>
+                                <TextBlock x:Name="lbl_file_count" Text="0 models found"
+                                           Style="{StaticResource T3.Caption}"/>
+                            </StackPanel>
+                        </Grid>
 
-                                    <!-- Hue bar -->
-                                    <Border Grid.Column="1" Width="24" CornerRadius="4" Margin="12,0" Cursor="Hand">
-                                        <Border.Background>
-                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                <GradientStop Color="Red" Offset="0"/>
-                                                <GradientStop Color="Yellow" Offset="0.17"/>
-                                                <GradientStop Color="Lime" Offset="0.33"/>
-                                                <GradientStop Color="Cyan" Offset="0.50"/>
-                                                <GradientStop Color="Blue" Offset="0.67"/>
-                                                <GradientStop Color="Magenta" Offset="0.83"/>
-                                                <GradientStop Color="Red" Offset="1"/>
-                                            </LinearGradientBrush>
-                                        </Border.Background>
-                                        <Canvas x:Name="HueCanvas" Background="Transparent">
-                                            <Border x:Name="HueThumb" Width="24" Height="6" CornerRadius="2"
-                                                    Background="Transparent" BorderBrush="{StaticResource T3.Surface}" BorderThickness="2"
-                                                    IsHitTestVisible="False"/>
-                                        </Canvas>
-                                    </Border>
+                        <!-- SECTION: DATAGRID -->
+                        <Border Grid.Row="2" Style="{StaticResource T3.Panel}" Padding="0" ClipToBounds="True">
+                            <Grid>
+                                <DataGrid x:Name="grid_files"
+                                          Style="{StaticResource T3.DataGrid}"
+                                          BorderThickness="0"
+                                          AutoGenerateColumns="False"
+                                          EnableRowVirtualization="True"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          SelectionMode="Extended"
+                                          SelectionUnit="FullRow">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Width="36" CanUserSort="False" CanUserResize="False">
+                                            <DataGridTemplateColumn.HeaderStyle>
+                                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource T3.DataGridColumnHeader}">
+                                                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                                    <Setter Property="Padding" Value="0"/>
+                                                </Style>
+                                            </DataGridTemplateColumn.HeaderStyle>
+                                            <DataGridTemplateColumn.CellStyle>
+                                                <Style TargetType="DataGridCell" BasedOn="{StaticResource T3.DataGridCell}">
+                                                    <Setter Property="Padding" Value="0"/>
+                                                </Style>
+                                            </DataGridTemplateColumn.CellStyle>
+                                            <DataGridTemplateColumn.Header>
+                                                <CheckBox x:Name="chk_header"
+                                                          Style="{StaticResource T3.CheckBox}"
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          Padding="0" Margin="0"
+                                                          ToolTip="Select All / Deselect All"
+                                                          Click="header_checkbox_clicked"/>
+                                            </DataGridTemplateColumn.Header>
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              IsEnabled="{Binding IsEnabled}"
+                                                              Style="{StaticResource T3.CheckBox}"
+                                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                              Padding="0" Margin="0"
+                                                              Click="row_checkbox_clicked"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
 
-                                    <!-- Preview + utilities -->
-                                    <StackPanel Grid.Column="2">
-                                        <Border x:Name="PreviewBox" Height="76" CornerRadius="4"
-                                                BorderBrush="{StaticResource T3.Border}" BorderThickness="1">
-                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                <TextBlock x:Name="PreviewLbl" Style="{StaticResource T3.BodyStrong}"
-                                                           HorizontalAlignment="Center"/>
-                                                <TextBlock x:Name="PreviewLum" Text="" Style="{StaticResource T3.Caption}"
-                                                           HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                                            </StackPanel>
-                                        </Border>
-                                        <Button x:Name="BtnEyedrop" Style="{StaticResource T3.Button.Secondary}" Height="28" Margin="0,8,0,0"
-                                                Content="Pick Screen" ToolTip="Pick a colour from anywhere on screen (Esc cancels)"/>
-                                        <Button x:Name="BtnCopyHex" Style="{StaticResource T3.Button.Ghost}" Height="28" Margin="0,4,0,0"
-                                                Content="Copy HEX" ToolTip="Copy HEX value to clipboard"/>
-                                    </StackPanel>
+                                        <DataGridTextColumn Header="FILE NAME" Width="*" Binding="{Binding FileName}"/>
+                                        <DataGridTextColumn Header="SIZE" Width="90" Binding="{Binding FileSize}"
+                                                            ElementStyle="{StaticResource T3.Cell.Mono}"/>
+                                        <DataGridTextColumn Header="DATE MODIFIED" Width="140" Binding="{Binding ModifiedFormatted}"
+                                                            ElementStyle="{StaticResource T3.Cell.Mono}"/>
+                                        <DataGridTemplateColumn Header="STATUS" Width="140"
+                                                                CellTemplate="{StaticResource T3.StatusPill}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <TextBlock x:Name="txt_empty" Style="{StaticResource T3.Empty}"
+                                           Visibility="Visible"
+                                           Text="No Revit (.rvt) files found.&#x0a;Select a folder containing Revit projects to begin."/>
+                            </Grid>
+                        </Border>
+
+                        <!-- SECTION: LINK OPTIONS -->
+                        <StackPanel Grid.Row="3" Margin="0,12,0,0">
+                            <TextBlock Text="LINK OPTIONS" Style="{StaticResource T3.Label}" Margin="0,0,0,4"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="160"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="140"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Positioning" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="cb_positioning" Style="{StaticResource T3.ComboBox}"
+                                              ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Attachment Type" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="cb_attachment" Style="{StaticResource T3.ComboBox}"
+                                              ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Path Type" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="cb_path_type" Style="{StaticResource T3.ComboBox}"
+                                              ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <CheckBox x:Name="chk_pin" Content="Pin linked models"
+                                          Style="{StaticResource T3.CheckBox}" IsChecked="True"
+                                          Margin="0,0,24,0"/>
+                                <CheckBox x:Name="chk_skip_existing" Content="Skip already linked models"
+                                          Style="{StaticResource T3.CheckBox}" IsChecked="True"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </TabItem>
+
+                <!-- ────────────────── TAB 2: LINK WORKSETS ────────────────── -->
+                <TabItem x:Name="tab_item_worksets">
+                    <Grid Margin="16,12,16,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="360"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- LEFT: LOADED LINKS -->
+                        <Grid Grid.Column="0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="LINKED MODELS" Style="{StaticResource T3.Label}"
+                                           VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                            HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Button x:Name="btn_ws_reload_links" Content="Refresh"
+                                            Style="{StaticResource T3.Button.Ghost}"
+                                            Padding="8,0" Height="24" Margin="0,0,12,0"
+                                            Click="reload_links_clicked"/>
+                                    <TextBlock x:Name="lbl_ws_link_count" Text="0 links"
+                                               Style="{StaticResource T3.Caption}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Border Grid.Row="1" Style="{StaticResource T3.Panel}" Padding="0" ClipToBounds="True">
+                                <Grid>
+                                    <DataGrid x:Name="grid_ws_links"
+                                              Style="{StaticResource T3.DataGrid}"
+                                              BorderThickness="0"
+                                              AutoGenerateColumns="False"
+                                              EnableRowVirtualization="True"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              SelectionMode="Single"
+                                              SelectionUnit="FullRow"
+                                              SelectionChanged="ws_link_selection_changed">
+                                        <DataGrid.Columns>
+                                            <DataGridTemplateColumn Width="36" CanUserSort="False" CanUserResize="False">
+                                                <DataGridTemplateColumn.HeaderStyle>
+                                                    <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource T3.DataGridColumnHeader}">
+                                                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                                        <Setter Property="Padding" Value="0"/>
+                                                    </Style>
+                                                </DataGridTemplateColumn.HeaderStyle>
+                                                <DataGridTemplateColumn.CellStyle>
+                                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource T3.DataGridCell}">
+                                                        <Setter Property="Padding" Value="0"/>
+                                                    </Style>
+                                                </DataGridTemplateColumn.CellStyle>
+                                                <DataGridTemplateColumn.Header>
+                                                    <CheckBox x:Name="chk_ws_links_header"
+                                                              Style="{StaticResource T3.CheckBox}"
+                                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                              Padding="0" Margin="0"
+                                                              ToolTip="Select All / Deselect All"
+                                                              Click="ws_links_header_clicked"/>
+                                                </DataGridTemplateColumn.Header>
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                  IsEnabled="{Binding IsEnabled}"
+                                                                  Style="{StaticResource T3.CheckBox}"
+                                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                  Padding="0" Margin="0"
+                                                                  Click="ws_link_checkbox_clicked"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+
+                                            <DataGridTextColumn Header="LINK" Width="*" Binding="{Binding LinkName}"/>
+                                            <DataGridTextColumn Header="OPEN" Width="80" Binding="{Binding WorksetSummary}"
+                                                                ElementStyle="{StaticResource T3.Cell.Mono}"/>
+                                            <DataGridTemplateColumn Header="STATUS" Width="110"
+                                                                    CellTemplate="{StaticResource T3.StatusPill}"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <TextBlock x:Name="txt_ws_links_empty" Style="{StaticResource T3.Empty}"
+                                               Visibility="Visible"
+                                               Text="No Revit links in this project.&#x0a;Link a model first, or reload an unloaded link."/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <!-- RIGHT: WORKSETS OF FOCUSED LINK -->
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="WORKSETS" Style="{StaticResource T3.Label}" Margin="0,0,12,0"/>
+                                    <TextBox x:Name="tb_ws_filter" Width="180" Height="26"
+                                             Style="{StaticResource T3.Search}"
+                                             Tag="Search worksets..."
+                                             TextChanged="ws_filter_changed"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                            HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Button x:Name="btn_ws_open_all" Content="Open All"
+                                            Style="{StaticResource T3.Button.Ghost}"
+                                            Padding="8,0" Height="24" Margin="0,0,4,0"
+                                            Click="ws_open_all_clicked"/>
+                                    <Button x:Name="btn_ws_close_all" Content="Close All"
+                                            Style="{StaticResource T3.Button.Ghost}"
+                                            Padding="8,0" Height="24" Margin="0,0,4,0"
+                                            Click="ws_close_all_clicked"/>
+                                    <Button x:Name="btn_ws_invert" Content="Invert"
+                                            Style="{StaticResource T3.Button.Ghost}"
+                                            Padding="8,0" Height="24" Margin="0,0,12,0"
+                                            Click="ws_invert_clicked"/>
+                                    <TextBlock x:Name="lbl_ws_count" Text="0 worksets"
+                                               Style="{StaticResource T3.Caption}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Grid.Row="1" x:Name="lbl_ws_focus" Margin="0,0,0,8"
+                                       Style="{StaticResource T3.Body.Secondary}"
+                                       Text="Select a link on the left to list its worksets."
+                                       TextTrimming="CharacterEllipsis"/>
+
+                            <Border Grid.Row="2" Style="{StaticResource T3.Panel}" Padding="0" ClipToBounds="True">
+                                <Grid>
+                                    <DataGrid x:Name="grid_worksets"
+                                              Style="{StaticResource T3.DataGrid}"
+                                              BorderThickness="0"
+                                              AutoGenerateColumns="False"
+                                              EnableRowVirtualization="True"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              SelectionMode="Extended"
+                                              SelectionUnit="FullRow">
+                                        <DataGrid.Columns>
+                                            <DataGridTemplateColumn Width="36" CanUserSort="False" CanUserResize="False">
+                                                <DataGridTemplateColumn.HeaderStyle>
+                                                    <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource T3.DataGridColumnHeader}">
+                                                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                                        <Setter Property="Padding" Value="0"/>
+                                                    </Style>
+                                                </DataGridTemplateColumn.HeaderStyle>
+                                                <DataGridTemplateColumn.CellStyle>
+                                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource T3.DataGridCell}">
+                                                        <Setter Property="Padding" Value="0"/>
+                                                    </Style>
+                                                </DataGridTemplateColumn.CellStyle>
+                                                <DataGridTemplateColumn.Header>
+                                                    <CheckBox x:Name="chk_ws_header"
+                                                              Style="{StaticResource T3.CheckBox}"
+                                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                              Padding="0" Margin="0"
+                                                              ToolTip="Open All / Close All"
+                                                              Click="ws_header_clicked"/>
+                                                </DataGridTemplateColumn.Header>
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                  Style="{StaticResource T3.CheckBox}"
+                                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                  Padding="0" Margin="0"
+                                                                  ToolTip="Checked = workset open in the link"
+                                                                  Click="ws_checkbox_clicked"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+
+                                            <DataGridTextColumn Header="WORKSET NAME" Width="*" Binding="{Binding WorksetName}"/>
+                                            <DataGridTextColumn Header="IN LINKS" Width="90" Binding="{Binding Coverage}"
+                                                                ElementStyle="{StaticResource T3.Cell.Mono}"/>
+                                            <DataGridTemplateColumn Header="STATE" Width="110"
+                                                                    CellTemplate="{StaticResource T3.StatusPill}"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <TextBlock x:Name="txt_ws_empty" Style="{StaticResource T3.Empty}"
+                                               Visibility="Visible"
+                                               Text="No worksets to show.&#x0a;Pick a loaded, workshared link on the left."/>
                                 </Grid>
                             </Border>
 
-                            <!-- Section 2: Sliders & Controls -->
-                            <TextBlock Text="2. CHANNELS &amp; SETTINGS" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
-                            <Border Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}"
-                                    BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,16">
+                            <Border Grid.Row="3" Style="{StaticResource T3.Callout}" Margin="0,12,0,0">
                                 <StackPanel>
-                                    <!-- R Slider -->
-                                    <Grid Margin="0,0,0,4">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="24"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="40"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="R" Style="{StaticResource T3.BodyStrong}" VerticalAlignment="Center"/>
-                                        <Slider x:Name="SliderR" Grid.Column="1" Minimum="0" Maximum="255"
-                                                Margin="8,0" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="LblR" Grid.Column="2" Text="0" Style="{StaticResource T3.Mono}"
-                                                   HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                    </Grid>
-
-                                    <!-- G Slider -->
-                                    <Grid Margin="0,0,0,4">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="24"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="40"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="G" Style="{StaticResource T3.BodyStrong}" VerticalAlignment="Center"/>
-                                        <Slider x:Name="SliderG" Grid.Column="1" Minimum="0" Maximum="255"
-                                                Margin="8,0" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="LblG" Grid.Column="2" Text="0" Style="{StaticResource T3.Mono}"
-                                                   HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                    </Grid>
-
-                                    <!-- B Slider -->
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="24"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="40"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="B" Style="{StaticResource T3.BodyStrong}" VerticalAlignment="Center"/>
-                                        <Slider x:Name="SliderB" Grid.Column="1" Minimum="0" Maximum="255"
-                                                Margin="8,0" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="LblB" Grid.Column="2" Text="0" Style="{StaticResource T3.Mono}"
-                                                   HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                    </Grid>
-
-                                    <Separator Margin="0,0,0,8"/>
-
-                                    <!-- HEX & Live Apply -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="16"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="HEX:" Style="{StaticResource T3.BodyStrong}"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox x:Name="HexBox" Grid.Column="1" Height="28"
-                                                 Style="{StaticResource T3.TextBox}"/>
-                                        <Button x:Name="HexApply" Grid.Column="3" Content="Set" Height="28" Width="52"
-                                                Style="{StaticResource T3.Button.Secondary}"/>
-                                        <CheckBox x:Name="LiveApply" Grid.Column="5" Style="{StaticResource T3.CheckBox}"
-                                                  Content="Live apply" VerticalAlignment="Center"
-                                                  ToolTip="Apply to the Revit canvas while you adjust colour"/>
-                                    </Grid>
+                                    <TextBlock Text="Applying worksets reloads each selected link from its source."
+                                               Style="{StaticResource T3.Body.Secondary}" TextWrapping="Wrap"/>
+                                    <CheckBox x:Name="chk_ws_apply_all_selected" Margin="0,8,0,0"
+                                              Content="Apply this workset list to every checked link (matched by workset name)"
+                                              Style="{StaticResource T3.CheckBox}" IsChecked="True"/>
                                 </StackPanel>
                             </Border>
-
-                            <!-- Section 3: Presets -->
-                            <TextBlock Text="3. PALETTE PRESETS &amp; RECENTS" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
-                            <Border Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}"
-                                    BorderThickness="1" CornerRadius="4" Padding="12">
-                                <StackPanel>
-                                    <TextBlock Text="Standard Presets:" Style="{StaticResource T3.Caption}" Margin="0,0,0,8"/>
-                                    <UniformGrid x:Name="PresetGrid" Columns="3" Margin="0,0,0,12"/>
-
-                                    <!-- Save Preset Row -->
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Save as:" Style="{StaticResource T3.Caption}"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox x:Name="PresetNameBox" Grid.Column="1" Height="28"
-                                                 Style="{StaticResource T3.TextBox}"/>
-                                        <Button x:Name="BtnSavePreset" Grid.Column="3" Content="Save Preset" Height="28"
-                                                Style="{StaticResource T3.Button.Secondary}"/>
-                                    </Grid>
-
-                                    <WrapPanel x:Name="CustomPresetPanel" Margin="0,0,0,8"/>
-
-                                    <Separator Margin="0,0,0,8"/>
-
-                                    <TextBlock Text="Recent Colours:" Style="{StaticResource T3.Caption}" Margin="0,0,0,8"/>
-                                    <WrapPanel x:Name="RecentPanel"/>
-                                </StackPanel>
-                            </Border>
-
-                        </StackPanel>
-                    </ScrollViewer>
+                        </Grid>
+                    </Grid>
                 </TabItem>
 
-                <!-- ── TAB 1: 3D GRADIENT ── -->
-                <TabItem>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                  Padding="16,16,12,16">
-                        <StackPanel Margin="0">
-                            <!-- Info Box -->
-                            <Border Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}"
-                                    BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,16">
-                                <TextBlock x:Name="View3DInfo" Text="—" Style="{StaticResource T3.Body.Secondary}"
-                                           TextWrapping="Wrap"/>
-                            </Border>
+                <!-- ────────────────── TAB 3: VIEW DISPLAY ────────────────── -->
+                <TabItem x:Name="tab_item_display">
+                    <Grid Margin="16,12,16,12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/> <!-- API banner -->
+                            <RowDefinition Height="Auto"/> <!-- toolbar -->
+                            <RowDefinition Height="*"/>    <!-- grid -->
+                            <RowDefinition Height="Auto"/> <!-- apply panel -->
+                        </Grid.RowDefinitions>
 
-                            <!-- Gradient Definition -->
-                            <TextBlock Text="GRADIENT CONFIGURATION" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
-                            <Border Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}"
-                                    BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,16">
+                        <Border Grid.Row="0" x:Name="banner_no_api" Visibility="Collapsed"
+                                Style="{StaticResource T3.Callout.Warning}" Margin="0,0,0,12">
+                            <TextBlock x:Name="lbl_no_api" TextWrapping="Wrap"
+                                       Style="{StaticResource T3.Body.Secondary}"
+                                       Text="Link display settings need Revit 2025 or newer. Visibility and halftone still work here."/>
+                        </Border>
+
+                        <Grid Grid.Row="1" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="LINKS IN VIEW" Style="{StaticResource T3.Label}" Margin="0,0,12,0"/>
+                                <TextBox x:Name="tb_disp_filter" Width="200" Height="26"
+                                         Style="{StaticResource T3.Search}"
+                                         Tag="Search links..."
+                                         TextChanged="disp_filter_changed"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <TextBlock x:Name="lbl_disp_scope" Text="Active view: —"
+                                           Style="{StaticResource T3.Caption}" Margin="0,0,12,0"
+                                           TextTrimming="CharacterEllipsis" MaxWidth="320"/>
+                                <TextBlock x:Name="lbl_disp_count" Text="0 links"
+                                           Style="{StaticResource T3.Caption}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Grid.Row="2" Style="{StaticResource T3.Panel}" Padding="0" ClipToBounds="True">
+                            <Grid>
+                                <DataGrid x:Name="grid_disp_links"
+                                          Style="{StaticResource T3.DataGrid}"
+                                          BorderThickness="0"
+                                          AutoGenerateColumns="False"
+                                          EnableRowVirtualization="True"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          SelectionMode="Single"
+                                          SelectionUnit="FullRow"
+                                          SelectionChanged="disp_link_selection_changed">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Width="36" CanUserSort="False" CanUserResize="False">
+                                            <DataGridTemplateColumn.HeaderStyle>
+                                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource T3.DataGridColumnHeader}">
+                                                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                                    <Setter Property="Padding" Value="0"/>
+                                                </Style>
+                                            </DataGridTemplateColumn.HeaderStyle>
+                                            <DataGridTemplateColumn.CellStyle>
+                                                <Style TargetType="DataGridCell" BasedOn="{StaticResource T3.DataGridCell}">
+                                                    <Setter Property="Padding" Value="0"/>
+                                                </Style>
+                                            </DataGridTemplateColumn.CellStyle>
+                                            <DataGridTemplateColumn.Header>
+                                                <CheckBox x:Name="chk_disp_header"
+                                                          Style="{StaticResource T3.CheckBox}"
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          Padding="0" Margin="0"
+                                                          ToolTip="Select All / Deselect All"
+                                                          Click="disp_header_clicked"/>
+                                            </DataGridTemplateColumn.Header>
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              IsEnabled="{Binding IsEnabled}"
+                                                              Style="{StaticResource T3.CheckBox}"
+                                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                              Padding="0" Margin="0"
+                                                              Click="disp_checkbox_clicked"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <DataGridTextColumn Header="LINK" Width="*" Binding="{Binding LinkName}"/>
+                                        <DataGridTextColumn Header="DISPLAY SETTINGS" Width="150" Binding="{Binding DisplayMode}"/>
+                                        <DataGridTextColumn Header="LINKED VIEW" Width="180" Binding="{Binding LinkedViewName}"
+                                                            ElementStyle="{StaticResource T3.Cell.Muted}"/>
+                                        <DataGridTextColumn Header="IN VIEW" Width="110" Binding="{Binding GraphicsSummary}"
+                                                            ElementStyle="{StaticResource T3.Cell.Mono}"/>
+                                        <DataGridTemplateColumn Header="STATUS" Width="110"
+                                                                CellTemplate="{StaticResource T3.StatusPill}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <TextBlock x:Name="txt_disp_empty" Style="{StaticResource T3.Empty}"
+                                           Visibility="Visible"
+                                           Text="No Revit links in this project.&#x0a;Link a model first to control how it draws in this view."/>
+                            </Grid>
+                        </Border>
+
+                        <!-- APPLY PANEL -->
+                        <Border Grid.Row="3" Style="{StaticResource T3.Panel}" Margin="0,12,0,0" Padding="16">
+                            <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="120"/>
-                                        <ColumnDefinition Width="16"/>
+                                        <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-
-                                    <!-- Gradient preview -->
-                                    <Border x:Name="GradPreview" Grid.Column="0" Height="140"
-                                            CornerRadius="4" BorderBrush="{StaticResource T3.Border}" BorderThickness="1"/>
-
-                                    <!-- Sky / Horizon / Ground rows -->
-                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                        <!-- Sky -->
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="36"/>
-                                                <ColumnDefinition Width="8"/>
-                                                <ColumnDefinition Width="60"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Border x:Name="SkySwatch" Grid.Column="0" Height="24" CornerRadius="4"
-                                                    BorderBrush="{StaticResource T3.Border}" BorderThickness="1" Cursor="Hand"
-                                                    ToolTip="Click to load into picker"/>
-                                            <TextBlock Grid.Column="2" Text="Sky" Style="{StaticResource T3.BodyStrong}"
-                                                       VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="SkyHex" Grid.Column="3" Style="{StaticResource T3.Mono}"
-                                                       VerticalAlignment="Center"/>
-                                            <Button x:Name="SkyFromPicker" Grid.Column="4" Content="From picker" Height="24"
-                                                    Style="{StaticResource T3.Button.Ghost}"/>
-                                        </Grid>
-
-                                        <!-- Horizon -->
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="36"/>
-                                                <ColumnDefinition Width="8"/>
-                                                <ColumnDefinition Width="60"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Border x:Name="HorizonSwatch" Grid.Column="0" Height="24" CornerRadius="4"
-                                                    BorderBrush="{StaticResource T3.Border}" BorderThickness="1" Cursor="Hand"
-                                                    ToolTip="Click to load into picker"/>
-                                            <TextBlock Grid.Column="2" Text="Horizon" Style="{StaticResource T3.BodyStrong}"
-                                                       VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="HorizonHex" Grid.Column="3" Style="{StaticResource T3.Mono}"
-                                                       VerticalAlignment="Center"/>
-                                            <Button x:Name="HorizonFromPicker" Grid.Column="4" Content="From picker" Height="24"
-                                                    Style="{StaticResource T3.Button.Ghost}"/>
-                                        </Grid>
-
-                                        <!-- Ground -->
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="36"/>
-                                                <ColumnDefinition Width="8"/>
-                                                <ColumnDefinition Width="60"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Border x:Name="GroundSwatch" Grid.Column="0" Height="24" CornerRadius="4"
-                                                    BorderBrush="{StaticResource T3.Border}" BorderThickness="1" Cursor="Hand"
-                                                    ToolTip="Click to load into picker"/>
-                                            <TextBlock Grid.Column="2" Text="Ground" Style="{StaticResource T3.BodyStrong}"
-                                                       VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="GroundHex" Grid.Column="3" Style="{StaticResource T3.Mono}"
-                                                       VerticalAlignment="Center"/>
-                                            <Button x:Name="GroundFromPicker" Grid.Column="4" Content="From picker" Height="24"
-                                                    Style="{StaticResource T3.Button.Ghost}"/>
-                                        </Grid>
+                                    <TextBlock Grid.Column="0" Text="QUICK PRESETS" Style="{StaticResource T3.Label}"
+                                               VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Button x:Name="btn_preset_model" Content="Model only"
+                                                Style="{StaticResource T3.Button.Secondary}"
+                                                Height="28" Padding="12,0" Margin="0,0,8,0"
+                                                ToolTip="By Host View — the link draws with this view's model categories, its annotations stay hidden"
+                                                Click="preset_model_clicked"/>
+                                        <Button x:Name="btn_preset_annotation" Content="Model + Annotation"
+                                                Style="{StaticResource T3.Button.Secondary}"
+                                                Height="28" Padding="12,0" Margin="0,0,8,0"
+                                                ToolTip="By Linked View — the link draws its own model and annotation categories from the chosen view"
+                                                Click="preset_annotation_clicked"/>
+                                        <Button x:Name="btn_preset_custom" Content="Custom"
+                                                Style="{StaticResource T3.Button.Secondary}"
+                                                Height="28" Padding="12,0" Margin="0,0,8,0"
+                                                ToolTip="Custom — decide aspect by aspect what follows the host view and what follows the link"
+                                                Click="preset_custom_clicked"/>
                                     </StackPanel>
                                 </Grid>
-                            </Border>
 
-                            <!-- Gradient Presets -->
-                            <TextBlock Text="GRADIENT PRESETS" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
-                            <Border Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}"
-                                    BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,16">
-                                <StackPanel>
-                                    <WrapPanel x:Name="GradPresetPanel" Margin="0,0,0,12"/>
-                                    <CheckBox x:Name="AllViews3D" Style="{StaticResource T3.CheckBox}"
-                                              Content="Apply to all 3D views in the project" Margin="0,0,0,12"/>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button x:Name="BtnApplyGradient" Content="Apply Gradient"
-                                                Style="{StaticResource T3.Button.Secondary}" Margin="0,0,8,0"/>
-                                        <Button x:Name="BtnClearBackground" Content="Clear Background"
-                                                Style="{StaticResource T3.Button.Secondary}"/>
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="220"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="16"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Display settings" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="cb_disp_mode" Style="{StaticResource T3.ComboBox}"
+                                                  ItemContainerStyle="{StaticResource T3.ComboBoxItem}"
+                                                  SelectionChanged="disp_mode_changed"/>
                                     </StackPanel>
-                                </StackPanel>
-                            </Border>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Linked view (matched by name across links)"
+                                                   Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="cb_disp_view" Style="{StaticResource T3.ComboBox}"
+                                                  ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4" VerticalAlignment="Bottom">
+                                        <CheckBox x:Name="chk_disp_visible" Content="Visible in view"
+                                                  Style="{StaticResource T3.CheckBox}" IsChecked="True"
+                                                  Margin="0,0,0,8"/>
+                                        <CheckBox x:Name="chk_disp_halftone" Content="Halftone"
+                                                  Style="{StaticResource T3.CheckBox}"/>
+                                    </StackPanel>
+                                </Grid>
 
-                            <TextBlock Style="{StaticResource T3.Caption}" TextWrapping="Wrap"
-                                       Text="The gradient is stored per 3D view (Graphic Display Options ▸ Background) and is independent of the app-wide model background colour."/>
-                        </StackPanel>
-                    </ScrollViewer>
-                </TabItem>
+                                <Border x:Name="pnl_custom" Visibility="Collapsed" Margin="0,12,0,0"
+                                        Background="{StaticResource T3.SurfaceSunken}"
+                                        BorderBrush="{StaticResource T3.Border}" BorderThickness="1"
+                                        CornerRadius="4" Padding="12">
+                                    <StackPanel>
+                                        <TextBlock Text="CUSTOM ASPECTS" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="12"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="12"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="12"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="8"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
 
-                <!-- ── TAB 2: REVIT UI THEME ── -->
-                <TabItem>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                  Padding="16,16,12,16">
-                        <StackPanel Margin="0">
-                            <!-- Theme Info Box -->
-                            <Border Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}"
-                                    BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,16">
-                                <TextBlock x:Name="ThemeInfo" Text="—" Style="{StaticResource T3.Body.Secondary}"
-                                           TextWrapping="Wrap"/>
-                            </Border>
+                                            <StackPanel Grid.Row="0" Grid.Column="0">
+                                                <TextBlock Text="Object Styles" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                                <ComboBox x:Name="cb_asp_ObjectStyles" Style="{StaticResource T3.ComboBox}"
+                                                          ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="0" Grid.Column="2">
+                                                <TextBlock Text="View Filters" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                                <ComboBox x:Name="cb_asp_ViewFilterType" Style="{StaticResource T3.ComboBox}"
+                                                          ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="0" Grid.Column="4">
+                                                <TextBlock Text="View Range" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                                <ComboBox x:Name="cb_asp_ViewRange" Style="{StaticResource T3.ComboBox}"
+                                                          ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="0" Grid.Column="6">
+                                                <TextBlock Text="Color Fill" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                                <ComboBox x:Name="cb_asp_ColorFill" Style="{StaticResource T3.ComboBox}"
+                                                          ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
+                                            </StackPanel>
 
-                            <TextBlock Text="APPLICATION &amp; CANVAS THEME" Style="{StaticResource T3.Label}" Margin="0,0,0,8"/>
-                            <Border Background="{StaticResource T3.SurfaceSunken}" BorderBrush="{StaticResource T3.Border}"
-                                    BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,16">
-                                <StackPanel>
-                                    <TextBlock x:Name="ThemeLbl" Text="Ribbon / UI theme:" Style="{StaticResource T3.BodyStrong}" Margin="0,0,0,8"/>
-                                    <StackPanel x:Name="ThemeBtnPanel" Orientation="Horizontal" Margin="0,0,0,16"/>
-
-                                    <TextBlock x:Name="CanvasLbl" Text="Canvas theme:" Style="{StaticResource T3.BodyStrong}" Margin="0,0,0,8"/>
-                                    <StackPanel x:Name="CanvasBtnPanel" Orientation="Horizontal"/>
-                                </StackPanel>
-                            </Border>
-
-                            <TextBlock x:Name="ThemeNote" Style="{StaticResource T3.Caption}" TextWrapping="Wrap"
-                                       Text="UI theme switching uses the UIThemeManager API (Revit 2024+). Changes affect the whole Revit application immediately and are remembered by Revit itself."/>
-                        </StackPanel>
-                    </ScrollViewer>
+                                            <StackPanel Grid.Row="2" Grid.Column="0">
+                                                <TextBlock Text="Nested Links" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                                <ComboBox x:Name="cb_asp_NestedLinks" Style="{StaticResource T3.ComboBox}"
+                                                          ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="2" Grid.Column="2">
+                                                <TextBlock Text="Discipline" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                                <ComboBox x:Name="cb_asp_Discipline" Style="{StaticResource T3.ComboBox}"
+                                                          ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="2" Grid.Column="4">
+                                                <TextBlock Text="Detail Level" Style="{StaticResource T3.Caption}" Margin="0,0,0,4"/>
+                                                <ComboBox x:Name="cb_asp_ViewDetailLevel" Style="{StaticResource T3.ComboBox}"
+                                                          ItemContainerStyle="{StaticResource T3.ComboBoxItem}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </TabItem>
             </TabControl>
 
-            <!-- ══════════════════ ROW 3: FOOTER BAR ══════════════════ -->
-            <Border Grid.Row="3" Style="{StaticResource T3.FooterBar}">
+            <!-- ══════════════════ ROW 3: PROGRESS ══════════════════ -->
+            <Border x:Name="pnl_progress" Grid.Row="3" Margin="16,0,16,12"
+                    Style="{StaticResource T3.Panel}" Padding="12,8"
+                    Visibility="Collapsed">
+                <StackPanel>
+                    <Grid Margin="0,0,0,4">
+                        <TextBlock x:Name="lbl_phase" Text="Working — 0 / 0"
+                                   Style="{StaticResource T3.BodyStrong}"/>
+                        <TextBlock x:Name="lbl_current_file" Text=""
+                                   Style="{StaticResource T3.Caption}"
+                                   HorizontalAlignment="Right"/>
+                    </Grid>
+                    <ProgressBar x:Name="progress_bar" Style="{StaticResource T3.ProgressBar}"
+                                 Height="4" Minimum="0" Maximum="100" Value="0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ══════════════════ ROW 4: FOOTER BAR ══════════════════ -->
+            <Border Grid.Row="4" Style="{StaticResource T3.FooterBar}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Style="{StaticResource T3.Copyright}"/>
-                        <Border Width="1" Height="16" Background="{StaticResource T3.Border}" Margin="12,0"/>
-                        <TextBlock x:Name="status_text" Text="Ready" Style="{StaticResource T3.Body.Secondary}" VerticalAlignment="Center"/>
+                        <Border Width="1" Height="16" Margin="12,0"
+                                Background="{StaticResource T3.Border}" VerticalAlignment="Center"/>
+                        <Ellipse x:Name="status_dot" Style="{StaticResource T3.Dot}"
+                                 Fill="{StaticResource T3.Success.Accent}"/>
+                        <TextBlock x:Name="status_text" Text="Ready"
+                                   Style="{StaticResource T3.Body.Secondary}"/>
                     </StackPanel>
-
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="BtnClose" Content="Close"
-                                Style="{StaticResource T3.Button.Secondary}"
-                                Click="close_button_clicked" IsCancel="True" Margin="0,0,8,0"/>
-                        <Button x:Name="BtnApply" Content="Apply"
-                                Style="{StaticResource T3.Button.Primary}"
-                                IsDefault="True" Width="80"/>
+                        <Button x:Name="btn_cancel" Content="Close" Style="{StaticResource T3.Button.Ghost}"
+                                Margin="0,0,8,0" Click="cancel_button_clicked"/>
+                        <Button x:Name="btn_primary" Content="Link Selected Models" IsDefault="True"
+                                Style="{StaticResource T3.Button.Primary}" Click="primary_button_clicked"/>
                     </StackPanel>
                 </Grid>
             </Border>
-
         </Grid>
     </Border>
 </Window>
